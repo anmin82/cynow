@@ -243,6 +243,9 @@ def cylinder_list(request):
 
 def cylinder_detail(request, cylinder_no):
     """용기 상세보기"""
+    # URL에서 받은 용기번호의 앞뒤 공백 제거
+    cylinder_no = cylinder_no.strip()
+    
     filters = {'cylinder_no': cylinder_no}
     cylinders = CylinderRepository.get_cylinder_list(filters=filters, limit=1)
     

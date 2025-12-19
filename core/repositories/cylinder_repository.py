@@ -168,7 +168,8 @@ class CylinderRepository:
             
             if filters:
                 if 'cylinder_no' in filters:
-                    conditions.append("c.cylinder_no = %s")
+                    # 공백 trim 처리 (DB에 trailing space가 있을 수 있음)
+                    conditions.append("RTRIM(c.cylinder_no) = %s")
                     params.append(filters['cylinder_no'])
                 # 단일 가스 필터
                 if 'gas_name' in filters:
@@ -305,7 +306,8 @@ class CylinderRepository:
             
             if filters:
                 if 'cylinder_no' in filters:
-                    conditions.append("c.cylinder_no = %s")
+                    # 공백 trim 처리 (DB에 trailing space가 있을 수 있음)
+                    conditions.append("RTRIM(c.cylinder_no) = %s")
                     params.append(filters['cylinder_no'])
                 # 단일 가스 필터
                 if 'gas_name' in filters:
