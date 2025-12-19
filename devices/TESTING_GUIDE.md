@@ -397,3 +397,6 @@ python manage.py show_urls | grep scale
 **모든 테스트가 성공하면 Scale Gateway API가 정상 작동합니다!** 🎉
 
 
+
+
+

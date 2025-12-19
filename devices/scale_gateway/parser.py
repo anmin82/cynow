@@ -96,3 +96,6 @@ class ScaleDataParser:
         return parsed_data.get('status') == 'ST'
 
 
+
+
+

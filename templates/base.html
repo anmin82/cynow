@@ -218,14 +218,30 @@
             font-weight: 500;
         }
         
+        /* 가용 (파란색 계열) */
+        .status-보관\:미회수 { background: rgba(90, 200, 250, 0.15); color: #0A84FF; }
+        .status-보관\:회수 { background: rgba(90, 200, 250, 0.15); color: #0A84FF; }
+        
+        /* 공정중 (초록색 계열) */
+        .status-충전중 { background: rgba(52, 199, 89, 0.15); color: #30D158; }
+        .status-충전완료 { background: rgba(52, 199, 89, 0.15); color: #30D158; }
+        .status-분석완료 { background: rgba(175, 82, 222, 0.15); color: #BF5AF2; }
+        
+        /* 출하 준비/출하중 (주황/노랑 계열) */
+        .status-제품 { background: rgba(255, 149, 0, 0.15); color: #FF9F0A; }
+        .status-출하 { background: rgba(255, 204, 0, 0.15); color: #D4A600; }
+        
+        /* 이상/정비/폐기 */
+        .status-이상 { background: rgba(255, 59, 48, 0.15); color: #FF453A; }
+        .status-정비대상 { background: rgba(255, 159, 10, 0.15); color: #FF9500; }
+        .status-폐기 { background: rgba(142, 142, 147, 0.15); color: #8E8E93; }
+        
+        /* 구 상태명 호환 (점진적 제거 예정) */
         .status-보관 { background: rgba(90, 200, 250, 0.15); color: #0A84FF; }
         .status-충전 { background: rgba(52, 199, 89, 0.15); color: #30D158; }
         .status-분석 { background: rgba(175, 82, 222, 0.15); color: #BF5AF2; }
         .status-창입 { background: rgba(255, 149, 0, 0.15); color: #FF9F0A; }
-        .status-출하 { background: rgba(255, 204, 0, 0.15); color: #D4A600; }
-        .status-이상 { background: rgba(255, 59, 48, 0.15); color: #FF453A; }
-        .status-정비 { background: rgba(255, 159, 10, 0.15); color: #FF9500; }  /* 정비 가능한 사용불가 용기 */
-        .status-폐기 { background: rgba(142, 142, 147, 0.15); color: #8E8E93; }  /* 실제 폐기된 용기 */
+        .status-정비 { background: rgba(255, 159, 10, 0.15); color: #FF9500; }
         
         /* iOS 가용수량 표시 - 숫자 강조 */
         .qty-available {

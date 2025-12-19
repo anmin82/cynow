@@ -1,0 +1,14 @@
+[2025-12-19 20:52:42] [INFO] ========================================
+[2025-12-19 20:52:43] [INFO] Debezium Smart Monitoring Started
+[2025-12-19 20:52:43] [INFO] Connector: oracle-fcms-cylcy-main
+[2025-12-19 20:52:43] [INFO] Kafka Connect: http://localhost:8083
+[2025-12-19 20:52:43] [INFO] Oracle: 10.78.30.18:1521
+[2025-12-19 20:52:43] [INFO] Normal check interval: 60 sec
+[2025-12-19 20:52:43] [INFO] Recovery check interval: 60 sec
+[2025-12-19 20:52:43] [INFO] ========================================
+[2025-12-19 20:52:47] [ERROR] Kafka Connect API call failed: 원격 서버에 연결할 수 없습니다.
+[2025-12-19 20:52:47] [INFO] Status:  | Tasks: 0/0 (failed: 0)
+[2025-12-19 20:52:47] [WARN] State:  (attention needed)
+[2025-12-19 20:53:51] [ERROR] Kafka Connect API call failed: 원격 서버에 연결할 수 없습니다.
+[2025-12-19 20:53:51] [INFO] Status:  | Tasks: 0/0 (failed: 0)
+[2025-12-19 20:53:51] [WARN] State:  (attention needed)

@@ -54,3 +54,6 @@ with connection.cursor() as cursor:
     else:
         print("\n데이터 없음")
 
+
+
+

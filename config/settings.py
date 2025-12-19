@@ -51,8 +51,6 @@ INSTALLED_APPS = [
     'reports',
     'cylinders',
     'alerts',
-    'orders',  # 주문/출하 관리
-    'devices',  # Scale Gateway API
 ]
 
 MIDDLEWARE = [
@@ -196,12 +194,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = os.getenv('LOGIN_REDIRECT_URL', '/')
 LOGOUT_REDIRECT_URL = os.getenv('LOGOUT_REDIRECT_URL', '/')
-
-# =============================================================================
-# Scale Gateway API 설정
-# =============================================================================
-# TCP 저울 데이터 수신을 위한 리스너 설정
-SCALE_GATEWAY_LISTEN_HOST = os.getenv('SCALE_GATEWAY_LISTEN_HOST', '0.0.0.0')
-SCALE_GATEWAY_LISTEN_PORT = int(os.getenv('SCALE_GATEWAY_LISTEN_PORT', '4001'))
-# 최신 데이터가 오래되었다고 간주하는 시간(초)
-SCALE_GATEWAY_IDLE_TIMEOUT_SEC = int(os.getenv('SCALE_GATEWAY_IDLE_TIMEOUT_SEC', '10'))

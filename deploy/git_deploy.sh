@@ -80,3 +80,6 @@ echo "  - Nginx 에러: tail -f /var/log/nginx/error.log"
 echo "  - Gunicorn: ps aux | grep gunicorn"
 echo ""
 
+
+
+

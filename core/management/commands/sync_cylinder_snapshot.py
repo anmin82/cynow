@@ -225,8 +225,10 @@ class Command(BaseCommand):
             raw_gas_name, raw_capacity, valve_key, raw_cylinder_spec_code, dashboard_enduser
         )
         
-        # 파생 필드
-        is_available = dashboard_status in ('보관', '충전')
+        # 파생 필드: 가용 용기 상태
+        # 보관:미회수, 보관:회수, 충전중, 충전완료를 가용으로 간주
+        available_statuses = {'보관:미회수', '보관:회수', '충전중', '충전완료'}
+        is_available = dashboard_status in available_statuses
         
         # 압력시험 만료일 계산
         if raw_withstand_pressure_mainte_date:

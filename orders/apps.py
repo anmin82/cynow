@@ -7,3 +7,6 @@ class OrdersConfig(AppConfig):
     verbose_name = '수주 관리'
 
 
+
+
+

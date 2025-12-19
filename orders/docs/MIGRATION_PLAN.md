@@ -352,3 +352,6 @@ python manage.py showmigrations orders
 *최종 수정: 2024-12-18*
 
 
+
+
+
