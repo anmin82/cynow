@@ -5,6 +5,7 @@ from core.utils.view_helper import parse_cylinder_spec, parse_valve_spec, parse_
 from core.utils.cylinder_type import generate_cylinder_type_key
 from datetime import timedelta
 import hashlib
+from core.utils.status_mapper import map_condition_code_to_status
 
 
 class Command(BaseCommand):
@@ -198,7 +199,13 @@ class Command(BaseCommand):
         manufacture_date = raw_data[12]
         source_updated_at = raw_data[13]
         
-        # 상태 변환
+        # 폐기/정비 상태가 잘못 기록된 경우, 히스토리 테이블의 최신 상태로 보정
+        if raw_condition_code in ('950', '952'):
+            latest_code = self.get_latest_condition_code(cursor, cylinder_no)
+            if latest_code and latest_code not in ('950', '952'):
+                raw_condition_code = latest_code
+        
+        # 상태 변환 (status_mapper 표준 매핑 사용)
         dashboard_status = self.map_condition_code(raw_condition_code)
         
         # EndUser 결정 (1. 예외 확인 -> 2. 기본값 조회)
@@ -392,6 +399,21 @@ class Command(BaseCommand):
         key_string = f"{gas_name}|{capacity or ''}|{valve_key or ''}|{cylinder_spec_code or ''}|{enduser_code or ''}"
         return hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
+    def get_latest_condition_code(self, cursor, cylinder_no):
+        """tr_cylinder_status_histories에서 최신 CONDITION_CODE 조회"""
+        try:
+            cursor.execute("""
+                SELECT "CONDITION_CODE"
+                FROM "fcms_cdc"."tr_cylinder_status_histories"
+                WHERE RTRIM("CYLINDER_NO") = RTRIM(%s)
+                ORDER BY "MOVE_DATE" DESC
+                LIMIT 1
+            """, [cylinder_no])
+            row = cursor.fetchone()
+            return row[0] if row else None
+        except Exception:
+            return None
+    
     def get_enduser_with_exception(self, cursor, cylinder_no, gas_name, capacity, valve_spec_code, cylinder_spec_code):
         """EndUser 결정 (예외 우선, 그 다음 기본값)"""
         # 1. 개별 용기 예외 확인 (RTRIM으로 공백 제거)
@@ -498,14 +520,6 @@ class Command(BaseCommand):
         """상태 코드 → 상태명 변환"""
         if not code:
             return '기타'
-        mapping = {
-            '100': '보관', '102': '보관',
-            '210': '충전', '220': '충전',
-            '420': '분석',
-            '500': '창입',
-            '600': '출하',
-            '190': '이상',
-            '950': '폐기', '952': '폐기',
-        }
-        return mapping.get(code, '기타')
+        status = map_condition_code_to_status(code)
+        return status or '기타'
 
