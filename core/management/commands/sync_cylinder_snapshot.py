@@ -169,71 +169,60 @@ class Command(BaseCommand):
             self.stdout.write(f"용기 {cylinder_no} 삭제됨 (스냅샷에서 제거)")
     
     def upsert_cylinder(self, cursor, raw_data):
-        """단일 용기 Upsert (정책 적용)"""
+        """단일 용기 Upsert (간소화 버전)"""
         # Raw 값 추출
+        cylinder_no = raw_data[0]
+        raw_gas_name = raw_data[1] or ''
+        raw_capacity = raw_data[2]
+        raw_valve_spec = raw_data[3] or ''
+        raw_cylinder_spec = raw_data[4] or ''
+        raw_usage_place = raw_data[5] or ''
+        raw_location = raw_data[6] or ''
+        raw_condition_code = raw_data[7] or ''
+        raw_move_date = raw_data[8]
+        raw_withstand_pressure_mainte_date = raw_data[9]
+        source_updated_at = raw_data[10]
+        
+        # 간단한 파싱 (오류 발생 시 빈 문자열)
         try:
-            cylinder_no = raw_data[0]
-            raw_gas_name = raw_data[1] or ''
-            raw_capacity = raw_data[2]
-            raw_valve_spec = raw_data[3] or ''
-            raw_cylinder_spec = raw_data[4] or ''
-            raw_usage_place = raw_data[5] or ''
-            raw_location = raw_data[6] or ''
-            raw_condition_code = raw_data[7] or ''
-            raw_move_date = raw_data[8]
-            raw_withstand_pressure_mainte_date = raw_data[9]
-            source_updated_at = raw_data[10]
-        except IndexError as e:
-            raise IndexError(f"데이터 추출 실패 (len={len(raw_data)}): {str(e)}")
+            valve_parsed = parse_valve_spec(raw_valve_spec)
+            valve_format = valve_parsed.get('format', '') if isinstance(valve_parsed, dict) else ''
+            valve_material = valve_parsed.get('material', '') if isinstance(valve_parsed, dict) else ''
+        except:
+            valve_format = ''
+            valve_material = ''
         
-        # ===== 정책 적용 =====
-        
-        # 1. 밸브 표준화
-        try:
-            dashboard_valve_spec = self.apply_valve_alias(cursor, raw_valve_spec)
-            valve_parsed = parse_valve_spec(dashboard_valve_spec)
-            if not isinstance(valve_parsed, dict):
-                raise ValueError(f"valve_parsed is not dict: {type(valve_parsed)}")
-            valve_format = valve_parsed.get('format', '')
-            valve_material = valve_parsed.get('material', '')
-        except Exception as e:
-            raise Exception(f"밸브 파싱 실패 (valve_spec={raw_valve_spec}): {str(e)}")
-        
-        # 2. 용기 스펙 파싱
         try:
             cylinder_parsed = parse_cylinder_spec(raw_cylinder_spec)
-            if not isinstance(cylinder_parsed, dict):
-                raise ValueError(f"cylinder_parsed is not dict: {type(cylinder_parsed)}")
-            cylinder_format = cylinder_parsed.get('format', '')
-            cylinder_material = cylinder_parsed.get('material', '')
-        except Exception as e:
-            raise Exception(f"용기 파싱 실패 (cylinder_spec={raw_cylinder_spec}): {str(e)}")
+            cylinder_format = cylinder_parsed.get('format', '') if isinstance(cylinder_parsed, dict) else ''
+            cylinder_material = cylinder_parsed.get('material', '') if isinstance(cylinder_parsed, dict) else ''
+        except:
+            cylinder_format = ''
+            cylinder_material = ''
         
-        # 3. 사용처 조합
-        dashboard_usage_place = parse_usage_place(raw_usage_place, raw_location)
+        # 사용처 (간단 버전)
+        dashboard_usage_place = raw_usage_place or ''
         
-        # 4. EndUser 정책 적용 (표준화된 밸브로 키 생성)
-        temp_type_key = generate_cylinder_type_key(
-            raw_gas_name, raw_capacity, dashboard_valve_spec,
-            raw_cylinder_spec, dashboard_usage_place
-        )
-        enduser_code, enduser_name = self.apply_enduser_policy(
-            cursor, temp_type_key, raw_gas_name, raw_capacity
-        )
+        # 기본 EndUser
+        enduser_code = 'SDC'
+        enduser_name = 'SDC'
         
-        # 5. 상태 변환
+        # 상태 변환
         dashboard_status = self.map_condition_code(raw_condition_code)
         
-        # 6. 위치 (번역은 별도 처리)
-        dashboard_location = raw_location
+        # 위치
+        dashboard_location = raw_location or ''
         
-        # 7. 용기종류 키 생성 (enduser 포함!)
+        # 용기종류 키 (간단 버전)
         dashboard_cylinder_type_key = self.generate_type_key(
-            raw_gas_name, raw_capacity, dashboard_valve_spec,
+            raw_gas_name, raw_capacity, raw_valve_spec,
             raw_cylinder_spec, dashboard_usage_place, enduser_code
         )
         
-        # 8. 파생 필드 계산
+        # 밸브 스펙 (원본 사용)
+        dashboard_valve_spec = raw_valve_spec
+        
+        # 파생 필드
         is_available = dashboard_status in ('보관', '충전')
         
         # Upsert 실행
