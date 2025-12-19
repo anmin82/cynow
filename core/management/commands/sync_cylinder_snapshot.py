@@ -201,10 +201,15 @@ class Command(BaseCommand):
         # 상태 변환
         dashboard_status = self.map_condition_code(raw_condition_code)
         
-        # EndUser 결정 (EndUserDefault 테이블에서 조회)
-        dashboard_enduser = self.get_enduser_from_default(
-            cursor, raw_gas_name, raw_capacity, 
+        # EndUser 결정 (1. 예외 확인 -> 2. 기본값 조회)
+        dashboard_enduser = self.get_enduser_with_exception(
+            cursor, cylinder_no, raw_gas_name, raw_capacity, 
             raw_valve_spec_code, raw_cylinder_spec_code
+        )
+        
+        # 밸브 그룹 조회
+        dashboard_valve_group_name = self.get_valve_group(
+            cursor, raw_valve_spec_code, raw_valve_spec_name
         )
         
         # 용기종류 키
@@ -304,7 +309,7 @@ class Command(BaseCommand):
             # 12-13: dashboard 가스
             raw_gas_name, raw_capacity,
             # 14-16: dashboard 밸브
-            raw_valve_spec_code, raw_valve_spec_name, '',  # valve_group_name은 일단 빈 문자열
+            raw_valve_spec_code, raw_valve_spec_name, dashboard_valve_group_name,
             # 17-18: dashboard 용기
             raw_cylinder_spec_code, raw_cylinder_spec_name,
             # 19-20: dashboard 사용처, 위치
@@ -382,6 +387,48 @@ class Command(BaseCommand):
         """용기종류 키 생성 (enduser 포함)"""
         key_string = f"{gas_name}|{capacity or ''}|{valve_spec or ''}|{cylinder_spec or ''}|{usage_place or ''}|{enduser_code or ''}"
         return hashlib.md5(key_string.encode('utf-8')).hexdigest()
+    
+    def get_enduser_with_exception(self, cursor, cylinder_no, gas_name, capacity, valve_spec_code, cylinder_spec_code):
+        """EndUser 결정 (예외 우선, 그 다음 기본값)"""
+        # 1. 개별 용기 예외 확인
+        try:
+            cursor.execute("""
+                SELECT enduser
+                FROM cy_enduser_exception
+                WHERE cylinder_no = %s AND is_active = TRUE
+                LIMIT 1
+            """, [cylinder_no])
+            
+            result = cursor.fetchone()
+            if result:
+                return result[0]
+        except Exception:
+            pass
+        
+        # 2. 기본값 조회
+        return self.get_enduser_from_default(cursor, gas_name, capacity, valve_spec_code, cylinder_spec_code)
+    
+    def get_valve_group(self, cursor, valve_spec_code, valve_spec_name):
+        """밸브 그룹 조회"""
+        try:
+            cursor.execute("""
+                SELECT vg.group_name
+                FROM cy_valve_group_mapping vgm
+                JOIN cy_valve_group vg ON vgm.group_id = vg.id
+                WHERE vgm.valve_spec_code = %s
+                AND vgm.valve_spec_name = %s
+                AND vgm.is_active = TRUE
+                AND vg.is_active = TRUE
+                LIMIT 1
+            """, [valve_spec_code, valve_spec_name])
+            
+            result = cursor.fetchone()
+            if result:
+                return result[0]
+        except Exception:
+            pass
+        
+        return ''
     
     def get_enduser_from_default(self, cursor, gas_name, capacity, valve_spec_code, cylinder_spec_code):
         """EndUserDefault 테이블에서 EndUser 조회"""
