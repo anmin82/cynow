@@ -225,8 +225,8 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
         
         cylinder_types[group_key]['total_qty'] += qty
         
-        # 가용수량 계산 (보관:미회수, 보관:회수, 충전중, 충전완료)
-        if status in ('보관:미회수', '보관:회수', '충전중', '충전완료'):
+        # 가용수량 계산 (보관:미회수, 보관:회수만)
+        if status in ('보관:미회수', '보관:회수'):
             cylinder_types[group_key]['available_qty'] += qty
     
     # 가용 수량이 0이어도 카드는 표시 (필터링 제거)
