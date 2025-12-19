@@ -284,12 +284,10 @@ class Command(BaseCommand):
         if not raw_valve_spec:
             return ''
         try:
-            # Django 모델 테이블명 사용
-            from core.models import ValveAlias
-            table_name = ValveAlias._meta.db_table
-            cursor.execute(f"""
+            # ValveAlias 테이블이 존재하는지 확인 후 사용
+            cursor.execute("""
                 SELECT standard_valve_spec 
-                FROM "{table_name}"
+                FROM core_valvealias
                 WHERE raw_valve_spec = %s AND is_active = TRUE
                 ORDER BY priority ASC
                 LIMIT 1
@@ -303,14 +301,11 @@ class Command(BaseCommand):
     
     def apply_enduser_policy(self, cursor, type_key, gas_name, capacity):
         """EndUser 정책 적용"""
-        from core.models import EndUserPolicy
-        table_name = EndUserPolicy._meta.db_table
-        
         try:
             # 1. cylinder_type_key로 정확히 매칭되는 예외 찾기
-            cursor.execute(f"""
+            cursor.execute("""
                 SELECT exception_enduser_code, exception_enduser_name
-                FROM "{table_name}"
+                FROM core_enduserpolicy
                 WHERE cylinder_type_key = %s AND is_active = TRUE
                 ORDER BY id DESC
                 LIMIT 1
@@ -323,9 +318,9 @@ class Command(BaseCommand):
         
         try:
             # 2. 기본값 반환
-            cursor.execute(f"""
+            cursor.execute("""
                 SELECT default_enduser_code, default_enduser_name
-                FROM "{table_name}"
+                FROM core_enduserpolicy
                 WHERE cylinder_type_key IS NULL AND is_active = TRUE
                 ORDER BY id DESC
                 LIMIT 1
@@ -336,7 +331,7 @@ class Command(BaseCommand):
         except Exception:
             pass
         
-        # 3. 하드코딩 기본값
+        # 3. 하드코딩 기본값 (테이블이 없으면 이 값 사용)
         return 'SDC', 'SDC'
     
     def generate_type_key(self, gas_name, capacity, valve_spec, cylinder_spec, usage_place, enduser_code):
