@@ -115,8 +115,21 @@ class CylinderRepository:
                     c.pressure_expire_date,
                     c.needs_fcms_fix,
                     tcs."MOVE_REPORT_NO" as move_report_no,
-                    CONCAT(COALESCE(tcs."MANUFACTURE_LOT_NO", ''), COALESCE(tcs."MANUFACTURE_LOT_BRANCH", '')) as manufacture_lot,
-                    CONCAT(COALESCE(tcs."FILLING_LOT_HEADER", ''), COALESCE(tcs."FILLING_LOT_NO", ''), COALESCE(tcs."FILLING_LOT_BRANCH", '')) as filling_lot
+                    CONCAT(
+                        COALESCE(tcs."MANUFACTURE_LOT_NO", ''),
+                        CASE WHEN tcs."MANUFACTURE_LOT_BRANCH" IS NOT NULL AND tcs."MANUFACTURE_LOT_BRANCH" != '' 
+                             THEN CONCAT('-', tcs."MANUFACTURE_LOT_BRANCH") 
+                             ELSE '' 
+                        END
+                    ) as manufacture_lot,
+                    CONCAT(
+                        COALESCE(tcs."FILLING_LOT_HEADER", ''),
+                        COALESCE(tcs."FILLING_LOT_NO", ''),
+                        CASE WHEN tcs."FILLING_LOT_BRANCH" IS NOT NULL AND tcs."FILLING_LOT_BRANCH" != '' 
+                             THEN CONCAT('-', tcs."FILLING_LOT_BRANCH") 
+                             ELSE '' 
+                        END
+                    ) as filling_lot
                 FROM cy_cylinder_current c
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
@@ -128,19 +141,30 @@ class CylinderRepository:
             params = []
             conditions = []
             
-            # 검색어 처리 (용기번호, 밸브형식, 용기재질, 제조lot, 충전lot, 최근이동서)
+            # 검색어 처리 (다중어 검색: 공백으로 구분된 각 단어가 모두 매칭되어야 함)
             if search_query and search_query.strip():
-                search_term = f"%{search_query.strip()}%"
-                search_conditions = [
-                    "c.cylinder_no ILIKE %s",  # 용기번호
-                    "COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) ILIKE %s",  # 밸브형식
-                    "c.dashboard_cylinder_spec_name ILIKE %s",  # 용기재질
-                    "CONCAT(COALESCE(tcs.\"MANUFACTURE_LOT_NO\", ''), COALESCE(tcs.\"MANUFACTURE_LOT_BRANCH\", '')) ILIKE %s",  # 제조lot
-                    "CONCAT(COALESCE(tcs.\"FILLING_LOT_HEADER\", ''), COALESCE(tcs.\"FILLING_LOT_NO\", ''), COALESCE(tcs.\"FILLING_LOT_BRANCH\", '')) ILIKE %s",  # 충전lot
-                    "tcs.\"MOVE_REPORT_NO\" ILIKE %s"  # 최근이동서
-                ]
-                conditions.append(f"({' OR '.join(search_conditions)})")
-                params.extend([search_term] * 6)  # 각 조건마다 같은 검색어 사용
+                search_words = search_query.strip().split()
+                word_conditions = []
+                
+                for word in search_words:
+                    if not word:
+                        continue
+                    search_term = f"%{word}%"
+                    # 각 단어는 6개 필드 중 하나라도 일치하면 됨 (OR)
+                    search_conditions = [
+                        "c.cylinder_no ILIKE %s",  # 용기번호
+                        "COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) ILIKE %s",  # 밸브형식
+                        "c.dashboard_cylinder_spec_name ILIKE %s",  # 용기재질
+                        "CONCAT(COALESCE(tcs.\"MANUFACTURE_LOT_NO\", ''), CASE WHEN tcs.\"MANUFACTURE_LOT_BRANCH\" IS NOT NULL AND tcs.\"MANUFACTURE_LOT_BRANCH\" != '' THEN CONCAT('-', tcs.\"MANUFACTURE_LOT_BRANCH\") ELSE '' END) ILIKE %s",  # 제조lot
+                        "CONCAT(COALESCE(tcs.\"FILLING_LOT_HEADER\", ''), COALESCE(tcs.\"FILLING_LOT_NO\", ''), CASE WHEN tcs.\"FILLING_LOT_BRANCH\" IS NOT NULL AND tcs.\"FILLING_LOT_BRANCH\" != '' THEN CONCAT('-', tcs.\"FILLING_LOT_BRANCH\") ELSE '' END) ILIKE %s",  # 충전lot
+                        "tcs.\"MOVE_REPORT_NO\" ILIKE %s"  # 최근이동서
+                    ]
+                    word_conditions.append(f"({' OR '.join(search_conditions)})")
+                    params.extend([search_term] * 6)  # 각 조건마다 같은 검색어 사용
+                
+                # 모든 단어가 매칭되어야 함 (AND)
+                if word_conditions:
+                    conditions.append(f"({' AND '.join(word_conditions)})")
             
             if filters:
                 if 'cylinder_no' in filters:
@@ -254,19 +278,30 @@ class CylinderRepository:
             params = []
             conditions = []
             
-            # 검색어 처리 (용기번호, 밸브형식, 용기재질, 제조lot, 충전lot, 최근이동서)
+            # 검색어 처리 (다중어 검색: 공백으로 구분된 각 단어가 모두 매칭되어야 함)
             if search_query and search_query.strip():
-                search_term = f"%{search_query.strip()}%"
-                search_conditions = [
-                    "c.cylinder_no ILIKE %s",  # 용기번호
-                    "COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) ILIKE %s",  # 밸브형식
-                    "c.dashboard_cylinder_spec_name ILIKE %s",  # 용기재질
-                    "CONCAT(COALESCE(tcs.\"MANUFACTURE_LOT_NO\", ''), COALESCE(tcs.\"MANUFACTURE_LOT_BRANCH\", '')) ILIKE %s",  # 제조lot
-                    "CONCAT(COALESCE(tcs.\"FILLING_LOT_HEADER\", ''), COALESCE(tcs.\"FILLING_LOT_NO\", ''), COALESCE(tcs.\"FILLING_LOT_BRANCH\", '')) ILIKE %s",  # 충전lot
-                    "tcs.\"MOVE_REPORT_NO\" ILIKE %s"  # 최근이동서
-                ]
-                conditions.append(f"({' OR '.join(search_conditions)})")
-                params.extend([search_term] * 6)  # 각 조건마다 같은 검색어 사용
+                search_words = search_query.strip().split()
+                word_conditions = []
+                
+                for word in search_words:
+                    if not word:
+                        continue
+                    search_term = f"%{word}%"
+                    # 각 단어는 6개 필드 중 하나라도 일치하면 됨 (OR)
+                    search_conditions = [
+                        "c.cylinder_no ILIKE %s",  # 용기번호
+                        "COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) ILIKE %s",  # 밸브형식
+                        "c.dashboard_cylinder_spec_name ILIKE %s",  # 용기재질
+                        "CONCAT(COALESCE(tcs.\"MANUFACTURE_LOT_NO\", ''), CASE WHEN tcs.\"MANUFACTURE_LOT_BRANCH\" IS NOT NULL AND tcs.\"MANUFACTURE_LOT_BRANCH\" != '' THEN CONCAT('-', tcs.\"MANUFACTURE_LOT_BRANCH\") ELSE '' END) ILIKE %s",  # 제조lot
+                        "CONCAT(COALESCE(tcs.\"FILLING_LOT_HEADER\", ''), COALESCE(tcs.\"FILLING_LOT_NO\", ''), CASE WHEN tcs.\"FILLING_LOT_BRANCH\" IS NOT NULL AND tcs.\"FILLING_LOT_BRANCH\" != '' THEN CONCAT('-', tcs.\"FILLING_LOT_BRANCH\") ELSE '' END) ILIKE %s",  # 충전lot
+                        "tcs.\"MOVE_REPORT_NO\" ILIKE %s"  # 최근이동서
+                    ]
+                    word_conditions.append(f"({' OR '.join(search_conditions)})")
+                    params.extend([search_term] * 6)  # 각 조건마다 같은 검색어 사용
+                
+                # 모든 단어가 매칭되어야 함 (AND)
+                if word_conditions:
+                    conditions.append(f"({' AND '.join(word_conditions)})")
             
             if filters:
                 if 'cylinder_no' in filters:
