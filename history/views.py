@@ -1,100 +1,494 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib import messages
-from django.http import HttpResponse, JsonResponse
-from django.utils import timezone
-from django.db.models import Q
 from datetime import datetime, timedelta
-from history.models import HistInventorySnapshot, HistSnapshotRequest, SnapshotType, SnapshotRequestStatus
+import json
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
+from django.utils import timezone
+
+from history.models import (
+    HistInventorySnapshot,
+    HistSnapshotRequest,
+    SnapshotRequestStatus,
+    SnapshotType,
+)
+from django.db import connection
+from core.repositories.history_repository import HistoryRepository
 from core.repositories.view_repository import ViewRepository
-from core.utils.cylinder_type import generate_cylinder_type_key
 
 
 def history(request):
-    """변화 이력/분석"""
+    """상태 변경 이력/집계 (tr_cylinder_status_histories 기반)"""
+    start_date, end_date = _get_date_range(request, default_days=30)
+
     # 필터 파라미터
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-    snapshot_type = request.GET.get('snapshot_type', '')
-    gas_name = request.GET.get('gas_name', '')
-    capacity = request.GET.get('capacity', '')
-    valve_spec = request.GET.get('valve_spec', '')
-    cylinder_spec = request.GET.get('cylinder_spec', '')
-    usage_place = request.GET.get('usage_place', '')
-    status = request.GET.get('status', '')
-    location = request.GET.get('location', '')
-    
-    # 기본 조회 (최근 30일)
-    if not start_date or not end_date:
-        end_date = timezone.now().date()
-        start_date = end_date - timedelta(days=30)
-    else:
-        # 문자열을 date로 변환
-        from datetime import datetime
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-    
-    # 쿼리 필터
-    snapshots = HistInventorySnapshot.objects.filter(
-        snapshot_datetime__date__gte=start_date,
-        snapshot_datetime__date__lte=end_date
-    )
-    
-    if snapshot_type:
-        snapshots = snapshots.filter(snapshot_type=snapshot_type)
-    if gas_name:
-        snapshots = snapshots.filter(gas_name__icontains=gas_name)
-    if capacity:
-        snapshots = snapshots.filter(capacity__icontains=capacity)
-    if valve_spec:
-        snapshots = snapshots.filter(valve_spec__icontains=valve_spec)
-    if cylinder_spec:
-        snapshots = snapshots.filter(cylinder_spec__icontains=cylinder_spec)
-    if usage_place:
-        snapshots = snapshots.filter(usage_place__icontains=usage_place)
-    if status:
-        snapshots = snapshots.filter(status=status)
-    if location:
-        snapshots = snapshots.filter(location__icontains=location)
-    
-    snapshots = snapshots.order_by('-snapshot_datetime', 'gas_name', 'status', 'location')
-    
-    # 증감(Δ) 계산을 위한 데이터 준비
-    # 전일/전주/전월/기간첫날/직전스냅샷 대비
-    snapshot_list = list(snapshots[:1000])  # 최대 1000개
-    
-    # 증감 계산을 위한 이전 스냅샷 찾기
-    for snapshot in snapshot_list:
-        # 전일 스냅샷
-        prev_day = snapshot.snapshot_datetime.date() - timedelta(days=1)
-        prev_day_snapshot = HistInventorySnapshot.objects.filter(
-            snapshot_datetime__date=prev_day,
-            cylinder_type_key=snapshot.cylinder_type_key,
-            status=snapshot.status,
-            location=snapshot.location,
-            snapshot_type='DAILY'
-        ).first()
-        
-        snapshot.prev_qty = prev_day_snapshot.qty if prev_day_snapshot else None
-        if snapshot.prev_qty is not None:
-            snapshot.delta = snapshot.qty - snapshot.prev_qty
-        else:
-            snapshot.delta = None
-    
-    context = {
-        'snapshots': snapshot_list,
-        'start_date': start_date,
-        'end_date': end_date,
-        'snapshot_type': snapshot_type,
-        'gas_name': gas_name,
-        'capacity': capacity,
-        'valve_spec': valve_spec,
-        'cylinder_spec': cylinder_spec,
-        'usage_place': usage_place,
-        'status': status,
-        'location': location,
+    filters = {
+        "cylinder_no": request.GET.get("cylinder_no", "").strip(),
+        "move_code": request.GET.get("move_code", "").strip(),
+        "position_user_name": request.GET.get("position_user_name", "").strip(),
+        "move_report_no": request.GET.get("move_report_no", "").strip(),
+        "gas_name": request.GET.get("gas_name", "").strip(),
+        "cylinder_type_key": request.GET.get("cylinder_type_key", "").strip(),
     }
-    return render(request, 'history/history.html', context)
+    # 빈 문자열 제거
+    filters = {k: v for k, v in filters.items() if v}
+
+    # 이동코드 분류 (실제 존재 코드에 한정)
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    available_move_codes = HistoryRepository.get_available_move_codes()
+    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
+    move_code_names = HistoryRepository.get_move_code_options(sorted(available_move_codes))
+
+    if not filters.get("cylinder_type_key"):
+        return render(
+            request,
+            "history/history.html",
+            {
+                "histories": [],
+                "start_date": start_date,
+                "end_date": end_date,
+                "filters": filters,
+                "available_move_codes": sorted(available_move_codes),
+                "move_code_names": move_code_names,
+                "cylinder_type_options": cylinder_type_options,
+                "weekly_total": {},
+                "monthly_total": {},
+                "weekly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
+                "monthly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
+                "error_message": "대시보드의 용기종류를 선택해서 조회해주세요.",
+            },
+        )
+
+    # 이력 조회
+    histories = HistoryRepository.fetch_history(
+        start_date=start_date,
+        end_date=end_date,
+        filters=filters,
+        limit=500,
+        offset=0,
+    )
+
+    # 집계 (주/월)
+    cylinder_type_key = filters.get("cylinder_type_key")
+    weekly_summary = HistoryRepository.get_period_summary(
+        period="week",
+        start_date=start_date,
+        end_date=end_date,
+        code_sets=move_code_sets,
+        cylinder_type_key=cylinder_type_key,
+    )
+    monthly_summary = HistoryRepository.get_period_summary(
+        period="month",
+        start_date=start_date,
+        end_date=end_date,
+        code_sets=move_code_sets,
+        cylinder_type_key=cylinder_type_key,
+    )
+
+    def _aggregate_latest(summary_rows):
+        if not summary_rows:
+            return {}
+        latest_bucket = summary_rows[0]["bucket"]
+        totals = {"ship_cnt": 0, "inbound_cnt": 0, "charge_cnt": 0, "maint_out_cnt": 0, "maint_in_cnt": 0}
+        for row in summary_rows:
+            if row["bucket"] != latest_bucket:
+                continue
+            for k in totals.keys():
+                totals[k] += row.get(k, 0) or 0
+        totals["bucket"] = latest_bucket
+        return totals
+
+    weekly_total = _aggregate_latest(weekly_summary)
+    monthly_total = _aggregate_latest(monthly_summary)
+
+    def _chart_data(summary_rows, period: str):
+        # 시간순으로 정렬(과거→현재)
+        rows_sorted = sorted(summary_rows, key=lambda r: r["bucket"])
+        labels = []
+        for r in rows_sorted:
+            b = r.get("bucket")
+            if not b:
+                labels.append("")
+            else:
+                labels.append(b.strftime("%Y-%m-%d") if period == "week" else b.strftime("%Y-%m"))
+        inbound = [r.get("inbound_cnt", 0) or 0 for r in rows_sorted]
+        ship = [r.get("ship_cnt", 0) or 0 for r in rows_sorted]
+        charge = [r.get("charge_cnt", 0) or 0 for r in rows_sorted]
+        return {"labels": labels, "inbound": inbound, "ship": ship, "charge": charge}
+
+    weekly_chart = _chart_data(weekly_summary, "week")
+    monthly_chart = _chart_data(monthly_summary, "month")
+
+    context = {
+        "histories": histories,
+        "start_date": start_date,
+        "end_date": end_date,
+        "filters": filters,
+        "available_move_codes": sorted(available_move_codes),
+        "move_code_names": move_code_names,
+        "cylinder_type_options": cylinder_type_options,
+        "weekly_total": weekly_total,
+        "monthly_total": monthly_total,
+        "weekly_chart": json.dumps(weekly_chart),
+        "monthly_chart": json.dumps(monthly_chart),
+    }
+    return render(request, "history/history.html", context)
+
+
+def _get_date_range(request, default_days=30):
+    """
+    날짜 범위는 한번 입력하면(=GET으로 들어오면) 세션에 저장하고,
+    reset=1 이 오기 전까지 모든 history 서브메뉴에서 유지한다.
+    """
+    if request.GET.get("reset") == "1":
+        request.session.pop("history_start_date", None)
+        request.session.pop("history_end_date", None)
+
+    start_date_param = request.GET.get("start_date")
+    end_date_param = request.GET.get("end_date")
+
+    # 1) GET이 있으면 세션 갱신
+    if start_date_param and end_date_param:
+        request.session["history_start_date"] = start_date_param
+        request.session["history_end_date"] = end_date_param
+        return (
+            datetime.strptime(start_date_param, "%Y-%m-%d").date(),
+            datetime.strptime(end_date_param, "%Y-%m-%d").date(),
+        )
+
+    # 2) 세션이 있으면 사용
+    s_start = request.session.get("history_start_date")
+    s_end = request.session.get("history_end_date")
+    if s_start and s_end:
+        try:
+            return (
+                datetime.strptime(s_start, "%Y-%m-%d").date(),
+                datetime.strptime(s_end, "%Y-%m-%d").date(),
+            )
+        except Exception:
+            pass
+
+    # 3) 기본값
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=default_days)
+    return start_date, end_date
+
+
+def history_movement(request):
+    """용기 입출하 이력 (입하/출하)"""
+    start_date, end_date = _get_date_range(request, default_days=30)
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    available_move_codes = HistoryRepository.get_available_move_codes()
+    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
+    move_code_names = HistoryRepository.get_move_code_options(sorted(available_move_codes))
+
+    filters = {
+        "cylinder_no": request.GET.get("cylinder_no", "").strip(),
+        "move_code": request.GET.get("move_code", "").strip(),
+        "gas_name": request.GET.get("gas_name", "").strip(),
+        "cylinder_type_key": request.GET.get("cylinder_type_key", "").strip(),
+    }
+    filters = {k: v for k, v in filters.items() if v}
+
+    if not filters.get("cylinder_type_key"):
+        return render(
+            request,
+            "history/movement.html",
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "filters": filters,
+                "available_move_codes": sorted(available_move_codes),
+                "move_code_names": move_code_names,
+                "cylinder_type_options": cylinder_type_options,
+                "histories": [],
+                "inbound_types": [],
+                "ship_types": [],
+                "error_message": "대시보드의 용기종류를 선택해서 조회해주세요.",
+            },
+        )
+
+    histories = HistoryRepository.fetch_history(
+        start_date=start_date,
+        end_date=end_date,
+        filters=filters,
+        limit=500,
+        offset=0,
+    )
+
+    inbound_codes = move_code_sets.get("inbound", [])
+    ship_codes = move_code_sets.get("ship", [])
+    inbound_types = HistoryRepository.get_type_counts(inbound_codes, start_date, end_date)
+    ship_types = HistoryRepository.get_type_counts(ship_codes, start_date, end_date)
+
+    context = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "filters": filters,
+        "available_move_codes": sorted(available_move_codes),
+        "move_code_names": move_code_names,
+        "cylinder_type_options": cylinder_type_options,
+        "histories": histories,
+        "inbound_types": inbound_types,
+        "ship_types": ship_types,
+    }
+    return render(request, "history/movement.html", context)
+
+
+def history_charge(request):
+    """충전 이력"""
+    start_date, end_date = _get_date_range(request, default_days=60)
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    available_move_codes = HistoryRepository.get_available_move_codes()
+    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
+    move_code_names = HistoryRepository.get_move_code_options(sorted(available_move_codes))
+
+    filters = {
+        "cylinder_no": request.GET.get("cylinder_no", "").strip(),
+        "move_code": request.GET.get("move_code", "").strip(),
+        "gas_name": request.GET.get("gas_name", "").strip(),
+        "cylinder_type_key": request.GET.get("cylinder_type_key", "").strip(),
+    }
+    filters = {k: v for k, v in filters.items() if v}
+
+    if not filters.get("cylinder_type_key"):
+        return render(
+            request,
+            "history/charge.html",
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "filters": filters,
+                "available_move_codes": sorted(available_move_codes),
+                "move_code_names": move_code_names,
+                "cylinder_type_options": cylinder_type_options,
+                "histories": [],
+                "charge_types": [],
+                "error_message": "대시보드의 용기종류를 선택해서 조회해주세요.",
+            },
+        )
+
+    histories = HistoryRepository.fetch_history(
+        start_date=start_date,
+        end_date=end_date,
+        filters=filters,
+        limit=500,
+        offset=0,
+    )
+
+    charge_codes = move_code_sets.get("charge", [])
+    charge_types = HistoryRepository.get_type_counts(charge_codes, start_date, end_date)
+
+    context = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "filters": filters,
+        "available_move_codes": sorted(available_move_codes),
+        "move_code_names": move_code_names,
+        "cylinder_type_options": cylinder_type_options,
+        "histories": histories,
+        "charge_types": charge_types,
+    }
+    return render(request, "history/charge.html", context)
+
+
+def history_clf3(request):
+    """CLF3 출하/충전 누적 확인"""
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    ship_codes = move_code_sets.get("ship", [])
+    charge_codes = move_code_sets.get("charge", [])
+
+    # CLF3 출하 누적(전체 누적)
+    clf3_ship = HistoryRepository.get_clf3_ship_counts(
+        ship_codes=ship_codes,
+    )
+
+    # CLF3 충전 횟수 (전체 누적)
+    charge_counts = []
+    if charge_codes:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 
+                    h."CYLINDER_NO" AS cylinder_no,
+                    COUNT(*) AS charge_cnt
+                FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                LEFT JOIN cy_cylinder_current c
+                    ON RTRIM(h."CYLINDER_NO") = RTRIM(c.cylinder_no)
+                WHERE h."MOVE_CODE" = ANY(%s)
+                  AND c.dashboard_gas_name ILIKE 'CLF3%%'
+                GROUP BY h."CYLINDER_NO"
+                ORDER BY charge_cnt DESC
+                """,
+                [
+                    charge_codes,
+                ],
+            )
+            rows = cursor.fetchall()
+            charge_counts = [{"cylinder_no": r[0], "charge_cnt": r[1]} for r in rows]
+
+    context = {
+        "clf3_ship": clf3_ship,
+        "charge_counts": charge_counts,
+    }
+    return render(request, "history/clf3.html", context)
+
+
+def history_trend(request):
+    """용기 수요 추이 (입하/출하/충전 그래프 전용)"""
+    start_date, end_date = _get_date_range(request, default_days=90)
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
+    cylinder_type_key = request.GET.get("cylinder_type_key", "").strip()
+
+    if not cylinder_type_key:
+        return render(
+            request,
+            "history/trend.html",
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "cylinder_type_key": "",
+                "cylinder_type_options": cylinder_type_options,
+                "weekly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
+                "monthly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
+                "yearly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
+                "error_message": "대시보드의 용기종류를 선택해서 조회해주세요.",
+            },
+        )
+
+    weekly_summary = HistoryRepository.get_period_summary(
+        period="week",
+        start_date=start_date,
+        end_date=end_date,
+        code_sets=move_code_sets,
+        cylinder_type_key=cylinder_type_key,
+    )
+    monthly_summary = HistoryRepository.get_period_summary(
+        period="month",
+        start_date=start_date,
+        end_date=end_date,
+        code_sets=move_code_sets,
+        cylinder_type_key=cylinder_type_key,
+    )
+
+    def _format_label(period: str, bucket):
+        if not bucket:
+            return ""
+        if period == "week":
+            iso_week = bucket.isocalendar().week
+            return f"{bucket.strftime('%Y')}-W{iso_week:02d}"
+        if period == "month":
+            return bucket.strftime("%Y-%m")
+        return bucket.strftime("%Y-%m-%d")
+
+    for r in weekly_summary:
+        r["label"] = _format_label("week", r.get("bucket"))
+    for r in monthly_summary:
+        r["label"] = _format_label("month", r.get("bucket"))
+
+    def _chart_data(summary_rows, period: str):
+        rows_sorted = sorted(summary_rows, key=lambda r: r["bucket"])
+        labels = [r.get("label") or _format_label(period, r.get("bucket")) for r in rows_sorted]
+        inbound = [r.get("inbound_cnt", 0) or 0 for r in rows_sorted]
+        ship = [r.get("ship_cnt", 0) or 0 for r in rows_sorted]
+        charge = [r.get("charge_cnt", 0) or 0 for r in rows_sorted]
+        return {"labels": labels, "inbound": inbound, "ship": ship, "charge": charge}
+
+    weekly_chart = _chart_data(weekly_summary, "week")
+    monthly_chart = _chart_data(monthly_summary, "month")
+    def _totals(rows):
+        return {
+            "inbound": sum(r.get("inbound_cnt", 0) or 0 for r in rows),
+            "ship": sum(r.get("ship_cnt", 0) or 0 for r in rows),
+            "charge": sum(r.get("charge_cnt", 0) or 0 for r in rows),
+        }
+
+    weekly_total_row = _totals(weekly_summary)
+    monthly_total_row = _totals(monthly_summary)
+
+    context = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "cylinder_type_key": cylinder_type_key,
+        "cylinder_type_options": cylinder_type_options,
+        "weekly_summary": weekly_summary,
+        "monthly_summary": monthly_summary,
+        "weekly_total_row": weekly_total_row,
+        "monthly_total_row": monthly_total_row,
+        "weekly_chart": json.dumps(weekly_chart),
+        "monthly_chart": json.dumps(monthly_chart),
+    }
+    return render(request, "history/trend.html", context)
+
+
+def history_trend_export(request):
+    """수요 추이(입하/출하/충전) 엑셀 다운로드"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    start_date, end_date = _get_date_range(request, default_days=90)
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    cylinder_type_key = request.GET.get("cylinder_type_key", "").strip()
+
+    if not cylinder_type_key:
+        messages.error(request, "용기종류를 선택해주세요.")
+        return redirect("history:history_trend")
+
+    weekly_summary = HistoryRepository.get_period_summary(
+        period="week",
+        start_date=start_date,
+        end_date=end_date,
+        code_sets=move_code_sets,
+        cylinder_type_key=cylinder_type_key,
+    )
+    monthly_summary = HistoryRepository.get_period_summary(
+        period="month",
+        start_date=start_date,
+        end_date=end_date,
+        code_sets=move_code_sets,
+        cylinder_type_key=cylinder_type_key,
+    )
+    def _format_label(period: str, bucket):
+        if not bucket:
+            return ""
+        if period == "week":
+            iso_week = bucket.isocalendar().week
+            return f"{bucket.strftime('%Y')}-W{iso_week:02d}"
+        if period == "month":
+            return bucket.strftime("%Y-%m")
+        return bucket.strftime("%Y-%m-%d")
+
+    def write_sheet(ws, title, rows, period):
+        ws.title = title
+        headers = ["기간", "입하", "출하", "충전"]
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center")
+        for r in rows:
+            ws.append(
+                [
+                    _format_label(period, r.get("bucket")),
+                    r.get("inbound_cnt", 0) or 0,
+                    r.get("ship_cnt", 0) or 0,
+                    r.get("charge_cnt", 0) or 0,
+                ]
+            )
+
+    wb = Workbook()
+    ws_week = wb.active
+    write_sheet(ws_week, "주간", weekly_summary, "week")
+    write_sheet(wb.create_sheet(), "월간", monthly_summary, "month")
+
+    filename = f"cynow_trend_{start_date}_{end_date}.xlsx"
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 @login_required
@@ -178,104 +572,102 @@ def manual_snapshot(request):
 
 
 def export_excel(request):
-    """엑셀 다운로드"""
+    """상태 이력 엑셀 다운로드"""
     from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment
-    from django.http import HttpResponse
-    from datetime import datetime
-    
-    # 필터 파라미터
-    start_date = request.GET.get('start_date')
-    end_date = request.GET.get('end_date')
-    snapshot_type = request.GET.get('snapshot_type', '')
-    gas_name = request.GET.get('gas_name', '')
-    capacity = request.GET.get('capacity', '')
-    valve_spec = request.GET.get('valve_spec', '')
-    cylinder_spec = request.GET.get('cylinder_spec', '')
-    usage_place = request.GET.get('usage_place', '')
-    status = request.GET.get('status', '')
-    location = request.GET.get('location', '')
-    
-    if not start_date or not end_date:
+    from openpyxl.styles import Alignment, Font
+
+    # 기간
+    start_date_param = request.GET.get("start_date")
+    end_date_param = request.GET.get("end_date")
+    if not start_date_param or not end_date_param:
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=30)
     else:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-    
-    snapshots = HistInventorySnapshot.objects.filter(
-        snapshot_datetime__date__gte=start_date,
-        snapshot_datetime__date__lte=end_date
+        start_date = datetime.strptime(start_date_param, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_date_param, "%Y-%m-%d").date()
+
+    # 필터
+    filters = {
+        "cylinder_no": request.GET.get("cylinder_no", "").strip(),
+        "move_code": request.GET.get("move_code", "").strip(),
+        "condition_code": request.GET.get("condition_code", "").strip(),
+        "program_id": request.GET.get("program_id", "").strip(),
+        "location_code": request.GET.get("location_code", "").strip(),
+        "position_user_name": request.GET.get("position_user_name", "").strip(),
+        "move_report_no": request.GET.get("move_report_no", "").strip(),
+        "gas_name": request.GET.get("gas_name", "").strip(),
+        "cylinder_type_key": request.GET.get("cylinder_type_key", "").strip(),
+    }
+    filters = {k: v for k, v in filters.items() if v}
+
+    histories = HistoryRepository.fetch_history(
+        start_date=start_date,
+        end_date=end_date,
+        filters=filters,
+        limit=5000,
+        offset=0,
     )
-    
-    if snapshot_type:
-        snapshots = snapshots.filter(snapshot_type=snapshot_type)
-    if gas_name:
-        snapshots = snapshots.filter(gas_name__icontains=gas_name)
-    if capacity:
-        snapshots = snapshots.filter(capacity__icontains=capacity)
-    if valve_spec:
-        snapshots = snapshots.filter(valve_spec__icontains=valve_spec)
-    if cylinder_spec:
-        snapshots = snapshots.filter(cylinder_spec__icontains=cylinder_spec)
-    if usage_place:
-        snapshots = snapshots.filter(usage_place__icontains=usage_place)
-    if status:
-        snapshots = snapshots.filter(status=status)
-    if location:
-        snapshots = snapshots.filter(location__icontains=location)
-    
-    snapshots = snapshots.order_by('-snapshot_datetime', 'gas_name', 'status', 'location')
-    
-    # 엑셀 생성
+
     wb = Workbook()
     ws = wb.active
-    ws.title = "이력 데이터"
-    
-    # 헤더
-    headers = ['스냅샷 일시', '유형', '가스명', '용량', '밸브', '스펙', '사용처', '상태', '위치', '수량', '전일 수량', '증감']
+    ws.title = "상태이력"
+
+    headers = [
+        "이동일시(KST)",
+        "용기번호",
+        "가스",
+        "용량",
+        "밸브",
+        "스펙",
+        "이동코드",
+        "상태코드",
+        "표준상태",
+        "위치",
+        "담당자",
+        "이동서",
+        "제조LOT",
+        "충전LOT",
+        "Gross(kg)",
+        "Net(kg)",
+        "Tare(kg)",
+        "비고",
+    ]
     ws.append(headers)
-    
-    # 헤더 스타일
     for cell in ws[1]:
         cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal='center')
-    
-    # 데이터
-    for snapshot in snapshots:
-        # 전일 스냅샷 찾기
-        prev_day = snapshot.snapshot_datetime.date() - timedelta(days=1)
-        prev_day_snapshot = HistInventorySnapshot.objects.filter(
-            snapshot_datetime__date=prev_day,
-            cylinder_type_key=snapshot.cylinder_type_key,
-            status=snapshot.status,
-            location=snapshot.location,
-            snapshot_type='DAILY'
-        ).first()
-        
-        prev_qty = prev_day_snapshot.qty if prev_day_snapshot else None
-        delta = (snapshot.qty - prev_qty) if prev_qty is not None else None
-        
-        ws.append([
-            snapshot.snapshot_datetime.strftime('%Y-%m-%d %H:%M:%S'),
-            snapshot.get_snapshot_type_display(),
-            snapshot.gas_name,
-            snapshot.capacity or '',
-            snapshot.valve_spec or '',
-            snapshot.cylinder_spec or '',
-            snapshot.usage_place or '',
-            snapshot.status,
-            snapshot.location,
-            snapshot.qty,
-            prev_qty or '',
-            delta if delta is not None else '',
-        ])
-    
-    # 응답 생성
+        cell.alignment = Alignment(horizontal="center")
+
+    for row in histories:
+        ws.append(
+            [
+                row.get("move_date").strftime("%Y-%m-%d %H:%M:%S")
+                if row.get("move_date")
+                else "",
+                row.get("cylinder_no") or "",
+                row.get("gas_name") or "",
+                row.get("capacity") or "",
+                row.get("valve_spec") or "",
+                row.get("cylinder_spec") or "",
+                row.get("move_code") or "",
+                row.get("condition_code") or "",
+                row.get("standard_status") or "",
+                row.get("location_code") or "",
+                row.get("move_staff_name") or "",
+                row.get("move_report_no") or "",
+                row.get("manufacture_lot") or "",
+                row.get("filling_lot") or "",
+                row.get("gross_weight") or "",
+                row.get("net_weight") or "",
+                row.get("tare_weight") or "",
+                row.get("remarks") or "",
+            ]
+        )
+
     response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response['Content-Disposition'] = f'attachment; filename="cynow_history_{start_date}_{end_date}.xlsx"'
+    response[
+        "Content-Disposition"
+    ] = f'attachment; filename="cynow_status_history_{start_date}_{end_date}.xlsx"'
     wb.save(response)
-    
     return response

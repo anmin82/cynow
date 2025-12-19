@@ -1,103 +1,207 @@
 {% extends 'base.html' %}
+{% load history_tags %}
 
-{% block title %}변화 이력 - CYNOW{% endblock %}
+{% block title %}상태 이력 - CYNOW{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-start mb-4">
     <div>
-        <h1 class="page-title">변화 이력</h1>
-        <p class="page-subtitle">기간별 용기 수량 변화 분석</p>
+        <h1 class="page-title">상태 이력</h1>
+        <p class="page-subtitle">기간별 이동/출하/충전/정비 이력 조회</p>
     </div>
-    <a href="{% url 'history:manual_snapshot' %}" class="btn btn-primary btn-sm">수동 스냅샷</a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'history:history_movement' %}" class="btn btn-outline-secondary btn-sm">입출하 이력</a>
+        <a href="{% url 'history:history_charge' %}" class="btn btn-outline-secondary btn-sm">충전 이력</a>
+        <a href="{% url 'history:history_clf3' %}" class="btn btn-outline-secondary btn-sm">CLF3</a>
+        <a href="{% url 'history:history_trend' %}" class="btn btn-outline-secondary btn-sm">수요 추이</a>
+        <a href="{% url 'history:export_excel' %}?start_date={{ start_date }}&end_date={{ end_date }}{% for k,v in filters.items %}&{{ k }}={{ v }}{% endfor %}" class="btn btn-success btn-sm">
+            <i class="bi bi-download"></i> 엑셀
+        </a>
+    </div>
 </div>
 
 <!-- 필터 -->
-<div class="filter-section">
-    <form method="get" class="row g-3 align-items-end">
-        <div class="col-md-2">
-            <label class="form-label">시작일</label>
-            <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
-        </div>
-        <div class="col-md-2">
-            <label class="form-label">종료일</label>
-            <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
-        </div>
-        <div class="col-md-1">
-            <label class="form-label">유형</label>
-            <select name="snapshot_type" class="form-select">
-                <option value="">전체</option>
-                <option value="DAILY" {% if snapshot_type == 'DAILY' %}selected{% endif %}>정기</option>
-                <option value="MANUAL" {% if snapshot_type == 'MANUAL' %}selected{% endif %}>수동</option>
-            </select>
-        </div>
-        <div class="col">
-            <label class="form-label">가스명</label>
-            <input type="text" name="gas_name" class="form-control" value="{{ gas_name }}">
-        </div>
-        <div class="col">
-            <label class="form-label">상태</label>
-            <input type="text" name="status" class="form-control" value="{{ status }}">
-        </div>
-        <div class="col">
-            <label class="form-label">위치</label>
-            <input type="text" name="location" class="form-control" value="{{ location }}">
-        </div>
-        <div class="col-md-2">
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary flex-grow-1">조회</button>
-                <a href="{% url 'history:export_excel' %}?start_date={{ start_date }}&end_date={{ end_date }}&snapshot_type={{ snapshot_type }}&gas_name={{ gas_name }}&status={{ status }}&location={{ location }}" class="btn btn-success">
-                    <i class="bi bi-download"></i>
-                </a>
+<div class="card mb-3">
+    <div class="card-body">
+        {% if error_message %}
+        <div class="alert alert-warning mb-3">{{ error_message }}</div>
+        {% endif %}
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">시작일</label>
+                <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
             </div>
-        </div>
-    </form>
+            <div class="col-md-2">
+                <label class="form-label">종료일</label>
+                <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">용기번호</label>
+                <input type="text" name="cylinder_no" class="form-control" value="{{ filters.cylinder_no }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">가스명</label>
+                <input type="text" name="gas_name" class="form-control" value="{{ filters.gas_name }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">이동코드</label>
+                <select name="move_code" class="form-select">
+                    <option value="">전체</option>
+                    {% for code in available_move_codes %}
+                    <option value="{{ code }}" {% if filters.move_code == code %}selected{% endif %}>
+                        {{ move_code_names|dict_get:code|default:code }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">담당자(포지션)</label>
+                <input type="text" name="position_user_name" class="form-control" value="{{ filters.position_user_name }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">이동서번호</label>
+                <input type="text" name="move_report_no" class="form-control" value="{{ filters.move_report_no }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">용기종류</label>
+                <select name="cylinder_type_key" class="form-select" required>
+                    <option value="">선택</option>
+                    {% for opt in cylinder_type_options %}
+                    <option value="{{ opt.cylinder_type_key }}" {% if filters.cylinder_type_key == opt.cylinder_type_key %}selected{% endif %}>
+                        {{ opt.display_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">조회</button>
+                <a href="{% url 'history:history' %}?reset=1" class="btn btn-outline-secondary w-100">초기화</a>
+            </div>
+        </form>
+    </div>
 </div>
 
+<!-- 집계 카드 -->
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between">
+                <span>월간 집계 (최근 버킷)</span>
+                <small class="text-muted">{{ monthly_total.bucket|date:"Y-m-d" }}</small>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-3">
+                    <span class="badge bg-primary">입하 {{ monthly_total.inbound_cnt|default:0 }}</span>
+                    <span class="badge bg-success">출하 {{ monthly_total.ship_cnt|default:0 }}</span>
+                    <span class="badge bg-info text-dark">충전 {{ monthly_total.charge_cnt|default:0 }}</span>
+                    <span class="badge bg-warning text-dark">정비출고 {{ monthly_total.maint_out_cnt|default:0 }}</span>
+                    <span class="badge bg-secondary">정비입고 {{ monthly_total.maint_in_cnt|default:0 }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between">
+                <span>주간 집계 (최근 버킷)</span>
+                <small class="text-muted">{{ weekly_total.bucket|date:"Y-m-d" }}</small>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-3">
+                    <span class="badge bg-primary">입하 {{ weekly_total.inbound_cnt|default:0 }}</span>
+                    <span class="badge bg-success">출하 {{ weekly_total.ship_cnt|default:0 }}</span>
+                    <span class="badge bg-info text-dark">충전 {{ weekly_total.charge_cnt|default:0 }}</span>
+                    <span class="badge bg-warning text-dark">정비출고 {{ weekly_total.maint_out_cnt|default:0 }}</span>
+                    <span class="badge bg-secondary">정비입고 {{ weekly_total.maint_in_cnt|default:0 }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 입하/출하 추이 그래프 -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">주간 추이 (입하/출하)</div>
+            <div class="card-body">
+                <canvas id="inboundWeeklyChart" height="160"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">월간 추이 (입하/출하)</div>
+            <div class="card-body">
+                <canvas id="inboundMonthlyChart" height="160"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 이력 리스트 -->
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span>이력 데이터</span>
-        <span class="badge bg-primary">{{ snapshots|length }}건</span>
+        <span class="badge bg-primary">{{ histories|length }}건</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0 align-middle">
                 <thead>
                     <tr>
-                        <th>스냅샷 일시</th>
-                        <th class="text-center">유형</th>
-                        <th>가스명</th>
-                        <th class="text-center">상태</th>
-                        <th>위치</th>
-                        <th class="text-end">수량</th>
-                        <th class="text-end">전일</th>
-                        <th class="text-end">증감</th>
+                        <th>이동일시</th>
+                        <th>용기번호</th>
+                        <th>가스/용량/밸브</th>
+                        <th>이동</th>
+                        <th>상태</th>
+                        <th>이동서</th>
+                        <th>LOT</th>
+                        <th class="text-end">Gross</th>
+                        <th class="text-end">Net</th>
+                        <th class="text-end">Tare</th>
+                        <th>담당자</th>
+                        <th>비고</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for snapshot in snapshots %}
+                    {% for h in histories %}
                     <tr>
-                        <td class="font-monospace">{{ snapshot.snapshot_datetime|date:"Y-m-d H:i" }}</td>
-                        <td class="text-center">
-                            <span class="badge {% if snapshot.snapshot_type == 'DAILY' %}bg-primary{% else %}bg-info{% endif %}">
-                                {% if snapshot.snapshot_type == 'DAILY' %}정기{% else %}수동{% endif %}
-                            </span>
+                        <td class="font-monospace">{{ h.move_date|date:"Y-m-d H:i" }}</td>
+                        <td class="font-monospace">
+                            {{ h.cylinder_no }}
+                            {% if h.clf3_over %}
+                            <span class="badge bg-danger ms-1">CLF3 5회 초과</span>
+                            {% elif h.clf3_ship_count %}
+                            <span class="badge bg-warning text-dark ms-1">CLF3 {{ h.clf3_ship_count }}회</span>
+                            {% endif %}
                         </td>
-                        <td>{{ snapshot.gas_name }}</td>
-                        <td class="text-center"><span class="status-badge status-{{ snapshot.status }}">{{ snapshot.status }}</span></td>
-                        <td>{{ snapshot.location }}</td>
-                        <td class="text-end qty-emphasis">{{ snapshot.qty }}</td>
-                        <td class="text-end qty-total">{{ snapshot.prev_qty|default:"-" }}</td>
-                        <td class="text-end">
-                            {% if snapshot.delta is not None %}
-                            <span class="{% if snapshot.delta > 0 %}delta-positive{% elif snapshot.delta < 0 %}delta-negative{% else %}delta-zero{% endif %}" style="font-size:16px; font-weight:700;">
-                                {% if snapshot.delta > 0 %}+{% endif %}{{ snapshot.delta }}
-                            </span>
-                            {% else %}-{% endif %}
+                        <td>
+                            <div>{{ h.gas_name }} ({{ h.capacity }})</div>
+                            <div class="text-muted small">{{ h.valve_spec }} / {{ h.cylinder_spec }}</div>
                         </td>
+                        <td>
+                            <span class="badge bg-dark">{{ move_code_names|dict_get:h.move_code|default:h.move_code }}</span>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ h.standard_status|default:"" }}</div>
+                        </td>
+                        <td class="font-monospace">
+                            {{ h.move_report_no }}
+                        </td>
+                        <td>
+                            <div class="small text-muted">제조 {{ h.manufacture_lot|default:"-" }}</div>
+                            <div class="small text-muted">충전 {{ h.filling_lot|default:"-" }}</div>
+                        </td>
+                        <td class="text-end">{{ h.gross_weight|default:"" }}</td>
+                        <td class="text-end">{{ h.net_weight|default:"" }}</td>
+                        <td class="text-end">{{ h.tare_weight|default:"" }}</td>
+                        <td>{{ h.move_staff_name }}</td>
+                        <td><small class="text-muted">{{ h.remarks|default:"" }}</small></td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-5">데이터가 없습니다.</td>
+                        <td colspan="13" class="text-center text-muted py-5">데이터가 없습니다.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -105,4 +209,73 @@
         </div>
     </div>
 </div>
+{% block extra_scripts %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    const weeklyData = JSON.parse('{{ weekly_chart|escapejs }}');
+    const monthlyData = JSON.parse('{{ monthly_chart|escapejs }}');
+
+    function renderChart(elId, data) {
+        const ctx = document.getElementById(elId);
+        if (!ctx) return;
+        const hasData = data.labels && data.labels.length > 0;
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: hasData ? data.labels : ['데이터 없음'],
+                datasets: [
+                    {
+                        label: '입하',
+                        data: hasData ? data.inbound : [0],
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13,110,253,0.1)',
+                        tension: 0.3,
+                        fill: true,
+                    },
+                    {
+                        label: '출하',
+                        data: hasData ? data.ship : [0],
+                        borderColor: '#198754',
+                        backgroundColor: 'rgba(25,135,84,0.1)',
+                        tension: 0.3,
+                        fill: true,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: false },
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision:0 } }
+                }
+            }
+        });
+    }
+
+    function renderChart3(elId, data) {
+        const ctx = document.getElementById(elId);
+        if (!ctx) return;
+        const hasData = data.labels && data.labels.length > 0;
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: hasData ? data.labels : ['데이터 없음'],
+                datasets: [
+                    { label: '입하', data: hasData ? data.inbound : [0], borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.1)', tension: 0.3, fill: true },
+                    { label: '출하', data: hasData ? data.ship : [0], borderColor: '#198754', backgroundColor: 'rgba(25,135,84,0.1)', tension: 0.3, fill: true },
+                    { label: '충전', data: hasData ? data.charge : [0], borderColor: '#fd7e14', backgroundColor: 'rgba(253,126,20,0.1)', tension: 0.3, fill: true },
+                ]
+            },
+            options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { precision:0 } } } }
+        });
+    }
+
+    renderChart('inboundWeeklyChart', weeklyData);
+    renderChart('inboundMonthlyChart', monthlyData);
+</script>
+{% endblock %}
 {% endblock %}

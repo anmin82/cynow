@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}CLF3 출하/충전 - CYNOW{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">CLF3 출하/충전</h1>
+        <p class="page-subtitle">CLF3 출하 5회 제한 및 충전 누적 확인</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'history:history' %}" class="btn btn-outline-secondary btn-sm">전체 이력</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="text-muted">
+            CLF3 출하는 <strong>누적</strong> 기준입니다. (기간 필터 없음)
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">CLF3 출하 누적 (최근 5회 제한 확인)</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>용기번호</th><th class="text-end">출하 횟수</th><th>상태</th></tr></thead>
+                        <tbody>
+                        {% for cyl, info in clf3_ship.items %}
+                            <tr>
+                                <td class="font-monospace">{{ cyl }}</td>
+                                <td class="text-end">{{ info.ship_count }}</td>
+                                <td>
+                                    {% if info.over_limit %}
+                                        <span class="badge bg-danger">5회 초과</span>
+                                    {% else %}
+                                        <span class="badge bg-success">정상</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="3" class="text-center text-muted">데이터 없음</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <small class="text-muted">* 출하 MOVE_CODE 누적 횟수 기준으로 5회 초과 여부를 표시합니다.</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">CLF3 충전 횟수 (기간 내)</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>용기번호</th><th class="text-end">충전 횟수</th></tr></thead>
+                        <tbody>
+                        {% for row in charge_counts %}
+                            <tr>
+                                <td class="font-monospace">{{ row.cylinder_no }}</td>
+                                <td class="text-end">{{ row.charge_cnt }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted">데이터 없음</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

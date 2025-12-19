@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% load history_tags %}
+{% block title %}입출하 이력 - CYNOW{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">입출하 이력</h1>
+        <p class="page-subtitle">입하/출하 중심 이력 조회</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'history:history' %}" class="btn btn-outline-secondary btn-sm">전체 이력</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        {% if error_message %}
+        <div class="alert alert-warning mb-3">{{ error_message }}</div>
+        {% endif %}
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">시작일</label>
+                <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">종료일</label>
+                <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">용기번호</label>
+                <input type="text" name="cylinder_no" class="form-control" value="{{ filters.cylinder_no }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">가스명</label>
+                <input type="text" name="gas_name" class="form-control" value="{{ filters.gas_name }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">이동코드</label>
+                <select name="move_code" class="form-select">
+                    <option value="">전체</option>
+                    {% for code in available_move_codes %}
+                    <option value="{{ code }}" {% if filters.move_code == code %}selected{% endif %}>
+                        {{ move_code_names|dict_get:code|default:code }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">용기종류</label>
+                <select name="cylinder_type_key" class="form-select" required>
+                    <option value="">선택</option>
+                    {% for opt in cylinder_type_options %}
+                    <option value="{{ opt.cylinder_type_key }}" {% if filters.cylinder_type_key == opt.cylinder_type_key %}selected{% endif %}>
+                        {{ opt.display_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">조회</button>
+                <a href="{% url 'history:history_movement' %}?reset=1" class="btn btn-outline-secondary w-100">초기화</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">입하 건수 (용기종류별)</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>용기종류</th><th class="text-end">입하 건수</th></tr></thead>
+                        <tbody>
+                        {% for r in inbound_types %}
+                            <tr>
+                                <td>{{ r.gas_name }} / {{ r.valve_spec }} / {{ r.capacity }} / {{ r.enduser }}</td>
+                                <td class="text-end">{{ r.cnt }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted">데이터 없음</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">출하 건수 (용기종류별)</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>용기종류</th><th class="text-end">출하 건수</th></tr></thead>
+                        <tbody>
+                        {% for r in ship_types %}
+                            <tr>
+                                <td>{{ r.gas_name }} / {{ r.valve_spec }} / {{ r.capacity }} / {{ r.enduser }}</td>
+                                <td class="text-end">{{ r.cnt }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted">데이터 없음</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>입출하 이력</span>
+        <span class="badge bg-primary">{{ histories|length }}건</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>이동일시</th>
+                        <th>용기번호</th>
+                        <th>용기종류</th>
+                        <th>이동코드</th>
+                        <th>상태</th>
+                        <th>위치</th>
+                        <th>이동서</th>
+                        <th>LOT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in histories %}
+                    <tr>
+                        <td class="font-monospace">{{ h.move_date|date:"Y-m-d H:i" }}</td>
+                        <td class="font-monospace">{{ h.cylinder_no }}</td>
+                        <td>{{ h.gas_name }} / {{ h.valve_spec }} / {{ h.capacity }} / {{ h.enduser }}</td>
+                        <td><span class="badge bg-dark">{{ move_code_names|dict_get:h.move_code|default:h.move_code }}</span></td>
+                        <td>{{ h.standard_status|default:"" }}</td>
+                        <td><small class="text-muted">{{ h.position_user_name|default:"" }} {{ h.location_user_name|default:"" }}</small></td>
+                        <td class="font-monospace">{{ h.move_report_no }}</td>
+                        <td class="small text-muted">제조 {{ h.manufacture_lot|default:"-" }} / 충전 {{ h.filling_lot|default:"-" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-5">데이터가 없습니다.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

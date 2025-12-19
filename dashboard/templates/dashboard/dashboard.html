@@ -266,6 +266,15 @@
                 <a href="#" id="modal-detail-link" class="btn btn-primary">
                     <i class="bi bi-arrow-right-circle me-1"></i>상세 페이지로 이동
                 </a>
+                <a href="#" id="modal-history-movement-link" class="btn btn-outline-secondary">
+                    입출하 이력
+                </a>
+                <a href="#" id="modal-history-charge-link" class="btn btn-outline-secondary">
+                    충전 이력
+                </a>
+                <a href="#" id="modal-history-trend-link" class="btn btn-outline-secondary">
+                    수요 추이
+                </a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
             </div>
         </div>
@@ -355,6 +364,10 @@ function openDetailModal(typeKey) {
     
     // 상세 링크
     document.getElementById('modal-detail-link').href = '{% url "dashboard:detail" %}?type=' + encodeURIComponent(data.cylinder_type_key);
+    // 이력 링크 (대시보드 카드 기준 용기종류 프리셋)
+    document.getElementById('modal-history-movement-link').href = '{% url "history:history_movement" %}?cylinder_type_key=' + encodeURIComponent(data.cylinder_type_key);
+    document.getElementById('modal-history-charge-link').href = '{% url "history:history_charge" %}?cylinder_type_key=' + encodeURIComponent(data.cylinder_type_key);
+    document.getElementById('modal-history-trend-link').href = '{% url "history:history_trend" %}?cylinder_type_key=' + encodeURIComponent(data.cylinder_type_key);
     
     modal.show();
 }
