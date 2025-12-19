@@ -244,7 +244,7 @@ class Command(BaseCommand):
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, NOW()
+                %s, %s, %s, %s, %s, %s, %s, NOW()
             )
             ON CONFLICT (cylinder_no) DO UPDATE SET
                 raw_gas_name = EXCLUDED.raw_gas_name,
@@ -276,18 +276,30 @@ class Command(BaseCommand):
                 source_updated_at = EXCLUDED.source_updated_at,
                 snapshot_updated_at = NOW()
         """, [
+            # 1-8: raw 필드
             cylinder_no,
             raw_gas_name, raw_capacity, raw_valve_spec, raw_cylinder_spec,
             raw_usage_place, raw_location, raw_condition_code,
-            raw_location, raw_move_date, raw_withstand_pressure_mainte_date,
-            raw_gas_name, raw_capacity,  # dashboard_gas_name (번역은 별도)
+            # 9-11: raw 필드 (position, move, pressure)
+            raw_location,  # raw_position_user_name (동일 값)
+            raw_move_date, raw_withstand_pressure_mainte_date,
+            # 12-13: dashboard 가스
+            raw_gas_name, raw_capacity,
+            # 14-16: dashboard 밸브
             dashboard_valve_spec, valve_format, valve_material,
+            # 17-19: dashboard 용기
             raw_cylinder_spec, cylinder_format, cylinder_material,
+            # 20-22: dashboard enduser & usage
             enduser_code, enduser_name, dashboard_usage_place,
+            # 23-24: dashboard 상태 & 위치
             dashboard_status, dashboard_location,
+            # 25: cylinder_type_key
             dashboard_cylinder_type_key,
+            # 26-27: dashboard pressure & event
             raw_withstand_pressure_mainte_date, raw_move_date,
+            # 28: is_available
             is_available,
+            # 29: source_updated_at
             source_updated_at
         ])
     
