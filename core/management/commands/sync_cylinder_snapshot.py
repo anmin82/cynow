@@ -171,26 +171,43 @@ class Command(BaseCommand):
     def upsert_cylinder(self, cursor, raw_data):
         """단일 용기 Upsert (정책 적용)"""
         # Raw 값 추출
-        cylinder_no = raw_data[0]
-        raw_gas_name = raw_data[1] or ''
-        raw_capacity = raw_data[2]
-        raw_valve_spec = raw_data[3] or ''
-        raw_cylinder_spec = raw_data[4] or ''
-        raw_usage_place = raw_data[5] or ''
-        raw_location = raw_data[6] or ''
-        raw_condition_code = raw_data[7] or ''
-        raw_move_date = raw_data[8]
-        raw_withstand_pressure_mainte_date = raw_data[9]
-        source_updated_at = raw_data[10]
+        try:
+            cylinder_no = raw_data[0]
+            raw_gas_name = raw_data[1] or ''
+            raw_capacity = raw_data[2]
+            raw_valve_spec = raw_data[3] or ''
+            raw_cylinder_spec = raw_data[4] or ''
+            raw_usage_place = raw_data[5] or ''
+            raw_location = raw_data[6] or ''
+            raw_condition_code = raw_data[7] or ''
+            raw_move_date = raw_data[8]
+            raw_withstand_pressure_mainte_date = raw_data[9]
+            source_updated_at = raw_data[10]
+        except IndexError as e:
+            raise IndexError(f"데이터 추출 실패 (len={len(raw_data)}): {str(e)}")
         
         # ===== 정책 적용 =====
         
         # 1. 밸브 표준화
-        dashboard_valve_spec = self.apply_valve_alias(cursor, raw_valve_spec)
-        valve_parsed = parse_valve_spec(dashboard_valve_spec)
+        try:
+            dashboard_valve_spec = self.apply_valve_alias(cursor, raw_valve_spec)
+            valve_parsed = parse_valve_spec(dashboard_valve_spec)
+            if not isinstance(valve_parsed, dict):
+                raise ValueError(f"valve_parsed is not dict: {type(valve_parsed)}")
+            valve_format = valve_parsed.get('format', '')
+            valve_material = valve_parsed.get('material', '')
+        except Exception as e:
+            raise Exception(f"밸브 파싱 실패 (valve_spec={raw_valve_spec}): {str(e)}")
         
         # 2. 용기 스펙 파싱
-        cylinder_parsed = parse_cylinder_spec(raw_cylinder_spec)
+        try:
+            cylinder_parsed = parse_cylinder_spec(raw_cylinder_spec)
+            if not isinstance(cylinder_parsed, dict):
+                raise ValueError(f"cylinder_parsed is not dict: {type(cylinder_parsed)}")
+            cylinder_format = cylinder_parsed.get('format', '')
+            cylinder_material = cylinder_parsed.get('material', '')
+        except Exception as e:
+            raise Exception(f"용기 파싱 실패 (cylinder_spec={raw_cylinder_spec}): {str(e)}")
         
         # 3. 사용처 조합
         dashboard_usage_place = parse_usage_place(raw_usage_place, raw_location)
@@ -275,8 +292,8 @@ class Command(BaseCommand):
             raw_usage_place, raw_location, raw_condition_code,
             raw_location, raw_move_date, raw_withstand_pressure_mainte_date,
             raw_gas_name, raw_capacity,  # dashboard_gas_name (번역은 별도)
-            dashboard_valve_spec, valve_parsed['format'], valve_parsed['material'],
-            raw_cylinder_spec, cylinder_parsed['format'], cylinder_parsed['material'],
+            dashboard_valve_spec, valve_format, valve_material,
+            raw_cylinder_spec, cylinder_format, cylinder_material,
             enduser_code, enduser_name, dashboard_usage_place,
             dashboard_status, dashboard_location,
             dashboard_cylinder_type_key,
