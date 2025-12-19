@@ -212,10 +212,9 @@ class Command(BaseCommand):
             cursor, raw_valve_spec_code, raw_valve_spec_name
         )
         
-        # 용기종류 키
+        # 용기종류 키 (밸브 코드/용기 코드 기반으로 생성 - EndUserDefault 정책과 매칭)
         cylinder_type_key = self.generate_type_key(
-            raw_gas_name, raw_capacity, raw_valve_spec_name,
-            raw_cylinder_spec_name, raw_usage_place, dashboard_enduser
+            raw_gas_name, raw_capacity, raw_valve_spec_code, raw_cylinder_spec_code, dashboard_enduser
         )
         
         # 파생 필드
@@ -383,9 +382,12 @@ class Command(BaseCommand):
         # 3. 하드코딩 기본값 (테이블이 없으면 이 값 사용)
         return 'SDC', 'SDC'
     
-    def generate_type_key(self, gas_name, capacity, valve_spec, cylinder_spec, usage_place, enduser_code):
-        """용기종류 키 생성 (enduser 포함)"""
-        key_string = f"{gas_name}|{capacity or ''}|{valve_spec or ''}|{cylinder_spec or ''}|{usage_place or ''}|{enduser_code or ''}"
+    def generate_type_key(self, gas_name, capacity, valve_spec_code, cylinder_spec_code, enduser_code):
+        """
+        용기종류 키 생성 (EndUserDefault 정책 기준)
+        밸브 코드 + 용기 코드 + EndUser 기반으로 생성하여 정책과 1:1 매칭
+        """
+        key_string = f"{gas_name}|{capacity or ''}|{valve_spec_code or ''}|{cylinder_spec_code or ''}|{enduser_code or ''}"
         return hashlib.md5(key_string.encode('utf-8')).hexdigest()
     
     def get_enduser_with_exception(self, cursor, cylinder_no, gas_name, capacity, valve_spec_code, cylinder_spec_code):
