@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 from core.utils.view_helper import parse_cylinder_spec, parse_valve_spec, parse_usage_place
 from core.utils.cylinder_type import generate_cylinder_type_key
+from datetime import timedelta
 import hashlib
 
 
@@ -214,9 +215,11 @@ class Command(BaseCommand):
         if raw_withstand_pressure_mainte_date:
             pressure_test_date = raw_withstand_pressure_mainte_date
             pressure_test_term = 5  # 기본 5년
-            # 압력시험 만료일 = 압력시험일 + 5년
-            cursor.execute("SELECT %s::date + INTERVAL '5 years'", [pressure_test_date])
-            pressure_expire_date = cursor.fetchone()[0]
+            # 압력시험 만료일 = 압력시험일 + 5년 (Python으로 계산)
+            try:
+                pressure_expire_date = pressure_test_date + timedelta(days=365*5)
+            except:
+                pressure_expire_date = None
         else:
             pressure_test_date = None
             pressure_test_term = None
