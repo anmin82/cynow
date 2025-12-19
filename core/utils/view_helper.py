@@ -192,6 +192,7 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
                 'cylinder_material': cylinder_parsed['material'],
                 'usage_place': enduser,  # EndUser를 usage_place로 표시 (하위 호환성)
                 'statuses': {},
+                'statuses_grouped': {},  # 통합된 상태 카운트 (UI 표시용)
                 'total_qty': 0,
                 'available_qty': 0,
             }
@@ -199,16 +200,33 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
         status = row.get('status', '')
         qty = row.get('qty', 0)
         
-        # 상태별 수량 누적
+        # 상태별 수량 누적 (세분화된 상태)
         if status in cylinder_types[group_key]['statuses']:
             cylinder_types[group_key]['statuses'][status] += qty
         else:
             cylinder_types[group_key]['statuses'][status] = qty
         
+        # 통합된 상태 카운트 (UI 표시용)
+        grouped_status = status
+        if status in ('보관:미회수', '보관:회수'):
+            grouped_status = '보관'
+        elif status in ('충전중', '충전완료'):
+            grouped_status = '충전'
+        elif status == '분석완료':
+            grouped_status = '분석'
+        elif status == '정비대상':
+            grouped_status = '정비'
+        # 제품, 출하, 이상, 폐기는 그대로
+        
+        if grouped_status in cylinder_types[group_key]['statuses_grouped']:
+            cylinder_types[group_key]['statuses_grouped'][grouped_status] += qty
+        else:
+            cylinder_types[group_key]['statuses_grouped'][grouped_status] = qty
+        
         cylinder_types[group_key]['total_qty'] += qty
         
-        # 가용수량 계산 (보관만)
-        if status == '보관':
+        # 가용수량 계산 (보관:미회수, 보관:회수, 충전중, 충전완료)
+        if status in ('보관:미회수', '보관:회수', '충전중', '충전완료'):
             cylinder_types[group_key]['available_qty'] += qty
     
     # 가용 수량이 0이어도 카드는 표시 (필터링 제거)

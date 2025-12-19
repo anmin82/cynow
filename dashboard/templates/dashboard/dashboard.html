@@ -135,7 +135,7 @@
                         <th class="text-end">보관</th>
                         <th class="text-end">충전</th>
                         <th class="text-end">분석</th>
-                        <th class="text-end">창입</th>
+                        <th class="text-end">제품</th>
                         <th class="text-end">출하</th>
                         <th class="text-end">이상</th>
                         <th class="text-end">정비</th>
@@ -158,14 +158,14 @@
                             </strong>
                         </td>
                         <td class="text-end text-muted">{{ type.total_qty }}</td>
-                        <td class="text-end">{{ type.statuses.보관|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses.충전|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses.분석|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses.창입|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses.출하|default:0 }}</td>
-                        <td class="text-end {% if type.statuses.이상 %}text-danger{% endif %}">{{ type.statuses.이상|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses.정비|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses.폐기|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.보관|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.충전|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.분석|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.제품|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.출하|default:0 }}</td>
+                        <td class="text-end {% if type.statuses_grouped.이상 %}text-danger{% endif %}">{{ type.statuses_grouped.이상|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.정비|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.폐기|default:0 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -328,7 +328,7 @@ function openDetailModal(typeKey) {
     // 상태별 그리드
     const statusGrid = document.getElementById('modal-status-grid');
     statusGrid.innerHTML = '';
-    const statusOrder = ['보관', '충전', '분석', '창입', '출하', '이상', '정비', '폐기'];
+    const statusOrder = ['보관:미회수', '보관:회수', '충전중', '충전완료', '분석완료', '제품', '출하', '이상', '정비대상', '폐기'];
     statusOrder.forEach(status => {
         const qty = data.statuses[status] || 0;
         const item = document.createElement('div');
