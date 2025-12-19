@@ -394,19 +394,21 @@ class Command(BaseCommand):
     
     def get_enduser_with_exception(self, cursor, cylinder_no, gas_name, capacity, valve_spec_code, cylinder_spec_code):
         """EndUser 결정 (예외 우선, 그 다음 기본값)"""
-        # 1. 개별 용기 예외 확인
+        # 1. 개별 용기 예외 확인 (RTRIM으로 공백 제거)
         try:
             cursor.execute("""
                 SELECT enduser
                 FROM cy_enduser_exception
-                WHERE cylinder_no = %s AND is_active = TRUE
+                WHERE RTRIM(cylinder_no) = RTRIM(%s) AND is_active = TRUE
                 LIMIT 1
             """, [cylinder_no])
             
             result = cursor.fetchone()
             if result:
                 return result[0]
-        except Exception:
+        except Exception as e:
+            # 디버그용: 오류 출력
+            print(f"Warning: EndUserException lookup failed for {cylinder_no}: {str(e)}")
             pass
         
         # 2. 기본값 조회
