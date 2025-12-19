@@ -65,9 +65,15 @@ class Command(BaseCommand):
         updated = 0
         for row in rows:
             try:
-                if row and len(row) >= 11:
-                    self.upsert_cylinder(cursor, row)
-                    updated += 1
+                cylinder_no = row[0] if row and len(row) > 0 else 'UNKNOWN'
+                if not row:
+                    self.stdout.write(self.style.WARNING(f"건너뜀 (용기번호: {cylinder_no}): 데이터 없음"))
+                    continue
+                if len(row) < 11:
+                    self.stdout.write(self.style.WARNING(f"건너뜀 (용기번호: {cylinder_no}): 컬럼 부족 (expected 11, got {len(row)})"))
+                    continue
+                self.upsert_cylinder(cursor, row)
+                updated += 1
             except Exception as e:
                 cylinder_no = row[0] if row and len(row) > 0 else 'UNKNOWN'
                 self.stdout.write(self.style.ERROR(f"오류 (용기번호: {cylinder_no}): {str(e)}"))
