@@ -10,6 +10,39 @@
     <p class="page-subtitle">용기번호별 개별 현황</p>
 </div>
 
+<!-- 검색창 -->
+<div class="card mb-3 search-card">
+    <div class="card-body p-3">
+        <form method="get" action="{% url 'cylinders:list' %}" class="search-form">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" name="search" class="form-control border-start-0 ps-0" 
+                       placeholder="용기번호, 밸브형식, 용기재질, 제조LOT, 충전LOT, 최근이동서 검색..." 
+                       value="{{ search_query }}" 
+                       autocomplete="off">
+                {% if search_query %}
+                <a href="{% url 'cylinders:list' %}" class="btn btn-outline-secondary" title="검색 초기화">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> 검색
+                </button>
+            </div>
+            {% if search_query %}
+            <div class="search-result-info mt-2">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    "<strong>{{ search_query }}</strong>" 검색 결과: <strong>{{ total_count|intcomma }}</strong>건
+                </small>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
 <!-- 다중선택 상세 필터 -->
 <div class="card mb-4 multi-filter-card">
     <div class="card-body">
@@ -119,13 +152,13 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li>
-                        <a class="dropdown-item" href="{% url 'cylinders:export_excel' %}?{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
+                        <a class="dropdown-item" href="{% url 'cylinders:export_excel' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
                             <i class="bi bi-file-earmark-excel text-success"></i> 엑셀
                         </a>
                     </li>
                     {% if user.is_authenticated %}
                     <li>
-                        <a class="dropdown-item" href="{% url 'cylinders:export_qr_pdf' %}?{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
+                        <a class="dropdown-item" href="{% url 'cylinders:export_qr_pdf' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
                             <i class="bi bi-qr-code text-primary"></i> QR
                         </a>
                     </li>
@@ -276,6 +309,7 @@
 <!-- 현재 필터/정렬 상태 (JavaScript용) -->
 <script>
 const currentFilters = {
+    search: '{{ search_query|escapejs }}',
     gases: [{% for g in selected_gases %}'{{ g }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
     locations: [{% for l in selected_locations %}'{{ l }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
     statuses: [{% for s in selected_statuses %}'{{ s }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
@@ -287,6 +321,36 @@ const currentFilters = {
 </script>
 
 <style>
+/* 검색 카드 */
+.search-card {
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+.search-card .card-body {
+    padding: 1rem 1.25rem;
+}
+.search-card .input-group-text {
+    background: white;
+    border: 1px solid #dee2e6;
+    color: #667eea;
+}
+.search-card .form-control {
+    border: 1px solid #dee2e6;
+}
+.search-card .form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+.search-result-info {
+    color: white;
+}
+.search-result-info strong {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
 /* 다중선택 필터 카드 */
 .multi-filter-card {
     border: none;
@@ -487,6 +551,11 @@ const currentFilters = {
 // 필터 파라미터 빌드
 function buildFilterParams() {
     const params = new URLSearchParams();
+    
+    // 검색어
+    if (currentFilters.search) {
+        params.set('search', currentFilters.search);
+    }
     
     // 다중 선택 필터
     if (currentFilters.gases && currentFilters.gases.length > 0) {

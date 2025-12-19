@@ -78,7 +78,7 @@ class CylinderRepository:
             return results
     
     @staticmethod
-    def get_cylinder_list(filters: Optional[Dict] = None, limit: Optional[int] = None, offset: Optional[int] = None, days: Optional[int] = None, sort_by: str = 'cylinder_no', sort_order: str = 'asc') -> List[Dict]:
+    def get_cylinder_list(filters: Optional[Dict] = None, limit: Optional[int] = None, offset: Optional[int] = None, days: Optional[int] = None, sort_by: str = 'cylinder_no', sort_order: str = 'asc', search_query: Optional[str] = None) -> List[Dict]:
         """
         개별 용기 리스트
         
@@ -89,6 +89,7 @@ class CylinderRepository:
             days: 최근 N일 이내 데이터만 (last_event_at 기준)
             sort_by: 정렬 기준 컬럼
             sort_order: 정렬 순서 (asc/desc)
+            search_query: 검색어 (용기번호, 밸브형식, 용기재질, 제조lot, 충전lot, 최근이동서)
         
         Returns:
             List[Dict]: 개별 용기 정보
@@ -126,6 +127,20 @@ class CylinderRepository:
             
             params = []
             conditions = []
+            
+            # 검색어 처리 (용기번호, 밸브형식, 용기재질, 제조lot, 충전lot, 최근이동서)
+            if search_query and search_query.strip():
+                search_term = f"%{search_query.strip()}%"
+                search_conditions = [
+                    "c.cylinder_no ILIKE %s",  # 용기번호
+                    "COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) ILIKE %s",  # 밸브형식
+                    "c.dashboard_cylinder_spec_name ILIKE %s",  # 용기재질
+                    "CONCAT(COALESCE(tcs.\"MANUFACTURE_LOT_NO\", ''), COALESCE(tcs.\"MANUFACTURE_LOT_BRANCH\", '')) ILIKE %s",  # 제조lot
+                    "CONCAT(COALESCE(tcs.\"FILLING_LOT_HEADER\", ''), COALESCE(tcs.\"FILLING_LOT_NO\", ''), COALESCE(tcs.\"FILLING_LOT_BRANCH\", '')) ILIKE %s",  # 충전lot
+                    "tcs.\"MOVE_REPORT_NO\" ILIKE %s"  # 최근이동서
+                ]
+                conditions.append(f"({' OR '.join(search_conditions)})")
+                params.extend([search_term] * 6)  # 각 조건마다 같은 검색어 사용
             
             if filters:
                 if 'cylinder_no' in filters:
@@ -212,7 +227,7 @@ class CylinderRepository:
             return results
     
     @staticmethod
-    def get_cylinder_count(filters: Optional[Dict] = None, days: Optional[int] = None) -> int:
+    def get_cylinder_count(filters: Optional[Dict] = None, days: Optional[int] = None, search_query: Optional[str] = None) -> int:
         """
         용기 개수 조회 (페이지네이션용)
         실제로 fcms_cdc.ma_cylinders에 존재하는 용기만 조회 (고아 데이터 제외)
@@ -220,6 +235,7 @@ class CylinderRepository:
         Args:
             filters: 필터 조건
             days: 최근 N일 이내 데이터만
+            search_query: 검색어 (용기번호, 밸브형식, 용기재질, 제조lot, 충전lot, 최근이동서)
         
         Returns:
             int: 용기 개수
@@ -230,11 +246,27 @@ class CylinderRepository:
                 FROM cy_cylinder_current c
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
+                LEFT JOIN "fcms_cdc"."tr_latest_cylinder_statuses" tcs
+                    ON RTRIM(mc."CYLINDER_NO") = RTRIM(tcs."CYLINDER_NO")
                 WHERE c.dashboard_enduser IS NOT NULL
             """
             
             params = []
             conditions = []
+            
+            # 검색어 처리 (용기번호, 밸브형식, 용기재질, 제조lot, 충전lot, 최근이동서)
+            if search_query and search_query.strip():
+                search_term = f"%{search_query.strip()}%"
+                search_conditions = [
+                    "c.cylinder_no ILIKE %s",  # 용기번호
+                    "COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) ILIKE %s",  # 밸브형식
+                    "c.dashboard_cylinder_spec_name ILIKE %s",  # 용기재질
+                    "CONCAT(COALESCE(tcs.\"MANUFACTURE_LOT_NO\", ''), COALESCE(tcs.\"MANUFACTURE_LOT_BRANCH\", '')) ILIKE %s",  # 제조lot
+                    "CONCAT(COALESCE(tcs.\"FILLING_LOT_HEADER\", ''), COALESCE(tcs.\"FILLING_LOT_NO\", ''), COALESCE(tcs.\"FILLING_LOT_BRANCH\", '')) ILIKE %s",  # 충전lot
+                    "tcs.\"MOVE_REPORT_NO\" ILIKE %s"  # 최근이동서
+                ]
+                conditions.append(f"({' OR '.join(search_conditions)})")
+                params.extend([search_term] * 6)  # 각 조건마다 같은 검색어 사용
             
             if filters:
                 if 'cylinder_no' in filters:

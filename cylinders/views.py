@@ -15,6 +15,9 @@ from .models import CylinderMemo
 
 def cylinder_list(request):
     """용기번호 리스트"""
+    # 검색어 파라미터
+    search_query = request.GET.get('search', '').strip()
+    
     # 다중 선택 필터 파라미터 (getlist로 여러 값 받기)
     selected_gases = request.GET.getlist('gases')
     selected_locations = request.GET.getlist('locations')
@@ -87,7 +90,7 @@ def cylinder_list(request):
     offset = (page - 1) * per_page
     
     # 전체 개수 조회 (페이지네이션용)
-    total_count = CylinderRepository.get_cylinder_count(filters=filters, days=days_int)
+    total_count = CylinderRepository.get_cylinder_count(filters=filters, days=days_int, search_query=search_query)
     
     # 현재 페이지 데이터만 조회 (SQL LIMIT/OFFSET 사용)
     cylinders_list = CylinderRepository.get_cylinder_list(
@@ -96,7 +99,8 @@ def cylinder_list(request):
         offset=offset,
         days=days_int,
         sort_by=sort_by,
-        sort_order=sort_order
+        sort_order=sort_order,
+        search_query=search_query
     )
     
     # 페이지네이션 계산
@@ -209,6 +213,8 @@ def cylinder_list(request):
         'total_count': total_count,
         'cylinders_with_memo': cylinders_with_memo,
         'page_range': page_range,
+        # 검색어
+        'search_query': search_query,
         # 다중 선택 필터
         'selected_gases': selected_gases,
         'selected_locations': selected_locations,
@@ -374,6 +380,9 @@ def cylinder_export_excel(request):
     """용기 리스트 엑셀 다운로드"""
     from urllib.parse import quote
     
+    # 검색어 파라미터
+    search_query = request.GET.get('search', '').strip()
+    
     # 다중 선택 필터 파라미터 (getlist로 여러 값 받기)
     selected_gases = request.GET.getlist('gases')
     selected_locations = request.GET.getlist('locations')
@@ -440,7 +449,8 @@ def cylinder_export_excel(request):
         limit=10000,
         days=days_int,
         sort_by=sort_by,
-        sort_order=sort_order
+        sort_order=sort_order,
+        search_query=search_query
     )
     
     # 엑셀 워크북 생성
@@ -573,6 +583,9 @@ def cylinder_export_qr_pdf(request):
     from reportlab.lib.utils import ImageReader
     import os
     
+    # 검색어 파라미터
+    search_query = request.GET.get('search', '').strip()
+    
     # 다중 선택 필터 파라미터
     selected_gases = request.GET.getlist('gases')
     selected_locations = request.GET.getlist('locations')
@@ -636,7 +649,8 @@ def cylinder_export_qr_pdf(request):
         limit=1000,
         days=days_int,
         sort_by=sort_by,
-        sort_order=sort_order
+        sort_order=sort_order,
+        search_query=search_query
     )
     
     # A4 사이즈 설정
