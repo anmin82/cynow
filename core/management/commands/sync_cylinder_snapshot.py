@@ -418,12 +418,28 @@ class Command(BaseCommand):
             if result:
                 return result[0]
             
+            # 전체 기본값 조회 (가스명, 용량 모두 매칭 안 될 때)
+            cursor.execute("""
+                SELECT default_enduser
+                FROM cy_enduser_default
+                WHERE (gas_name IS NULL OR gas_name = '')
+                AND capacity IS NULL
+                AND (valve_spec_code IS NULL OR valve_spec_code = '')
+                AND (cylinder_spec_code IS NULL OR cylinder_spec_code = '')
+                AND is_active = TRUE
+                LIMIT 1
+            """)
+            
+            result = cursor.fetchone()
+            if result:
+                return result[0]
+            
         except Exception as e:
             # 오류 발생 시 기본값 반환
             pass
         
-        # 매칭 실패 시 기본값
-        return 'SDC'
+        # 매칭 실패 시 최종 기본값
+        return 'FPK'
     
     def map_condition_code(self, code):
         """상태 코드 → 상태명 변환"""
