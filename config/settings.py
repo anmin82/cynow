@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'reports',
     'cylinders',
     'alerts',
+    'orders',
+    'devices',
 ]
 
 MIDDLEWARE = [
