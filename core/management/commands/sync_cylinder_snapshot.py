@@ -92,7 +92,7 @@ class Command(BaseCommand):
         cursor.execute("TRUNCATE TABLE cy_cylinder_current;")
         self.stdout.write("기존 데이터 삭제 완료")
         
-        # VIEW에서 전체 데이터 조회
+        # VIEW에서 전체 데이터 조회 (모두 가져옴)
         cursor.execute("""
             SELECT 
                 c."CYLINDER_NO",
@@ -120,14 +120,16 @@ class Command(BaseCommand):
             ORDER BY c."CYLINDER_NO"
         """)
         
+        # 모든 데이터를 먼저 가져옴 (INSERT로 cursor가 덮어쓰이는 것을 방지)
+        all_rows = cursor.fetchall()
+        self.stdout.write(f"조회 완료: {len(all_rows)}건")
+        
         total = 0
-        while True:
-            rows = cursor.fetchmany(batch_size)
-            if not rows:
-                break
+        for i in range(0, len(all_rows), batch_size):
+            batch = all_rows[i:i+batch_size]
             
             with transaction.atomic():
-                for row in rows:
+                for row in batch:
                     try:
                         if row and len(row) >= 14:
                             self.upsert_cylinder(cursor, row)
