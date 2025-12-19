@@ -148,7 +148,7 @@ def extract_valve_type(valve_spec: Optional[str]) -> str:
 def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
     """
     용기종류별로 데이터를 그룹화
-    DB의 cylinder_type_key를 기준으로 그룹화 (정확한 필터링 보장)
+    EndUserDefault 정책 기준으로 그룹화 (가스명 + 용량 + 밸브 + 용기 + EndUser)
     
     Args:
         inventory_data: vw_cynow_inventory에서 조회한 데이터 리스트
@@ -159,25 +159,18 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
     cylinder_types = {}
     
     for row in inventory_data:
-        # DB의 cylinder_type_key를 그룹 키로 사용 (정확한 필터링 보장)
-        cylinder_type_key = row.get('cylinder_type_key', '')
-        if not cylinder_type_key:
-            # cylinder_type_key가 없으면 기존 방식으로 생성
-            gas_name = row.get('gas_name', '')
-            capacity = row.get('capacity') or ''
-            valve_spec = row.get('valve_spec', '')
-            cylinder_spec = row.get('cylinder_spec', '')
-            enduser = row.get('enduser', '') or ''
-            group_key = f"{gas_name}|{capacity}|{valve_spec}|{cylinder_spec}|{enduser}"
-        else:
-            group_key = cylinder_type_key
-        
+        # EndUserDefault 정책과 일치하도록 그룹 키 생성
+        # 밸브 그룹이 있으면 그룹명 사용, 없으면 밸브 스펙 사용
         gas_name = row.get('gas_name', '')
         capacity = row.get('capacity') or ''
-        valve_spec = row.get('valve_spec', '')
-        valve_type = extract_valve_type(valve_spec)
+        valve_spec = row.get('valve_spec', '')  # 밸브 그룹명 또는 밸브 스펙
         cylinder_spec = row.get('cylinder_spec', '')
         enduser = row.get('enduser', '') or ''
+        
+        # 그룹 키: 가스명 + 용량 + 밸브 + 용기 + EndUser
+        group_key = f"{gas_name}|{capacity}|{valve_spec}|{cylinder_spec}|{enduser}"
+        
+        valve_type = extract_valve_type(valve_spec)
         
         if group_key not in cylinder_types:
             # 용기 스펙 파싱
