@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}EndUser 마스터 목록 - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <span class="breadcrumb-item active">EndUser 마스터</span>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">EndUser 마스터 목록</h1>
+        <p class="page-subtitle">EndUser 코드와 이름 관리</p>
+    </div>
+    <div>
+        <a href="{% url 'core:enduser_master_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>EndUser 추가
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        EndUser 목록 ({{ endusers|length }}개)
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>코드</th>
+                        <th>이름</th>
+                        <th>설명</th>
+                        <th>상태</th>
+                        <th>수정일시</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for enduser in endusers %}
+                    <tr>
+                        <td><strong><code>{{ enduser.enduser_code }}</code></strong></td>
+                        <td>{{ enduser.enduser_name }}</td>
+                        <td>{{ enduser.description|default:"-" }}</td>
+                        <td>
+                            {% if enduser.is_active %}
+                            <span class="badge bg-success">활성</span>
+                            {% else %}
+                            <span class="badge bg-secondary">비활성</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ enduser.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'core:enduser_master_edit' enduser.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i> 수정
+                                </a>
+                                <form method="post" action="{% url 'core:enduser_master_delete' enduser.id %}" class="d-inline" 
+                                      onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i> 삭제
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            등록된 EndUser가 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+

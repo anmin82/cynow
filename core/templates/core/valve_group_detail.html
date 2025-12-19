@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ group.group_name }} - 밸브 그룹 관리 - CYNOW{% endblock %}
+
+{% block extra_css %}
+<style>
+    .valve-search-results {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid var(--ios-gray-4);
+        border-radius: 10px;
+        background: var(--ios-card-bg);
+    }
+    .valve-search-item {
+        padding: 10px 16px;
+        border-bottom: 0.5px solid var(--ios-separator);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .valve-search-item:hover {
+        background: var(--ios-gray-6);
+    }
+    .valve-search-item:last-child {
+        border-bottom: none;
+    }
+    .valve-search-item code {
+        font-size: 12px;
+        color: var(--ios-gray-1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <a class="breadcrumb-item" href="{% url 'core:valve_group_list' %}">밸브 그룹</a>
+    <span class="breadcrumb-item active">{{ group.group_name }}</span>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">{{ group.group_name }}</h1>
+        <p class="page-subtitle">{{ group.description|default:"밸브 그룹 관리" }}</p>
+    </div>
+    <div>
+        <a href="{% url 'core:valve_group_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>목록으로
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 밸브 매핑 추가 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-plus-circle me-2"></i>밸브 추가
+            </div>
+            <div class="card-body">
+                <form method="post" action="{% url 'core:valve_group_mapping_add' group.id %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">밸브 검색</label>
+                        <input type="text" class="form-control" id="valve-search" 
+                               placeholder="밸브 스펙명 검색 (예: CGA330, NERIKI)">
+                        <div id="valve-search-results" class="valve-search-results mt-2" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">밸브 스펙 코드 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="valve_spec_code" id="valve_spec_code" required 
+                               placeholder="예: 0000000004" maxlength="50">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">밸브 스펙명 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="valve_spec_name" id="valve_spec_name" required 
+                               placeholder="예: SUS general Y CGA330 Y NERIKI" maxlength="200">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_primary" id="is_primary">
+                            <label class="form-check-label" for="is_primary">
+                                대표 밸브로 설정
+                            </label>
+                        </div>
+                        <small class="text-muted">대표 밸브는 대시보드에서 표시되는 이름입니다. 그룹당 하나만 설정할 수 있습니다.</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle me-2"></i>밸브 추가
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 매핑 목록 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-list-ul me-2"></i>매핑된 밸브 ({{ mappings|length }}개)
+            </div>
+            <div class="card-body p-0">
+                {% if mappings %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>밸브 스펙명</th>
+                                <th>대표</th>
+                                <th>상태</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mapping in mappings %}
+                            <tr>
+                                <td>
+                                    <div class="small">
+                                        <code class="text-muted">{{ mapping.valve_spec_code }}</code><br>
+                                        {{ mapping.valve_spec_name }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if mapping.is_primary %}
+                                    <span class="badge bg-primary">대표</span>
+                                    {% else %}
+                                    <form method="post" action="{% url 'core:valve_group_mapping_toggle_primary' mapping.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                                            대표로
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if mapping.is_active %}
+                                    <span class="badge bg-success">활성</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">비활성</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="post" action="{% url 'core:valve_group_mapping_toggle_active' mapping.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            {% if mapping.is_active %}
+                                            <i class="bi bi-toggle-on"></i>
+                                            {% else %}
+                                            <i class="bi bi-toggle-off"></i>
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    등록된 밸브가 없습니다.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('valve-search');
+    const resultsDiv = document.getElementById('valve-search-results');
+    const codeInput = document.getElementById('valve_spec_code');
+    const nameInput = document.getElementById('valve_spec_name');
+    let searchTimeout;
+    
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        clearTimeout(searchTimeout);
+        
+        if (query.length < 2) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(function() {
+            fetch(`{% url 'core:valve_spec_search' %}?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        resultsDiv.innerHTML = data.results.map(function(valve) {
+                            return `
+                                <div class="valve-search-item" onclick="selectValve('${valve.code}', '${valve.name.replace(/'/g, "\\'")}')">
+                                    <div><strong>${valve.name}</strong></div>
+                                    <div><code>${valve.code}</code></div>
+                                </div>
+                            `;
+                        }).join('');
+                        resultsDiv.style.display = 'block';
+                    } else {
+                        resultsDiv.innerHTML = '<div class="valve-search-item text-muted">검색 결과가 없습니다.</div>';
+                        resultsDiv.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }, 300);
+    });
+    
+    // 검색 결과 외부 클릭 시 닫기
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+            resultsDiv.style.display = 'none';
+        }
+    });
+});
+
+function selectValve(code, name) {
+    document.getElementById('valve_spec_code').value = code;
+    document.getElementById('valve_spec_name').value = name;
+    document.getElementById('valve-search-results').style.display = 'none';
+    document.getElementById('valve-search').value = '';
+}
+</script>
+{% endblock %}

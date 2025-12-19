@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}EndUser 마스터 추가 - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <a class="breadcrumb-item" href="{% url 'core:enduser_master_list' %}">EndUser 마스터</a>
+    <span class="breadcrumb-item active">추가</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">EndUser 마스터 추가</h1>
+    <p class="page-subtitle">EndUser 코드와 이름을 등록합니다</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">EndUser 정보 입력</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">EndUser 코드 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="enduser_code" required 
+                               placeholder="예: SDC, LGD" maxlength="50" style="text-transform: uppercase;">
+                        <small class="text-muted">EndUser 코드를 입력하세요. 대문자로 자동 변환됩니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">EndUser 이름 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="enduser_name" required 
+                               placeholder="예: SDC, LGD" maxlength="200">
+                        <small class="text-muted">EndUser 이름을 입력하세요.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">설명</label>
+                        <textarea class="form-control" name="description" rows="3" 
+                                  placeholder="선택사항: EndUser에 대한 설명을 입력하세요"></textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>저장
+                        </button>
+                        <a href="{% url 'core:enduser_master_list' %}" class="btn btn-outline-secondary">
+                            취소
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">도움말</div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">사용 방법</h6>
+                <ul class="small">
+                    <li>EndUser 코드와 이름은 필수 입력 항목입니다.</li>
+                    <li>코드는 대문자로 자동 변환됩니다.</li>
+                    <li>같은 코드로 다시 입력하면 업데이트됩니다.</li>
+                </ul>
+                
+                <h6 class="fw-bold mb-3 mt-4">예시</h6>
+                <ul class="small">
+                    <li><strong>코드</strong>: SDC</li>
+                    <li><strong>이름</strong>: SDC</li>
+                    <li><strong>설명</strong>: 기본 EndUser</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+

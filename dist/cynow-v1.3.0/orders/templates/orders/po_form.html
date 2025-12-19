@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}수주 수정{% else %}수주 등록{% endif %} - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'orders:list' %}">수주 리스트</a>
+    <span class="breadcrumb-item active">{% if is_edit %}수정{% else %}등록{% endif %}</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">{% if is_edit %}수주 수정{% else %}수주 등록{% endif %}</h1>
+    <p class="page-subtitle">{% if is_edit %}수주 정보 수정{% else %}신규 수주 정보 입력{% endif %}</p>
+</div>
+
+<form method="post" id="po-form">
+    {% csrf_token %}
+    
+    <div class="row g-4">
+        <!-- 기본 정보 -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-2"></i>기본 정보
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.supplier_user_code.label }}</label>
+                            {{ form.supplier_user_code }}
+                            {% if form.supplier_user_code.errors %}
+                                <div class="invalid-feedback d-block">{{ form.supplier_user_code.errors.0 }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">고객 코드를 입력하세요</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.supplier_user_name.label }}</label>
+                            {{ form.supplier_user_name }}
+                            {% if form.supplier_user_name.errors %}
+                                <div class="invalid-feedback d-block">{{ form.supplier_user_name.errors.0 }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">고객명을 입력하세요</small>
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.customer_order_no.label }}</label>
+                            {{ form.customer_order_no }}
+                            {% if form.customer_order_no.errors %}
+                                <div class="invalid-feedback d-block">{{ form.customer_order_no.errors.0 }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">고객 발주번호 (동일 고객 내 중복 불가)</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.received_at.label }}</label>
+                            {{ form.received_at }}
+                            {% if form.received_at.errors %}
+                                <div class="invalid-feedback d-block">{{ form.received_at.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.due_date.label }}</label>
+                            {{ form.due_date }}
+                            {% if form.due_date.errors %}
+                                <div class="invalid-feedback d-block">{{ form.due_date.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">{{ form.status.label }}</label>
+                            {{ form.status }}
+                            {% if form.status.errors %}
+                                <div class="invalid-feedback d-block">{{ form.status.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="form-label">{{ form.memo.label }}</label>
+                            {{ form.memo }}
+                            {% if form.memo.errors %}
+                                <div class="invalid-feedback d-block">{{ form.memo.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 라인 항목 -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-list-ul me-2"></i>수주 품목</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="add-item-btn">
+                        <i class="bi bi-plus-circle"></i> 품목 추가
+                    </button>
+                </div>
+                <div class="card-body">
+                    {{ formset.management_form }}
+                    
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle" id="items-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 60px;">라인</th>
+                                    <th style="width: 150px;">품목코드</th>
+                                    <th>품목명</th>
+                                    <th style="width: 100px;">수량</th>
+                                    <th style="width: 120px;">단가</th>
+                                    <th style="width: 150px;">비고</th>
+                                    <th style="width: 60px;">삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-tbody">
+                                {% for item_form in formset %}
+                                <tr class="item-row">
+                                    <td>
+                                        {{ item_form.id }}
+                                        {{ item_form.line_no }}
+                                    </td>
+                                    <td>{{ item_form.trade_condition_code }}</td>
+                                    <td>{{ item_form.trade_condition_name }}</td>
+                                    <td>{{ item_form.qty }}</td>
+                                    <td>{{ item_form.unit_price }}</td>
+                                    <td>{{ item_form.remarks }}</td>
+                                    <td class="text-center">
+                                        {% if not forloop.first or formset|length > 1 %}
+                                        {{ item_form.DELETE }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if item_form.errors %}
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="alert alert-danger alert-sm mb-0">
+                                            {{ item_form.errors }}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if formset.non_form_errors %}
+                    <div class="alert alert-danger mt-3">
+                        {{ formset.non_form_errors }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 도움말 -->
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-lightbulb me-2"></i>입력 가이드
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">수주 등록 순서</h6>
+                    <ol class="small">
+                        <li>고객 정보 입력 (코드, 명칭)</li>
+                        <li>고객 발주번호 입력</li>
+                        <li>수주 접수일시 및 납기일 설정</li>
+                        <li>품목 정보 입력 (최소 1개)</li>
+                        <li>저장 버튼 클릭</li>
+                    </ol>
+                    
+                    <hr>
+                    
+                    <h6 class="fw-bold">주요 필드 설명</h6>
+                    <dl class="small mb-0">
+                        <dt>고객 코드</dt>
+                        <dd>FCMS의 거래처 코드 (예: KDKK)</dd>
+                        
+                        <dt>고객 발주번호</dt>
+                        <dd>고객사가 발행한 발주 문서 번호</dd>
+                        
+                        <dt>품목코드</dt>
+                        <dd>FCMS 거래조건코드 (예: 9100010103000099)</dd>
+                        
+                        <dt>상태</dt>
+                        <dd>
+                            <span class="badge bg-secondary">DRAFT</span> 임시저장<br>
+                            <span class="badge bg-primary">RESERVED</span> 번호예약<br>
+                            <span class="badge bg-success">MATCHED</span> FCMS매칭<br>
+                            <span class="badge bg-info">IN_PROGRESS</span> 진행중<br>
+                            <span class="badge bg-dark">COMPLETED</span> 완료
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-clipboard-check me-2"></i>다음 단계
+                </div>
+                <div class="card-body small">
+                    <p>수주 등록 후 다음 작업을 진행할 수 있습니다:</p>
+                    <ul class="mb-0">
+                        <li>예약번호 생성 (이동서번호/도착출하번호)</li>
+                        <li>FCMS 매칭 확인</li>
+                        <li>진행 현황 모니터링</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 버튼 -->
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <a href="{% url 'orders:list' %}" class="btn btn-secondary">
+            <i class="bi bi-x-circle"></i> 취소
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> {% if is_edit %}수정{% else %}등록{% endif %}
+        </button>
+    </div>
+</form>
+
+<script>
+// 현재 datetime-local 기본값 설정
+document.addEventListener('DOMContentLoaded', function() {
+    const receivedAtInput = document.querySelector('input[name="received_at"]');
+    if (receivedAtInput && !receivedAtInput.value) {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        receivedAtInput.value = now.toISOString().slice(0, 16);
+    }
+    
+    // 라인번호 자동 설정
+    updateLineNumbers();
+});
+
+// 라인 번호 자동 재정렬
+function updateLineNumbers() {
+    const rows = document.querySelectorAll('#items-tbody .item-row');
+    rows.forEach((row, index) => {
+        const lineNoInput = row.querySelector('input[name$="-line_no"]');
+        if (lineNoInput) {
+            lineNoInput.value = index + 1;
+        }
+    });
+}
+
+// 품목 추가
+document.getElementById('add-item-btn').addEventListener('click', function() {
+    const tbody = document.getElementById('items-tbody');
+    const totalForms = document.querySelector('input[name$="TOTAL_FORMS"]');
+    const currentIndex = parseInt(totalForms.value);
+    
+    // 마지막 행 복사
+    const lastRow = tbody.querySelector('.item-row:last-of-type');
+    if (!lastRow) return;
+    
+    const newRow = lastRow.cloneNode(true);
+    
+    // ID 및 name 속성 업데이트
+    const inputs = newRow.querySelectorAll('input, select');
+    inputs.forEach(input => {
+        if (input.name) {
+            // 인덱스 변경: items-0- -> items-{currentIndex}-
+            const newName = input.name.replace(/-\d+-/, `-${currentIndex}-`);
+            input.name = newName;
+            input.id = 'id_' + newName;
+            
+            // 값 초기화 (DELETE 체크박스 제외)
+            if (!input.name.includes('DELETE')) {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = '';
+                }
+            }
+        }
+    });
+    
+    tbody.appendChild(newRow);
+    totalForms.value = currentIndex + 1;
+    
+    updateLineNumbers();
+});
+
+// 폼 제출 시 빈 행 검증
+document.getElementById('po-form').addEventListener('submit', function(e) {
+    const rows = document.querySelectorAll('#items-tbody .item-row');
+    let hasValidRow = false;
+    
+    rows.forEach(row => {
+        const deleteCheckbox = row.querySelector('input[name$="-DELETE"]');
+        const qtyInput = row.querySelector('input[name$="-qty"]');
+        
+        if (deleteCheckbox && deleteCheckbox.checked) {
+            return; // 삭제될 행은 무시
+        }
+        
+        if (qtyInput && qtyInput.value && parseInt(qtyInput.value) > 0) {
+            hasValidRow = true;
+        }
+    });
+    
+    if (!hasValidRow) {
+        e.preventDefault();
+        alert('최소 1개 이상의 품목을 입력해주세요.');
+        return false;
+    }
+});
+</script>
+
+<style>
+.item-row input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+}
+
+.table-sm td {
+    vertical-align: middle;
+}
+
+.alert-sm {
+    font-size: 0.875rem;
+    padding: 0.5rem;
+}
+
+dl dt {
+    margin-top: 0.5rem;
+    font-weight: 600;
+}
+
+dl dd {
+    margin-bottom: 0;
+    margin-left: 1rem;
+    color: #6c757d;
+}
+</style>
+
+{% endblock %}

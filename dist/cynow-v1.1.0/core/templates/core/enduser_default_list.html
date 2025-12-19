@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}EndUser 기본값 목록 - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <span class="breadcrumb-item active">EndUser 기본값</span>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">EndUser 기본값 목록</h1>
+        <p class="page-subtitle">가스명, 용량, 스펙별 기본 EndUser 설정</p>
+    </div>
+    <div>
+        <a href="{% url 'core:enduser_default_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>기본값 추가
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>기본값 목록 ({{ defaults.paginator.count|intcomma }}개)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>가스명</th>
+                        <th>용량</th>
+                        <th>밸브명</th>
+                        <th>용기명</th>
+                        <th>기본 EndUser</th>
+                        <th>상태</th>
+                        <th>수정일시</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for default in defaults %}
+                    <tr>
+                        <td><strong>{{ default.gas_name }}</strong></td>
+                        <td>{{ default.capacity|default:"전체" }}</td>
+                        <td>
+                            {% if default.valve_spec_name %}
+                            {{ default.valve_spec_name }}
+                            {% if default.valve_spec_code != default.valve_spec_name %}
+                            <br><code class="small text-muted">{{ default.valve_spec_code }}</code>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if default.cylinder_spec_name %}
+                            {{ default.cylinder_spec_name }}
+                            {% if default.cylinder_spec_code != default.cylinder_spec_name %}
+                            <br><code class="small text-muted">{{ default.cylinder_spec_code }}</code>
+                            {% endif %}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-primary">{{ default.default_enduser }}</span></td>
+                        <td>
+                            {% if default.is_active %}
+                            <span class="badge bg-success">활성</span>
+                            {% else %}
+                            <span class="badge bg-secondary">비활성</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ default.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'core:enduser_default_edit' default.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i> 수정
+                                </a>
+                                <form method="post" action="{% url 'core:enduser_default_toggle' default.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="{% if default.is_active %}비활성화{% else %}활성화{% endif %}">
+                                        {% if default.is_active %}
+                                        <i class="bi bi-toggle-on"></i>
+                                        {% else %}
+                                        <i class="bi bi-toggle-off"></i>
+                                        {% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'core:enduser_default_delete' default.id %}" class="d-inline" 
+                                      onsubmit="return confirm('정말 삭제하시겠습니까?\\n\\n삭제하면 이 기본값이 적용되던 용기들은 더 이상 이 정책을 사용하지 않습니다.\\n\\n삭제 후 스냅샷이 자동으로 갱신됩니다.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="삭제">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            등록된 기본값이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if defaults.has_other_pages %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination mb-0 justify-content-center">
+                {% if defaults.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ defaults.previous_page_number }}">이전</a>
+                </li>
+                {% endif %}
+                
+                {% for num in defaults.paginator.page_range %}
+                    {% if defaults.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > defaults.number|add:'-3' and num < defaults.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if defaults.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ defaults.next_page_number }}">다음</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

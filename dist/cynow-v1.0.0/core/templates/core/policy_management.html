@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}정책 관리 - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <span class="breadcrumb-item active">정책 관리</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">정책 관리</h1>
+    <p class="page-subtitle">EndUser 예외 및 밸브 그룹 설정</p>
+</div>
+
+<div class="row g-4">
+    <!-- EndUser 마스터 관리 -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-people me-2"></i>EndUser 마스터
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    EndUser 코드와 이름을 관리합니다.
+                </p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'core:enduser_master_list' %}" class="btn btn-primary">
+                        <i class="bi bi-list-ul me-2"></i>목록 보기
+                    </a>
+                    <a href="{% url 'core:enduser_master_add' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle me-2"></i>추가
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- EndUser 기본값 관리 -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-gear me-2"></i>EndUser 기본값 관리
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    가스명, 용량, 밸브/용기 스펙별 기본 EndUser를 설정합니다.
+                </p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'core:enduser_default_list' %}" class="btn btn-primary">
+                        <i class="bi bi-list-ul me-2"></i>기본값 목록 보기
+                    </a>
+                    <a href="{% url 'core:enduser_default_add' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle me-2"></i>기본값 추가
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- EndUser 예외 관리 -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-badge me-2"></i>EndUser 예외 관리
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    특정 용기번호에 대해 기본값과 다른 EndUser를 지정합니다.
+                </p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'core:enduser_exception_list' %}" class="btn btn-primary">
+                        <i class="bi bi-list-ul me-2"></i>예외 목록 보기
+                    </a>
+                    <a href="{% url 'core:enduser_exception_add' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle me-2"></i>예외 추가
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 밸브 그룹 관리 -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-diagram-3 me-2"></i>밸브 그룹 관리
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    메이커만 다른 밸브를 하나의 그룹으로 통합합니다.
+                </p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'core:valve_group_list' %}" class="btn btn-primary">
+                        <i class="bi bi-list-ul me-2"></i>그룹 목록 보기
+                    </a>
+                    <a href="{% url 'core:valve_group_add' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle me-2"></i>그룹 추가
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>사용 가이드
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">EndUser 마스터</h6>
+                <ul class="mb-4">
+                    <li>EndUser 코드와 이름을 등록/수정/삭제할 수 있습니다.</li>
+                    <li>기본값과 예외에서 드롭다운으로 선택할 수 있습니다.</li>
+                </ul>
+                
+                <h6 class="fw-bold mb-3">EndUser 기본값</h6>
+                <ul class="mb-4">
+                    <li>가스명, 용량, 밸브/용기 스펙 조합별로 기본 EndUser를 설정합니다.</li>
+                    <li>예: CF4 440L → SDC, CF4 전체 → SDC</li>
+                    <li>조건이 구체적일수록 우선순위가 높습니다.</li>
+                </ul>
+                
+                <h6 class="fw-bold mb-3">EndUser 예외</h6>
+                <ul class="mb-4">
+                    <li>기본값과 다른 EndUser를 지정하려면 예외를 추가하세요.</li>
+                    <li>CSV 파일로 일괄 입력이 가능합니다.</li>
+                    <li>예외는 기본값보다 우선순위가 높습니다.</li>
+                </ul>
+                
+                <h6 class="fw-bold mb-3">밸브 그룹</h6>
+                <ul>
+                    <li>메이커만 다른 밸브를 하나의 그룹으로 통합할 수 있습니다.</li>
+                    <li>대표 밸브(primary)를 지정하면 대시보드에서 그 이름으로 표시됩니다.</li>
+                    <li>원본 밸브 정보는 유지되며, 집계 시에만 그룹으로 처리됩니다.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

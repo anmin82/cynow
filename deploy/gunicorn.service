@@ -1,0 +1,59 @@
+# =============================================================================
+# CYNOW Gunicorn Systemd 서비스 파일
+# =============================================================================
+# 위치: /etc/systemd/system/cynow.service
+# 
+# 설치 순서:
+#   1. sudo cp gunicorn.service /etc/systemd/system/cynow.service
+#   2. sudo systemctl daemon-reload
+#   3. sudo systemctl enable cynow
+#   4. sudo systemctl start cynow
+#
+# 주요 명령:
+#   - 상태 확인: sudo systemctl status cynow
+#   - 로그 확인: sudo journalctl -u cynow -f
+#   - 재시작: sudo systemctl restart cynow
+#   - 정지: sudo systemctl stop cynow
+# =============================================================================
+
+[Unit]
+Description=CYNOW Gunicorn Daemon
+# 네트워크가 올라온 후 시작
+After=network.target
+
+[Service]
+# 실행 사용자/그룹 (보안상 root 아닌 전용 사용자 권장)
+User=cynow
+Group=www-data
+
+# 프로젝트 루트 디렉토리
+WorkingDirectory=/opt/cynow/cynow
+
+# 환경 파일 로드 (.env 대신 systemd 환경 파일 사용 가능)
+EnvironmentFile=/opt/cynow/cynow/.env
+
+# Gunicorn 실행 명령
+# --workers: CPU 코어 수 * 2 + 1 권장 (4코어 서버 = 9)
+# --bind: NGINX가 연결할 주소 (Unix 소켓 또는 TCP)
+# --timeout: 요청 타임아웃 (초)
+ExecStart=/opt/cynow/cynow/venv/bin/gunicorn \
+    --workers 4 \
+    --bind 127.0.0.1:8001 \
+    --timeout 120 \
+    --access-logfile /var/log/cynow/access.log \
+    --error-logfile /var/log/cynow/error.log \
+    --capture-output \
+    config.wsgi:application
+
+# 프로세스 관리
+Restart=always
+RestartSec=3
+
+# 표준 출력/에러를 journald로 전송
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+# 멀티유저 타겟에서 활성화 (부팅 시 자동 시작)
+WantedBy=multi-user.target
+

@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}EndUser 예외 목록 - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <span class="breadcrumb-item active">EndUser 예외</span>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">EndUser 예외 목록</h1>
+        <p class="page-subtitle">특정 용기번호의 EndUser 설정</p>
+    </div>
+    <div>
+        <a href="{% url 'core:enduser_exception_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>예외 추가
+        </a>
+    </div>
+</div>
+
+<!-- Excel 업로드 -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-upload me-2"></i>Excel 파일로 일괄 입력</span>
+        <a href="{% url 'core:enduser_exception_template' %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-download me-2"></i>템플릿 다운로드
+        </a>
+    </div>
+    <div class="card-body">
+        <form method="post" action="{% url 'core:enduser_exception_upload' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label">Excel 파일 선택</label>
+                    <input type="file" class="form-control" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                    <small class="text-muted">
+                        Excel(.xlsx, .xls) 또는 CSV(.csv) 형식 지원<br>
+                        컬럼: 용기번호, EndUser, 사유 (사유는 선택사항)
+                    </small>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-upload me-2"></i>업로드
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 예외 목록 -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>예외 목록 ({{ exceptions.paginator.count|intcomma }}개)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>용기번호</th>
+                        <th>EndUser</th>
+                        <th>사유</th>
+                        <th>상태</th>
+                        <th>수정일시</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exception in exceptions %}
+                    <tr>
+                        <td><code>{{ exception.cylinder_no }}</code></td>
+                        <td><span class="badge bg-primary">{{ exception.enduser }}</span></td>
+                        <td>{{ exception.reason|default:"-" }}</td>
+                        <td>
+                            {% if exception.is_active %}
+                            <span class="badge bg-success">활성</span>
+                            {% else %}
+                            <span class="badge bg-secondary">비활성</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ exception.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <form method="post" action="{% url 'core:enduser_exception_toggle' exception.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                    {% if exception.is_active %}
+                                    <i class="bi bi-toggle-on"></i> 비활성화
+                                    {% else %}
+                                    <i class="bi bi-toggle-off"></i> 활성화
+                                    {% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            등록된 예외가 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if exceptions.has_other_pages %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination mb-0 justify-content-center">
+                {% if exceptions.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ exceptions.previous_page_number }}">이전</a>
+                </li>
+                {% endif %}
+                
+                {% for num in exceptions.paginator.page_range %}
+                    {% if exceptions.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > exceptions.number|add:'-3' and num < exceptions.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if exceptions.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ exceptions.next_page_number }}">다음</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

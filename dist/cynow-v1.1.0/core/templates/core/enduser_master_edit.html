@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}EndUser 마스터 수정 - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <a class="breadcrumb-item" href="{% url 'core:enduser_master_list' %}">EndUser 마스터</a>
+    <span class="breadcrumb-item active">수정</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">EndUser 마스터 수정</h1>
+    <p class="page-subtitle">EndUser 정보를 수정합니다</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">EndUser 정보 수정</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">EndUser 코드 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="enduser_code" required 
+                               value="{{ enduser.enduser_code }}" maxlength="50" style="text-transform: uppercase;">
+                        <small class="text-muted">EndUser 코드를 입력하세요. 대문자로 자동 변환됩니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">EndUser 이름 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="enduser_name" required 
+                               value="{{ enduser.enduser_name }}" maxlength="200">
+                        <small class="text-muted">EndUser 이름을 입력하세요.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">설명</label>
+                        <textarea class="form-control" name="description" rows="3">{{ enduser.description|default:"" }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="is_active" 
+                                   {% if enduser.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                활성화
+                            </label>
+                        </div>
+                        <small class="text-muted">비활성화하면 드롭다운에서 선택할 수 없습니다.</small>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>저장
+                        </button>
+                        <a href="{% url 'core:enduser_master_list' %}" class="btn btn-outline-secondary">
+                            취소
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">도움말</div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">수정 시 주의사항</h6>
+                <ul class="small">
+                    <li>코드를 변경하면 다른 EndUser와 중복될 수 있습니다.</li>
+                    <li>중복된 경우 저장이 실패합니다.</li>
+                    <li>비활성화하면 기본값과 예외에서 선택할 수 없습니다.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,2 @@
+# Scale Gateway API - TCP 저울 데이터 수신 및 캐시 시스템
+

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}수주 수정{% else %}새 수주 등록{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'orders:list' %}">수주 목록</a></li>
+                    {% if is_edit %}
+                    <li class="breadcrumb-item"><a href="{% url 'orders:detail' po.customer_order_no %}">{{ po.customer_order_no }}</a></li>
+                    <li class="breadcrumb-item active">수정</li>
+                    {% else %}
+                    <li class="breadcrumb-item active">새 수주</li>
+                    {% endif %}
+                </ol>
+            </nav>
+            <h2>{% if is_edit %}수주 수정{% else %}새 수주 등록{% endif %}</h2>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- 기본 정보 -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">기본 정보</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.customer_order_no.label }} <span class="text-danger">*</span></label>
+                        {{ form.customer_order_no }}
+                        {% if form.customer_order_no.errors %}
+                            <div class="text-danger small">{{ form.customer_order_no.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">고객이 발행한 발주서 번호 (유일한 PO 식별자)</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.supplier_user_code.label }} <span class="text-danger">*</span></label>
+                        {{ form.supplier_user_code }}
+                        {% if form.supplier_user_code.errors %}
+                            <div class="text-danger small">{{ form.supplier_user_code.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.supplier_user_name.label }}</label>
+                        {{ form.supplier_user_name }}
+                        {% if form.supplier_user_name.errors %}
+                            <div class="text-danger small">{{ form.supplier_user_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.received_at.label }} <span class="text-danger">*</span></label>
+                        {{ form.received_at }}
+                        {% if form.received_at.errors %}
+                            <div class="text-danger small">{{ form.received_at.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">{{ form.status.label }}</label>
+                        {{ form.status }}
+                        {% if form.status.errors %}
+                            <div class="text-danger small">{{ form.status.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ form.memo.label }}</label>
+                    {{ form.memo }}
+                    {% if form.memo.errors %}
+                        <div class="text-danger small">{{ form.memo.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 수주 품목 -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">수주 품목</h5>
+            </div>
+            <div class="card-body">
+                {{ formset.management_form }}
+                
+                <div class="table-responsive">
+                    <table class="table table-sm" id="item-formset">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="8%">라인</th>
+                                <th width="20%">품목코드 <span class="text-danger">*</span></th>
+                                <th width="25%">품목명</th>
+                                <th width="12%">수량 <span class="text-danger">*</span></th>
+                                <th width="25%">비고</th>
+                                <th width="10%">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item_form in formset %}
+                            <tr class="item-form-row">
+                                <td>{{ item_form.line_no }}</td>
+                                <td>{{ item_form.trade_condition_code }}</td>
+                                <td>{{ item_form.trade_condition_name }}</td>
+                                <td>{{ item_form.qty }}</td>
+                                <td>{{ item_form.remarks }}</td>
+                                <td>
+                                    {% if item_form.instance.pk %}
+                                        {{ item_form.DELETE }}
+                                        <label for="{{ item_form.DELETE.id_for_label }}">삭제</label>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <small>
+                        <i class="bi bi-info-circle"></i>
+                        최소 1개 이상의 품목을 입력해야 합니다.
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- 버튼 -->
+        <div class="d-flex justify-content-between mb-5">
+            <a href="{% if is_edit %}{% url 'orders:detail' po.customer_order_no %}{% else %}{% url 'orders:list' %}{% endif %}" 
+               class="btn btn-secondary">
+                <i class="bi bi-x-circle"></i> 취소
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> {% if is_edit %}수정 완료{% else %}등록{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Formset 동적 추가 기능 (선택사항)
+// 필요 시 JavaScript로 품목 행 추가/삭제 기능 구현
+</script>
+{% endblock %}
+
+

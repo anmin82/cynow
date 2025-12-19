@@ -1,0 +1,722 @@
+{% extends 'base.html' %}
+{% load dashboard_tags %}
+
+{% block title %}대시보드 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="page-title">대시보드</h1>
+    <p class="page-subtitle">용기종류별 현황</p>
+</div>
+
+<!-- 가스명 필터 -->
+<div class="filter-bar mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <span class="filter-label">가스명</span>
+        <div class="gas-filter-chips">
+            <a href="{% url 'dashboard:dashboard' %}" class="filter-chip {% if not selected_gas %}active{% endif %}">전체</a>
+            {% for gas in gas_names %}
+            <a href="?gas={{ gas|urlencode }}" class="filter-chip {% if selected_gas == gas %}active{% endif %}">{{ gas }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    <span class="text-muted ms-auto">{{ cylinder_types|length }}개 용기종류</span>
+</div>
+
+<!-- 용기종류별 카드 -->
+<div class="row g-3 mb-5">
+    {% for type in cylinder_types %}
+    <div class="col-md-6 col-lg-4 col-xl-3">
+        <div class="cylinder-type-card" onclick="openDetailModal('{{ type.gas_name|escapejs }}|{{ type.capacity|default:''|escapejs }}|{{ type.valve_type|default:''|escapejs }}|{{ type.cylinder_spec|escapejs }}|{{ type.usage_place|default:''|escapejs }}')" style="cursor: pointer;">
+            <!-- 가스명 -->
+            <div class="card-gas-name">{{ type.gas_name }}</div>
+            
+            <!-- 용기종류 속성 -->
+            <div class="cylinder-type-attrs">
+                <div class="attr-grid">
+                    <div class="attr-item">
+                        <span class="attr-label">용량</span>
+                        <span class="attr-value">{{ type.capacity|default:"-" }}</span>
+                    </div>
+                    <div class="attr-item">
+                        <span class="attr-label">밸브형식</span>
+                        <span class="attr-value">{{ type.valve_format|default:"-" }}</span>
+                    </div>
+                    <div class="attr-item">
+                        <span class="attr-label">밸브재질</span>
+                        <span class="attr-value">{{ type.valve_material|default:"-" }}</span>
+                    </div>
+                    <div class="attr-item">
+                        <span class="attr-label">용기형식</span>
+                        <span class="attr-value">{{ type.cylinder_format|default:"-" }}</span>
+                    </div>
+                    <div class="attr-item">
+                        <span class="attr-label">용기재질</span>
+                        <span class="attr-value">{{ type.cylinder_material|default:"-" }}</span>
+                    </div>
+                    <div class="attr-item">
+                        <span class="attr-label">EndUser</span>
+                        <span class="attr-value">{{ type.usage_place|format_usage_place }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 수량 정보 -->
+            <div class="qty-section">
+                <div class="qty-main">
+                    <div class="qty-box available {% if type.available_qty == 0 %}zero{% elif type.available_qty < 5 %}low{% endif %}">
+                        <span class="qty-num">{{ type.available_qty }}</span>
+                        <span class="qty-label">가용</span>
+                    </div>
+                    <div class="qty-box total">
+                        <span class="qty-num">{{ type.total_qty }}</span>
+                        <span class="qty-label">총</span>
+                    </div>
+                </div>
+                <div class="status-distribution">
+                    {% for status, qty in type.statuses.items %}
+                    {% if qty > 0 %}
+                    <span class="status-item status-{{ status }}">{{ status }} <strong>{{ qty }}</strong></span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                데이터가 없습니다.
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 표준 테이블 -->
+<div class="mb-4">
+    <h2 class="page-title" style="font-size: 20px;">상세 테이블</h2>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 detail-table">
+                <thead>
+                    <tr>
+                        <th>가스명</th>
+                        <th>용량</th>
+                        <th>용기형식</th>
+                        <th>용기재질</th>
+                        <th>밸브형식</th>
+                        <th>밸브재질</th>
+                        <th>EndUser</th>
+                        <th class="text-end">가용</th>
+                        <th class="text-end">총</th>
+                        <th class="text-end">보관</th>
+                        <th class="text-end">충전</th>
+                        <th class="text-end">분석</th>
+                        <th class="text-end">창입</th>
+                        <th class="text-end">출하</th>
+                        <th class="text-end">이상</th>
+                        <th class="text-end">정비</th>
+                        <th class="text-end">폐기</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for type in cylinder_types %}
+                    <tr onclick="openDetailModal('{{ type.gas_name|escapejs }}|{{ type.capacity|default:''|escapejs }}|{{ type.valve_type|default:''|escapejs }}|{{ type.cylinder_spec|escapejs }}|{{ type.usage_place|default:''|escapejs }}')" style="cursor: pointer;">
+                        <td><strong>{{ type.gas_name }}</strong></td>
+                        <td>{{ type.capacity|default:"-" }}</td>
+                        <td class="spec-cell" title="{{ type.cylinder_spec }}">{{ type.cylinder_format|default:"-" }}</td>
+                        <td class="spec-cell" title="{{ type.cylinder_spec }}">{{ type.cylinder_material|default:"-" }}</td>
+                        <td>{{ type.valve_format|default:"-" }}</td>
+                        <td>{{ type.valve_material|default:"-" }}</td>
+                        <td>{{ type.usage_place|format_usage_place }}</td>
+                        <td class="text-end">
+                            <strong class="{% if type.available_qty == 0 %}text-danger{% elif type.available_qty < 5 %}text-warning{% else %}text-success{% endif %}">
+                                {{ type.available_qty }}
+                            </strong>
+                        </td>
+                        <td class="text-end text-muted">{{ type.total_qty }}</td>
+                        <td class="text-end">{{ type.statuses.보관|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses.충전|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses.분석|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses.창입|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses.출하|default:0 }}</td>
+                        <td class="text-end {% if type.statuses.이상 %}text-danger{% endif %}">{{ type.statuses.이상|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses.정비|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses.폐기|default:0 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 상세 모달 -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal-gas-name"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 용기종류 전체 속성 -->
+                <div class="modal-section">
+                    <h6 class="section-title">용기종류 속성</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-label">가스명</span>
+                                <span class="info-value" id="modal-attr-gas"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-label">용량</span>
+                                <span class="info-value" id="modal-attr-capacity"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-label">밸브스펙 (전체)</span>
+                                <span class="info-value info-full" id="modal-attr-valve"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-label">용기스펙 (전체)</span>
+                                <span class="info-value info-full" id="modal-attr-cylinder"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-label">EndUser</span>
+                                <span class="info-value" id="modal-attr-usage"></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-box">
+                                <span class="info-label">용기종류 키</span>
+                                <span class="info-value info-mono" id="modal-attr-key"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 수량 정보 -->
+                <div class="modal-section">
+                    <h6 class="section-title">수량 현황</h6>
+                    <div class="row g-3">
+                        <div class="col-4">
+                            <div class="qty-card available" id="modal-qty-available-box">
+                                <span class="qty-card-num" id="modal-qty-available"></span>
+                                <span class="qty-card-label">가용수량</span>
+                                <small class="qty-card-desc">보관 + 충전</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="qty-card total">
+                                <span class="qty-card-num" id="modal-qty-total"></span>
+                                <span class="qty-card-label">총수량</span>
+                                <small class="qty-card-desc">전체 용기</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="qty-card unavailable">
+                                <span class="qty-card-num" id="modal-qty-unavailable"></span>
+                                <span class="qty-card-label">비가용</span>
+                                <small class="qty-card-desc">출하+이상+폐기 등</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 상태별 상세 -->
+                <div class="modal-section">
+                    <h6 class="section-title">상태별 수량</h6>
+                    <div class="status-detail-grid" id="modal-status-grid">
+                        <!-- JS에서 동적 생성 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="modal-detail-link" class="btn btn-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i>상세 페이지로 이동
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 데이터를 JS로 전달 -->
+<script>
+const cylinderTypesMap = {
+    {% for type in cylinder_types %}
+    "{{ type.gas_name|escapejs }}|{{ type.capacity|default:''|escapejs }}|{{ type.valve_type|default:''|escapejs }}|{{ type.cylinder_spec|escapejs }}|{{ type.usage_place|default:''|escapejs }}": {
+        cylinder_type_key: "{{ type.cylinder_type_key|escapejs }}",
+        gas_name: "{{ type.gas_name|escapejs }}",
+        capacity: "{{ type.capacity|default:'—'|escapejs }}",
+        valve_type: "{{ type.valve_type|default:'—'|escapejs }}",
+        cylinder_spec: "{{ type.cylinder_spec|default:'—'|escapejs }}",
+        usage_place: "{{ type.usage_place|default:'—'|escapejs }}",
+        available_qty: {{ type.available_qty }},
+        total_qty: {{ type.total_qty }},
+        statuses: {
+            {% for status, qty in type.statuses.items %}
+            "{{ status }}": {{ qty }}{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        }
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+};
+
+function openDetailModal(typeKey) {
+    const data = cylinderTypesMap[typeKey];
+    if (!data) return;
+    const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+    
+    // 헤더
+    document.getElementById('modal-gas-name').textContent = data.gas_name;
+    
+    // 속성
+    document.getElementById('modal-attr-gas').textContent = data.gas_name;
+    document.getElementById('modal-attr-capacity').textContent = data.capacity;
+    document.getElementById('modal-attr-valve').textContent = data.valve_type;
+    document.getElementById('modal-attr-cylinder').textContent = data.cylinder_spec;
+    document.getElementById('modal-attr-usage').textContent = data.usage_place;
+    document.getElementById('modal-attr-key').textContent = data.cylinder_type_key;
+    
+    // 수량
+    const unavailable = data.total_qty - data.available_qty;
+    document.getElementById('modal-qty-available').textContent = data.available_qty;
+    document.getElementById('modal-qty-total').textContent = data.total_qty;
+    document.getElementById('modal-qty-unavailable').textContent = unavailable;
+    
+    // 가용수량 박스 색상
+    const availBox = document.getElementById('modal-qty-available-box');
+    availBox.className = 'qty-card available';
+    if (data.available_qty === 0) {
+        availBox.classList.add('zero');
+    } else if (data.available_qty < 5) {
+        availBox.classList.add('low');
+    }
+    
+    // 상태별 그리드
+    const statusGrid = document.getElementById('modal-status-grid');
+    statusGrid.innerHTML = '';
+    const statusOrder = ['보관', '충전', '분석', '창입', '출하', '이상', '정비', '폐기'];
+    statusOrder.forEach(status => {
+        const qty = data.statuses[status] || 0;
+        const item = document.createElement('div');
+        item.className = 'status-detail-item status-' + status;
+        
+        // 수량이 0보다 크면 클릭 가능하게
+        if (qty > 0) {
+            item.style.cursor = 'pointer';
+            item.title = '클릭하여 용기 리스트 보기';
+            const cylinderListUrl = '{% url "cylinders:list" %}?cylinder_type_key=' + encodeURIComponent(data.cylinder_type_key) + '&status=' + encodeURIComponent(status);
+            item.onclick = function() {
+                window.location.href = cylinderListUrl;
+            };
+        } else {
+            item.classList.add('empty');
+        }
+        
+        item.innerHTML = `
+            <span class="status-name">${status}</span>
+            <span class="status-qty">${qty}</span>
+        `;
+        statusGrid.appendChild(item);
+    });
+    
+    // 상세 링크
+    document.getElementById('modal-detail-link').href = '{% url "dashboard:detail" %}?type=' + encodeURIComponent(data.cylinder_type_key);
+    
+    modal.show();
+}
+</script>
+
+<style>
+/* 필터 바 */
+.filter-bar {
+    display: flex;
+    align-items: center;
+    background: #F5F5F7;
+    padding: 12px 16px;
+    border-radius: 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.filter-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ios-gray-1);
+}
+.gas-filter-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.filter-chip {
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: #fff;
+    color: #1C1C1E;
+    text-decoration: none;
+    border: 1px solid rgba(0,0,0,0.08);
+    transition: all 0.2s;
+}
+.filter-chip:hover {
+    background: #E5E5EA;
+    color: #1C1C1E;
+}
+.filter-chip.active {
+    background: var(--ios-blue);
+    color: #fff;
+    border-color: var(--ios-blue);
+}
+
+/* 용기종류 카드 */
+.cylinder-type-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.2s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.cylinder-type-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    border-color: var(--ios-blue);
+}
+
+/* 카드 가스명 */
+.card-gas-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1C1C1E;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* 용기종류 속성 */
+.cylinder-type-attrs {
+    flex: 1;
+    margin-bottom: 12px;
+}
+.attr-label {
+    font-size: 10px;
+    color: var(--ios-gray-2);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: block;
+    margin-bottom: 2px;
+}
+.attr-value {
+    font-size: 13px;
+    color: #1C1C1E;
+}
+.attr-value.attr-small {
+    font-size: 11px;
+    color: var(--ios-gray-1);
+}
+.attr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.attr-item {
+    background: #F9F9F9;
+    padding: 6px 8px;
+    border-radius: 8px;
+}
+
+/* 수량 섹션 */
+.qty-section {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+}
+.qty-main {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.qty-box {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 10px;
+    background: #F5F5F7;
+}
+.qty-box.available {
+    background: rgba(52, 199, 89, 0.12);
+}
+.qty-box.available.low {
+    background: rgba(255, 149, 0, 0.15);
+}
+.qty-box.available.zero {
+    background: rgba(255, 59, 48, 0.15);
+}
+.qty-num {
+    display: block;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.qty-box.available .qty-num { color: var(--ios-green); }
+.qty-box.available.low .qty-num { color: var(--ios-orange); }
+.qty-box.available.zero .qty-num { color: var(--ios-red); }
+.qty-box.total .qty-num { color: var(--ios-gray-1); }
+.qty-label {
+    display: block;
+    font-size: 11px;
+    color: var(--ios-gray-2);
+    margin-top: 4px;
+}
+
+/* 상태 분포 */
+.status-distribution {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.status-item {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.05);
+}
+.status-item.status-보관 { background: rgba(52, 199, 89, 0.15); color: #1a7d3a; }
+.status-item.status-충전 { background: rgba(0, 122, 255, 0.15); color: #0055b3; }
+.status-item.status-분석 { background: rgba(90, 200, 250, 0.15); color: #1a8ab8; }
+.status-item.status-창입 { background: rgba(175, 82, 222, 0.15); color: #7a3d9c; }
+.status-item.status-출하 { background: rgba(88, 86, 214, 0.15); color: #4644a8; }
+.status-item.status-이상 { background: rgba(255, 59, 48, 0.15); color: #cc2b22; }
+.status-item.status-폐기 { background: rgba(142, 142, 147, 0.2); color: #5a5a5e; }
+
+/* 테이블 */
+.detail-table {
+    font-size: 13px;
+}
+.detail-table thead th {
+    background: #F5F5F7;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #666;
+    padding: 12px 10px;
+    border-bottom: 2px solid #E5E5E5;
+    white-space: nowrap;
+}
+.detail-table td {
+    padding: 10px;
+    vertical-align: middle;
+}
+.spec-cell {
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ios-gray-1);
+    font-size: 12px;
+}
+
+/* 상태 미니 그룹 */
+.status-mini-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+.status-mini {
+    font-size: 10px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: #eee;
+    font-variant-numeric: tabular-nums;
+}
+.status-mini.status-보관 { background: rgba(52, 199, 89, 0.2); }
+.status-mini.status-충전 { background: rgba(0, 122, 255, 0.2); }
+.status-mini.status-이상 { background: rgba(255, 59, 48, 0.2); color: #cc2b22; }
+.status-mini.status-정비 { background: rgba(255, 159, 10, 0.3); }
+.status-mini.status-폐기 { background: rgba(142, 142, 147, 0.3); }
+
+/* ======== 모달 스타일 ======== */
+.modal-content {
+    border-radius: 20px;
+    border: none;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+}
+.modal-header {
+    border-bottom: 1px solid #f0f0f0;
+    padding: 20px 24px;
+}
+.modal-title {
+    font-weight: 700;
+    font-size: 20px;
+}
+.modal-body {
+    padding: 24px;
+}
+.modal-footer {
+    border-top: 1px solid #f0f0f0;
+    padding: 16px 24px;
+}
+
+/* 모달 섹션 */
+.modal-section {
+    margin-bottom: 24px;
+}
+.modal-section:last-child {
+    margin-bottom: 0;
+}
+.section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ios-gray-1);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* 정보 박스 */
+.info-box {
+    background: #F5F5F7;
+    padding: 12px;
+    border-radius: 12px;
+}
+.info-label {
+    font-size: 11px;
+    color: var(--ios-gray-2);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    display: block;
+    margin-bottom: 4px;
+}
+.info-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1C1C1E;
+    word-break: break-all;
+}
+.info-value.info-full {
+    font-size: 13px;
+    font-weight: 500;
+}
+.info-value.info-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--ios-gray-1);
+}
+
+/* 수량 카드 (모달) */
+.qty-card {
+    text-align: center;
+    padding: 16px;
+    border-radius: 16px;
+    background: #F5F5F7;
+}
+.qty-card.available {
+    background: rgba(52, 199, 89, 0.12);
+}
+.qty-card.available.low {
+    background: rgba(255, 149, 0, 0.15);
+}
+.qty-card.available.zero {
+    background: rgba(255, 59, 48, 0.15);
+}
+.qty-card.unavailable {
+    background: rgba(142, 142, 147, 0.12);
+}
+.qty-card-num {
+    display: block;
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.qty-card.available .qty-card-num { color: var(--ios-green); }
+.qty-card.available.low .qty-card-num { color: var(--ios-orange); }
+.qty-card.available.zero .qty-card-num { color: var(--ios-red); }
+.qty-card.total .qty-card-num { color: #1C1C1E; }
+.qty-card.unavailable .qty-card-num { color: var(--ios-gray-1); }
+.qty-card-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+.qty-card-desc {
+    display: block;
+    font-size: 10px;
+    color: var(--ios-gray-2);
+    margin-top: 2px;
+}
+
+/* 상태 상세 그리드 (모달) */
+.status-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+.status-detail-item {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: #F5F5F7;
+    transition: all 0.2s;
+}
+.status-detail-item.empty {
+    opacity: 0.4;
+}
+.status-detail-item:not(.empty):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0.9;
+}
+.status-detail-item .status-name {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.status-detail-item .status-qty {
+    display: block;
+    font-size: 24px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+.status-detail-item.status-보관 { background: rgba(52, 199, 89, 0.12); }
+.status-detail-item.status-보관 .status-qty { color: var(--ios-green); }
+.status-detail-item.status-충전 { background: rgba(0, 122, 255, 0.12); }
+.status-detail-item.status-충전 .status-qty { color: var(--ios-blue); }
+.status-detail-item.status-분석 { background: rgba(90, 200, 250, 0.12); }
+.status-detail-item.status-분석 .status-qty { color: var(--ios-teal); }
+.status-detail-item.status-창입 { background: rgba(175, 82, 222, 0.12); }
+.status-detail-item.status-창입 .status-qty { color: var(--ios-purple); }
+.status-detail-item.status-출하 { background: rgba(88, 86, 214, 0.12); }
+.status-detail-item.status-출하 .status-qty { color: var(--ios-indigo); }
+.status-detail-item.status-이상 { background: rgba(255, 59, 48, 0.12); }
+.status-detail-item.status-이상 .status-qty { color: var(--ios-red); }
+.status-detail-item.status-정비 { background: rgba(255, 159, 10, 0.15); }
+.status-detail-item.status-정비 .status-qty { color: #cc7a00; }
+.status-detail-item.status-폐기 { background: rgba(142, 142, 147, 0.15); }
+.status-detail-item.status-폐기 .status-qty { color: var(--ios-gray-1); }
+</style>
+{% endblock %}

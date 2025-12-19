@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if exception %}EndUser 예외 수정{% else %}EndUser 예외 추가{% endif %} - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">대시보드</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <a class="breadcrumb-item" href="{% url 'core:enduser_exception_list' %}">EndUser 예외</a>
+    <span class="breadcrumb-item active">{% if exception %}수정{% else %}추가{% endif %}</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">{% if exception %}EndUser 예외 수정{% else %}EndUser 예외 추가{% endif %}</h1>
+    <p class="page-subtitle">용기번호별 EndUser 예외 지정</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">예외 정보</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">용기번호 <span class="text-danger">*</span></label>
+                        <input type="text" name="cylinder_no" class="form-control" 
+                               value="{% if exception %}{{ exception.cylinder_no }}{% else %}{{ cylinder_no }}{% endif %}"
+                               {% if exception %}readonly{% endif %} required>
+                        <small class="form-text text-muted">
+                            {% if exception %}용기번호는 수정할 수 없습니다.{% else %}12자리 용기번호를 입력하세요.{% endif %}
+                        </small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">EndUser <span class="text-danger">*</span></label>
+                        <input type="text" name="enduser" class="form-control" 
+                               value="{% if exception %}{{ exception.enduser }}{% else %}{{ enduser }}{% endif %}" 
+                               placeholder="예: LGD, SDC" required>
+                        <small class="form-text text-muted">기본값과 다른 EndUser를 입력하세요.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">사유</label>
+                        <textarea name="reason" class="form-control" rows="3" 
+                                  placeholder="예: CF4 YC 440L LGD 납품 전용">{% if exception %}{{ exception.reason }}{% else %}{{ reason }}{% endif %}</textarea>
+                        <small class="form-text text-muted">선택사항: 예외 지정 사유를 입력하세요.</small>
+                    </div>
+                    
+                    {% if exception %}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="is_active" class="form-check-input" 
+                                   id="is_active" {% if exception.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                활성화
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'core:enduser_exception_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> 취소
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> 저장
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">도움말</div>
+            <div class="card-body">
+                <h6>EndUser 예외란?</h6>
+                <p class="small text-muted">
+                    특정 용기번호에 대해 기본값과 다른 EndUser를 지정하는 기능입니다.
+                </p>
+                
+                <h6 class="mt-3">우선순위</h6>
+                <ol class="small text-muted">
+                    <li>예외 테이블 (최우선)</li>
+                    <li>기본값 테이블</li>
+                    <li>최종 기본값 (SDC)</li>
+                </ol>
+                
+                <h6 class="mt-3">예시</h6>
+                <ul class="small text-muted">
+                    <li>용기번호: <code>22DH0001</code></li>
+                    <li>EndUser: <code>LGD</code></li>
+                    <li>사유: <code>CF4 YC 440L LGD 납품 전용</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

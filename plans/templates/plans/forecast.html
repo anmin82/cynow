@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% load dashboard_tags %}
+
+{% block title %}출하 계획 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="page-title">출하 계획</h1>
+    <p class="page-subtitle">FORECAST • 용기종류별 월간 출하 계획 수량 입력</p>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>월별 출하 계획 매트릭스</span>
+        <small class="text-muted">셀을 클릭하여 수량 입력 (자동 저장)</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered mb-0 matrix-table">
+                <thead>
+                    <tr>
+                        <th class="sticky-col" style="min-width: 250px;">용기종류</th>
+                        {% for month in months %}
+                        <th class="text-center month-col">{{ month|date:"Y-m" }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in matrix_data %}
+                    <tr data-type-key="{{ row.key }}">
+                        <td class="sticky-col type-info">
+                            <strong>{{ row.info.gas_name }}</strong>
+                            <div class="type-details">
+                                {{ row.info.capacity|default:"-" }} | 
+                                {{ row.info.valve_type|default:"-" }} | 
+                                {{ row.info.cylinder_spec|extract_material }}
+                                {% if row.info.usage_place %} | {{ row.info.usage_place }}{% endif %}
+                            </div>
+                        </td>
+                        {% for month in months %}
+                        {% with month_key=month|date:"Y-m" %}
+                        <td class="text-center qty-cell" 
+                            data-month="{{ month_key }}"
+                            onclick="editCell(this, '{{ row.key }}', '{{ month_key }}')">
+                            <span class="qty-value">{{ row.months|get_item:month_key|default:"" }}</span>
+                        </td>
+                        {% endwith %}
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{{ months|length|add:1 }}" class="text-center text-muted py-5">
+                            용기종류 데이터가 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 입력 모달 -->
+<div class="modal fade" id="inputModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title" id="inputModalTitle">출하 수량 입력</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="number" id="inputValue" class="form-control form-control-lg text-center" 
+                       placeholder="수량" min="0" step="1">
+                <small class="text-muted d-block mt-2 text-center" id="inputInfo"></small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" onclick="clearValue()">삭제</button>
+                <button type="button" class="btn btn-primary" onclick="saveValue()">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentCell = null;
+let currentTypeKey = '';
+let currentMonth = '';
+let inputModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    inputModal = new bootstrap.Modal(document.getElementById('inputModal'));
+    
+    // Enter 키로 저장
+    document.getElementById('inputValue').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            saveValue();
+        }
+    });
+});
+
+function editCell(cell, typeKey, month) {
+    currentCell = cell;
+    currentTypeKey = typeKey;
+    currentMonth = month;
+    
+    const currentValue = cell.querySelector('.qty-value').textContent.trim();
+    document.getElementById('inputValue').value = currentValue;
+    document.getElementById('inputModalTitle').textContent = month + ' 출하 수량';
+    
+    // 용기종류 정보 표시
+    const row = cell.closest('tr');
+    const typeInfo = row.querySelector('.type-info').textContent.trim().split('\n')[0];
+    document.getElementById('inputInfo').textContent = typeInfo;
+    
+    inputModal.show();
+    setTimeout(() => document.getElementById('inputValue').focus(), 300);
+}
+
+function saveValue() {
+    const qty = document.getElementById('inputValue').value;
+    
+    fetch('{% url "plans:forecast_save" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            type_key: currentTypeKey,
+            month: currentMonth,
+            qty: qty
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentCell.querySelector('.qty-value').textContent = qty;
+            if (qty) {
+                currentCell.classList.add('has-value');
+            } else {
+                currentCell.classList.remove('has-value');
+            }
+            inputModal.hide();
+        } else {
+            alert('저장 실패: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('오류: ' + error);
+    });
+}
+
+function clearValue() {
+    document.getElementById('inputValue').value = '';
+    saveValue();
+}
+
+// 기존 값이 있는 셀 표시
+document.querySelectorAll('.qty-cell').forEach(cell => {
+    const val = cell.querySelector('.qty-value').textContent.trim();
+    if (val && val !== '0') {
+        cell.classList.add('has-value');
+    }
+});
+</script>
+
+<style>
+.matrix-table {
+    font-size: 13px;
+}
+.matrix-table th {
+    background: #F5F5F7;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 12px 8px;
+    white-space: nowrap;
+}
+.sticky-col {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 1;
+    border-right: 2px solid #dee2e6 !important;
+}
+thead .sticky-col {
+    background: #F5F5F7;
+    z-index: 2;
+}
+.month-col {
+    min-width: 80px;
+}
+.type-info {
+    padding: 8px 12px !important;
+}
+.type-details {
+    font-size: 11px;
+    color: var(--ios-gray-1);
+    margin-top: 2px;
+}
+.qty-cell {
+    cursor: pointer;
+    padding: 8px !important;
+    transition: background 0.15s;
+    min-width: 70px;
+}
+.qty-cell:hover {
+    background: rgba(0, 122, 255, 0.08);
+}
+.qty-cell.has-value {
+    background: rgba(52, 199, 89, 0.1);
+}
+.qty-cell.has-value:hover {
+    background: rgba(52, 199, 89, 0.2);
+}
+.qty-value {
+    font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ios-blue);
+}
+.qty-cell.has-value .qty-value {
+    color: var(--ios-green);
+}
+</style>
+{% endblock %}

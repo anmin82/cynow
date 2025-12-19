@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+
+{% block title %}EndUser 기본값 추가 - CYNOW{% endblock %}
+
+{% block extra_css %}
+<style>
+    .gas-autocomplete {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid var(--ios-gray-4);
+        border-radius: 10px;
+        background: var(--ios-card-bg);
+        display: none;
+        position: absolute;
+        z-index: 1000;
+        width: 100%;
+        margin-top: 4px;
+    }
+    .gas-autocomplete-item {
+        padding: 10px 16px;
+        border-bottom: 0.5px solid var(--ios-separator);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .gas-autocomplete-item:hover {
+        background: var(--ios-gray-6);
+    }
+    .gas-autocomplete-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <a class="breadcrumb-item" href="{% url 'core:enduser_default_list' %}">EndUser 기본값</a>
+    <span class="breadcrumb-item active">추가</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">EndUser 기본값 추가</h1>
+    <p class="page-subtitle">가스명, 용량, 스펙별 기본 EndUser를 설정합니다</p>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">기본값 정보 입력</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">가스명 <span class="text-danger">*</span></label>
+                        <div style="position: relative;">
+                            <input type="text" class="form-control" name="gas_name" id="gas_name" required 
+                                   placeholder="예: CF4" maxlength="100" autocomplete="off">
+                            <div id="gas-autocomplete" class="gas-autocomplete"></div>
+                        </div>
+                        <small class="text-muted">가스명을 입력하세요. 자동완성이 지원됩니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">용량</label>
+                        <input type="number" class="form-control" name="capacity" 
+                               placeholder="예: 440" step="0.01">
+                        <small class="text-muted">선택사항: 특정 용량만 지정하려면 입력하세요. 비우면 전체 용량에 적용됩니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">밸브 스펙</label>
+                        <div style="position: relative;">
+                            <input type="text" class="form-control" id="valve-spec-search" 
+                                   placeholder="밸브 스펙명 검색 (예: CGA330, NERIKI)" autocomplete="off">
+                            <div id="valve-spec-results" class="gas-autocomplete" style="display: none;"></div>
+                        </div>
+                        <input type="hidden" name="valve_spec_code" id="valve_spec_code">
+                        <small class="text-muted">선택사항: 검색하여 선택하세요. 코드가 자동으로 입력됩니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">용기 스펙</label>
+                        <div style="position: relative;">
+                            <input type="text" class="form-control" id="cylinder-spec-search" 
+                                   placeholder="용기 스펙명 검색" autocomplete="off">
+                            <div id="cylinder-spec-results" class="gas-autocomplete" style="display: none;"></div>
+                        </div>
+                        <input type="hidden" name="cylinder_spec_code" id="cylinder_spec_code">
+                        <small class="text-muted">선택사항: 검색하여 선택하세요. 코드가 자동으로 입력됩니다.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">기본 EndUser <span class="text-danger">*</span></label>
+                        <select class="form-select" name="default_enduser" required>
+                            <option value="">-- EndUser 선택 --</option>
+                            {% for enduser in endusers %}
+                            <option value="{{ enduser.code }}" {% if enduser.code == 'SDC' %}selected{% endif %}>
+                                {{ enduser.code }} - {{ enduser.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">EndUser를 선택하세요. <a href="{% url 'core:enduser_master_list' %}" target="_blank">EndUser 관리</a></small>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>저장
+                        </button>
+                        <a href="{% url 'core:enduser_default_list' %}" class="btn btn-outline-secondary">
+                            취소
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">도움말</div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">사용 방법</h6>
+                <ul class="small">
+                    <li>가스명과 기본 EndUser는 필수 입력 항목입니다.</li>
+                    <li>용량, 밸브/용기 스펙은 선택사항입니다.</li>
+                    <li>조건이 구체적일수록 우선순위가 높습니다.</li>
+                </ul>
+                
+                <h6 class="fw-bold mb-3 mt-4">우선순위</h6>
+                <ol class="small">
+                    <li>예외 (용기번호별)</li>
+                    <li>기본값 (가스명+용량+밸브+용기)</li>
+                    <li>기본값 (가스명+용량+밸브)</li>
+                    <li>기본값 (가스명+용량)</li>
+                    <li>기본값 (가스명만)</li>
+                </ol>
+                
+                <h6 class="fw-bold mb-3 mt-4">예시</h6>
+                <ul class="small">
+                    <li><strong>CF4 440L 전체</strong>: 가스명=CF4, 용량=440</li>
+                    <li><strong>CF4 전체</strong>: 가스명=CF4만</li>
+                    <li><strong>CF4 440L 특정 밸브</strong>: 가스명=CF4, 용량=440, 밸브 스펙 코드 입력</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const gasInput = document.getElementById('gas_name');
+    const autocompleteDiv = document.getElementById('gas-autocomplete');
+    const gasNames = {{ gas_names|safe }};
+    let searchTimeout;
+    
+    gasInput.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        
+        clearTimeout(searchTimeout);
+        
+        if (query.length < 1) {
+            autocompleteDiv.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(function() {
+            const filtered = gasNames.filter(function(name) {
+                return name.toLowerCase().includes(query);
+            }).slice(0, 10);
+            
+            if (filtered.length > 0) {
+                autocompleteDiv.innerHTML = filtered.map(function(name) {
+                    return `<div class="gas-autocomplete-item" onclick="selectGas('${name.replace(/'/g, "\\'")}')">${name}</div>`;
+                }).join('');
+                autocompleteDiv.style.display = 'block';
+            } else {
+                autocompleteDiv.style.display = 'none';
+            }
+        }, 200);
+    });
+    
+    // 외부 클릭 시 닫기
+    document.addEventListener('click', function(e) {
+        if (!gasInput.contains(e.target) && !autocompleteDiv.contains(e.target)) {
+            autocompleteDiv.style.display = 'none';
+        }
+    });
+});
+
+function selectGas(name) {
+    document.getElementById('gas_name').value = name;
+    document.getElementById('gas-autocomplete').style.display = 'none';
+}
+
+// 밸브 스펙 검색
+document.addEventListener('DOMContentLoaded', function() {
+    const valveSearchInput = document.getElementById('valve-spec-search');
+    const valveResultsDiv = document.getElementById('valve-spec-results');
+    let valveSearchTimeout;
+    
+    if (valveSearchInput) {
+        valveSearchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(valveSearchTimeout);
+            
+            if (query.length < 2) {
+                valveResultsDiv.style.display = 'none';
+                return;
+            }
+            
+            valveSearchTimeout = setTimeout(function() {
+                fetch(`{% url 'core:valve_spec_search' %}?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.results && data.results.length > 0) {
+                            valveResultsDiv.innerHTML = data.results.map(function(spec) {
+                                return `
+                                    <div class="gas-autocomplete-item" onclick="selectValveSpec('${spec.code.replace(/'/g, "\\'")}', '${spec.name.replace(/'/g, "\\'")}')">
+                                        <div><strong>${spec.name}</strong></div>
+                                        <div><code>${spec.code}</code></div>
+                                    </div>
+                                `;
+                            }).join('');
+                            valveResultsDiv.style.display = 'block';
+                        } else {
+                            valveResultsDiv.innerHTML = '<div class="gas-autocomplete-item text-muted">검색 결과가 없습니다.</div>';
+                            valveResultsDiv.style.display = 'block';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            }, 300);
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!valveSearchInput.contains(e.target) && !valveResultsDiv.contains(e.target)) {
+                valveResultsDiv.style.display = 'none';
+            }
+        });
+    }
+    
+    // 용기 스펙 검색
+    const cylinderSearchInput = document.getElementById('cylinder-spec-search');
+    const cylinderResultsDiv = document.getElementById('cylinder-spec-results');
+    let cylinderSearchTimeout;
+    
+    if (cylinderSearchInput) {
+        cylinderSearchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(cylinderSearchTimeout);
+            
+            if (query.length < 2) {
+                cylinderResultsDiv.style.display = 'none';
+                return;
+            }
+            
+            cylinderSearchTimeout = setTimeout(function() {
+                fetch(`{% url 'core:cylinder_spec_search' %}?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.results && data.results.length > 0) {
+                            cylinderResultsDiv.innerHTML = data.results.map(function(spec) {
+                                return `
+                                    <div class="gas-autocomplete-item" onclick="selectCylinderSpec('${spec.code.replace(/'/g, "\\'")}', '${spec.name.replace(/'/g, "\\'")}')">
+                                        <div><strong>${spec.name}</strong></div>
+                                        <div><code>${spec.code}</code></div>
+                                    </div>
+                                `;
+                            }).join('');
+                            cylinderResultsDiv.style.display = 'block';
+                        } else {
+                            cylinderResultsDiv.innerHTML = '<div class="gas-autocomplete-item text-muted">검색 결과가 없습니다.</div>';
+                            cylinderResultsDiv.style.display = 'block';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            }, 300);
+        });
+        
+        document.addEventListener('click', function(e) {
+            if (!cylinderSearchInput.contains(e.target) && !cylinderResultsDiv.contains(e.target)) {
+                cylinderResultsDiv.style.display = 'none';
+            }
+        });
+    }
+});
+
+function selectValveSpec(code, name) {
+    document.getElementById('valve_spec_code').value = code;
+    document.getElementById('valve-spec-search').value = name;
+    document.getElementById('valve-spec-results').style.display = 'none';
+}
+
+function selectCylinderSpec(code, name) {
+    document.getElementById('cylinder_spec_code').value = code;
+    document.getElementById('cylinder-spec-search').value = name;
+    document.getElementById('cylinder-spec-results').style.display = 'none';
+}
+</script>
+{% endblock %}
+
+
+
+
+
+
+
+
+
+

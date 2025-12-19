@@ -1,0 +1,44 @@
+[Unit]
+Description=CYNOW Scale Gateway API - TCP Listener
+Documentation=https://github.com/your-org/cynow
+After=network.target postgresql.service
+Requires=postgresql.service
+PartOf=cynow.target
+
+[Service]
+Type=simple
+User=cynow
+Group=cynow
+WorkingDirectory=/opt/cynow/cynow
+
+# 환경변수 파일 로드
+EnvironmentFile=/opt/cynow/cynow/.env
+
+# 가상환경 Python으로 리스너 실행
+ExecStart=/opt/cynow/cynow/venv/bin/python manage.py scale_gateway_listener
+
+# 재시작 정책
+Restart=on-failure
+RestartSec=5s
+StartLimitInterval=300
+StartLimitBurst=5
+
+# 프로세스 관리
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cynow-scale-gateway
+
+# 보안 강화
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=cynow.target
+
+

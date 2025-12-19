@@ -1,0 +1,43 @@
+# =============================================================================
+# CYNOW Gunicorn Systemd 서비스 파일 (Unix Socket 버전)
+# =============================================================================
+# TCP 포트 대신 Unix Socket 사용 시 이 파일 사용
+# 장점: 약간 더 빠름, 포트 충돌 없음, 권한 관리 용이
+# 
+# 위치: /etc/systemd/system/cynow.service
+# =============================================================================
+
+[Unit]
+Description=CYNOW Gunicorn Daemon (Socket)
+After=network.target
+
+[Service]
+User=cynow
+Group=www-data
+
+WorkingDirectory=/opt/cynow/cynow
+EnvironmentFile=/opt/cynow/cynow/.env
+
+# Unix Socket 방식 (-bind unix:소켓경로)
+ExecStart=/opt/cynow/cynow/venv/bin/gunicorn \
+    --workers 4 \
+    --bind unix:/run/cynow/cynow.sock \
+    --timeout 120 \
+    --access-logfile /var/log/cynow/access.log \
+    --error-logfile /var/log/cynow/error.log \
+    --capture-output \
+    config.wsgi:application
+
+# 시작 전 소켓 디렉토리 생성
+ExecStartPre=/bin/mkdir -p /run/cynow
+ExecStartPre=/bin/chown cynow:www-data /run/cynow
+
+Restart=always
+RestartSec=3
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+

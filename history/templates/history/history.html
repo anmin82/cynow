@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}변화 이력 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">변화 이력</h1>
+        <p class="page-subtitle">기간별 용기 수량 변화 분석</p>
+    </div>
+    <a href="{% url 'history:manual_snapshot' %}" class="btn btn-primary btn-sm">수동 스냅샷</a>
+</div>
+
+<!-- 필터 -->
+<div class="filter-section">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label">시작일</label>
+            <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">종료일</label>
+            <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">유형</label>
+            <select name="snapshot_type" class="form-select">
+                <option value="">전체</option>
+                <option value="DAILY" {% if snapshot_type == 'DAILY' %}selected{% endif %}>정기</option>
+                <option value="MANUAL" {% if snapshot_type == 'MANUAL' %}selected{% endif %}>수동</option>
+            </select>
+        </div>
+        <div class="col">
+            <label class="form-label">가스명</label>
+            <input type="text" name="gas_name" class="form-control" value="{{ gas_name }}">
+        </div>
+        <div class="col">
+            <label class="form-label">상태</label>
+            <input type="text" name="status" class="form-control" value="{{ status }}">
+        </div>
+        <div class="col">
+            <label class="form-label">위치</label>
+            <input type="text" name="location" class="form-control" value="{{ location }}">
+        </div>
+        <div class="col-md-2">
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1">조회</button>
+                <a href="{% url 'history:export_excel' %}?start_date={{ start_date }}&end_date={{ end_date }}&snapshot_type={{ snapshot_type }}&gas_name={{ gas_name }}&status={{ status }}&location={{ location }}" class="btn btn-success">
+                    <i class="bi bi-download"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>이력 데이터</span>
+        <span class="badge bg-primary">{{ snapshots|length }}건</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>스냅샷 일시</th>
+                        <th class="text-center">유형</th>
+                        <th>가스명</th>
+                        <th class="text-center">상태</th>
+                        <th>위치</th>
+                        <th class="text-end">수량</th>
+                        <th class="text-end">전일</th>
+                        <th class="text-end">증감</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for snapshot in snapshots %}
+                    <tr>
+                        <td class="font-monospace">{{ snapshot.snapshot_datetime|date:"Y-m-d H:i" }}</td>
+                        <td class="text-center">
+                            <span class="badge {% if snapshot.snapshot_type == 'DAILY' %}bg-primary{% else %}bg-info{% endif %}">
+                                {% if snapshot.snapshot_type == 'DAILY' %}정기{% else %}수동{% endif %}
+                            </span>
+                        </td>
+                        <td>{{ snapshot.gas_name }}</td>
+                        <td class="text-center"><span class="status-badge status-{{ snapshot.status }}">{{ snapshot.status }}</span></td>
+                        <td>{{ snapshot.location }}</td>
+                        <td class="text-end qty-emphasis">{{ snapshot.qty }}</td>
+                        <td class="text-end qty-total">{{ snapshot.prev_qty|default:"-" }}</td>
+                        <td class="text-end">
+                            {% if snapshot.delta is not None %}
+                            <span class="{% if snapshot.delta > 0 %}delta-positive{% elif snapshot.delta < 0 %}delta-negative{% else %}delta-zero{% endif %}" style="font-size:16px; font-weight:700;">
+                                {% if snapshot.delta > 0 %}+{% endif %}{{ snapshot.delta }}
+                            </span>
+                            {% else %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">데이터가 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

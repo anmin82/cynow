@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}밸브 그룹 목록 - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'dashboard:dashboard' %}">홈</a>
+    <a class="breadcrumb-item" href="{% url 'core:policy_management' %}">정책 관리</a>
+    <span class="breadcrumb-item active">밸브 그룹</span>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">밸브 그룹 목록</h1>
+        <p class="page-subtitle">메이커별 밸브 통합 그룹 관리</p>
+    </div>
+    <div>
+        <a href="{% url 'core:valve_group_add' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>그룹 추가
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        그룹 목록 ({{ groups|length }}개)
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>그룹명</th>
+                        <th>설명</th>
+                        <th>매핑 수</th>
+                        <th>상태</th>
+                        <th>수정일시</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in groups %}
+                    <tr>
+                        <td><strong>{{ group.group_name }}</strong></td>
+                        <td>{{ group.description|default:"-" }}</td>
+                        <td>
+                            <span class="badge bg-info">{{ group.mapping_count }}개</span>
+                        </td>
+                        <td>
+                            {% if group.is_active %}
+                            <span class="badge bg-success">활성</span>
+                            {% else %}
+                            <span class="badge bg-secondary">비활성</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ group.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'core:valve_group_detail' group.id %}" class="btn btn-sm btn-primary">
+                                <i class="bi bi-gear me-1"></i>관리
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            등록된 그룹이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

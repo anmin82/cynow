@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}알림 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="page-title">알림</h1>
+    <p class="page-subtitle">위험도 기준 알림 • 조치 필요 항목</p>
+</div>
+
+<!-- 요약 -->
+<div class="row g-3 mb-4">
+    <div class="col-4">
+        <div class="metric-card">
+            <div class="metric-value" style="color: var(--ios-gray-1);">{{ alerts|length }}</div>
+            <div class="metric-label">전체 알림</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="metric-card metric-red">
+            <div class="metric-value" id="high-count">0</div>
+            <div class="metric-label">HIGH</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="metric-card metric-orange">
+            <div class="metric-value" id="medium-count">0</div>
+            <div class="metric-label">MEDIUM</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>알림 리스트</span>
+        <span class="badge bg-primary">{{ alerts|length }}건</span>
+    </div>
+    <div class="card-body p-0">
+        {% if alerts %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:80px;">위험</th>
+                                <th>가스명</th>
+                                <th class="text-center" style="width:90px;">가용</th>
+                                <th class="text-center" style="width:50px;">총</th>
+                                <th class="text-center" style="width:50px;">이상</th>
+                                <th class="text-center" style="width:50px;">폐기</th>
+                                <th>문제</th>
+                                <th>조언</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% load dashboard_tags %}
+                            {% for alert in alerts %}
+                            <tr class="{% if alert.risk_level == 'HIGH' %}table-danger{% elif alert.risk_level == 'MEDIUM' %}table-warning{% endif %}"
+                                data-risk="{{ alert.risk_level }}">
+                                <td>
+                                    <span class="risk-badge risk-{{ alert.risk_level|lower }}">{{ alert.risk_level }}</span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'dashboard:detail' %}?type={{ alert.cylinder_type_key }}&gas_name={{ alert.gas_name }}">
+                                        <strong>{{ alert.gas_name }}</strong>
+                                    </a>
+                                    <div class="spec-short">{{ alert.valve_spec|extract_valve }} {{ alert.cylinder_spec|extract_material }}</div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="qty-available {% if alert.available_qty == 0 %}zero{% elif alert.available_qty < 5 %}low{% else %}high{% endif %}">
+                                        {{ alert.available_qty }}
+                                    </span>
+                                </td>
+                                <td class="text-center qty-total">{{ alert.total_qty }}</td>
+                                <td class="text-center">
+                                    {% if alert.abnormal_qty > 0 %}
+                                    <span class="status-badge status-이상"><strong>{{ alert.abnormal_qty }}</strong></span>
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if alert.disposal_qty > 0 %}
+                                    <span class="status-badge status-폐기"><strong>{{ alert.disposal_qty }}</strong></span>
+                                    {% else %}-{% endif %}
+                                </td>
+                                <td><strong>{{ alert.message }}</strong></td>
+                                <td><small class="text-muted">{{ alert.advice }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-check-circle" style="font-size: 48px; color: var(--ios-green);"></i>
+            <h5 class="mt-3" style="color: var(--ios-green);">알림이 없습니다</h5>
+            <p class="text-muted">모든 용기종류가 정상 상태입니다.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let high = 0, medium = 0;
+    document.querySelectorAll('tbody tr[data-risk]').forEach(row => {
+        if (row.dataset.risk === 'HIGH') high++;
+        if (row.dataset.risk === 'MEDIUM') medium++;
+    });
+    document.getElementById('high-count').textContent = high;
+    document.getElementById('medium-count').textContent = medium;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ cylinder.cylinder_no }} - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'cylinders:list' %}">용기 리스트</a>
+    <span class="breadcrumb-item active">{{ cylinder.cylinder_no }}</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">{{ cylinder.cylinder_no }}</h1>
+    <p class="page-subtitle">용기 상세 정보</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">기본 정보</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="text-muted" style="width: 40%;">용기번호</td>
+                                <td><strong class="font-monospace fs-5">{{ cylinder.cylinder_no }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">가스명</td>
+                                <td>{{ cylinder.gas_name }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">용량</td>
+                                <td>{{ cylinder.capacity|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">밸브 스펙</td>
+                                <td>{{ cylinder.valve_spec|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">용기 스펙</td>
+                                <td>{{ cylinder.cylinder_spec|default:"-" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="text-muted" style="width: 40%;">현재 상태</td>
+                                <td><span class="status-badge status-{{ cylinder.status }}">{{ cylinder.status }}</span></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">현재 위치</td>
+                                <td>{{ cylinder.location|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">사용처</td>
+                                <td>{{ cylinder.usage_place|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">내압</td>
+                                <td>{{ cylinder.pressure_due_date|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">마지막 이벤트</td>
+                                <td>{{ cylinder.last_event_at|default:"-" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">빠른 액션</div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'dashboard:detail' %}?gas_name={{ cylinder.gas_name }}" class="btn btn-outline-light">
+                        동일 가스 현황 보기
+                    </a>
+                    <a href="{% url 'cylinders:list' %}?gas_name={{ cylinder.gas_name }}" class="btn btn-outline-light">
+                        동일 가스 용기 목록
+                    </a>
+                    <a href="{% url 'cylinders:list' %}?location={{ cylinder.location }}" class="btn btn-outline-light">
+                        동일 위치 용기 목록
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

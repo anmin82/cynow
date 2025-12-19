@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}수주 관리 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="page-title">수주 관리</h1>
+    <p class="page-subtitle">고객 수주 등록 및 조회</p>
+</div>
+
+<!-- 액션 버튼 -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <a href="{% url 'orders:new' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> 새 수주 등록
+    </a>
+</div>
+
+<!-- 수주 리스트 -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-list-ul me-2"></i>수주 목록 ({{ pos|length }}건)
+    </div>
+    <div class="card-body p-0">
+        {% if pos %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>PO번호(고객발주번호)</th>
+                        <th>고객명</th>
+                        <th>제품</th>
+                        <th class="text-end">수량</th>
+                        <th>납기</th>
+                        <th>상태</th>
+                        <th>등록일</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for po in pos %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'orders:detail' po.customer_order_no %}" class="text-decoration-none">
+                                <strong class="font-monospace">{{ po.customer_order_no }}</strong>
+                            </a>
+                        </td>
+                        <td>
+                            <div>{{ po.supplier_user_name }}</div>
+                            <small class="text-muted">{{ po.supplier_user_code }}</small>
+                        </td>
+                        <td>
+                            {% if po.items.count == 1 %}
+                                {{ po.items.first.trade_condition_name|truncatewords:3 }}
+                            {% else %}
+                                {{ po.items.first.trade_condition_name|truncatewords:2 }} 외 {{ po.items.count|add:"-1" }}건
+                            {% endif %}
+                        </td>
+                        <td class="text-end"><strong>{{ po.total_qty }}</strong></td>
+                        <td>
+                            {% if po.due_date %}
+                                {{ po.due_date|date:"Y-m-d" }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if po.status == 'DRAFT' %}bg-secondary
+                                {% elif po.status == 'GUIDED' %}bg-primary
+                                {% elif po.status == 'MATCHED' %}bg-success
+                                {% elif po.status == 'IN_PROGRESS' %}bg-info
+                                {% elif po.status == 'COMPLETED' %}bg-dark
+                                {% elif po.status == 'CANCELED' %}bg-danger
+                                {% endif %}">
+                                {{ po.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>{{ po.created_at|date:"m/d H:i" }}</small>
+                        </td>
+                        <td class="text-end">
+                            <a href="{% url 'orders:detail' po.customer_order_no %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-5 text-center text-muted">
+            <i class="bi bi-inbox display-1"></i>
+            <p class="mt-3">등록된 수주가 없습니다.</p>
+            <a href="{% url 'orders:new' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> 첫 수주 등록하기
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mt-3">
+    <small class="text-muted">
+        * PO번호는 고객 발주번호입니다. 
+        * 이동서번호 가이드 및 진행 현황 모니터링 기능은 추후 추가됩니다.
+    </small>
+</div>
+
+{% endblock %}
+

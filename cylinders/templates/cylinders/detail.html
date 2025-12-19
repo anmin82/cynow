@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ cylinder.cylinder_no }} - CYNOW{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb mb-3">
+    <a class="breadcrumb-item" href="{% url 'cylinders:list' %}">용기 리스트</a>
+    <span class="breadcrumb-item active">{{ cylinder.cylinder_no }}</span>
+</nav>
+
+<div class="mb-4">
+    <h1 class="page-title">{{ cylinder.cylinder_no }}</h1>
+    <p class="page-subtitle">용기 상세 정보</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">기본 정보</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="text-muted" style="width: 40%;">용기번호</td>
+                                <td><strong class="font-monospace fs-5">{{ cylinder.cylinder_no }}</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">가스명</td>
+                                <td>{{ cylinder.gas_name }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">용량</td>
+                                <td>{{ cylinder.capacity|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">밸브 스펙</td>
+                                <td>{{ cylinder.valve_spec|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">용기 스펙</td>
+                                <td>{{ cylinder.cylinder_spec|default:"-" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="text-muted" style="width: 40%;">현재 상태</td>
+                                <td><span class="status-badge status-{{ cylinder.status }}">{{ cylinder.status }}</span></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">현재 위치</td>
+                                <td>{{ cylinder.location|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">제조일</td>
+                                <td>{{ cylinder.manufacture_date|date:"Y-m-d"|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">내압시험일</td>
+                                <td>{{ cylinder.pressure_test_date|date:"Y-m-d"|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">검사주기</td>
+                                <td>
+                                    {% if cylinder.needs_fcms_fix %}
+                                    <span class="badge bg-danger">{{ cylinder.pressure_test_term|default:"-" }}년 ⚠️ FCMS 수정 필요</span>
+                                    {% else %}
+                                    {{ cylinder.pressure_test_term|default:"-" }}년
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">내압만료일</td>
+                                <td>{{ cylinder.pressure_expire_date|date:"Y-m-d"|default:"-" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">마지막 이벤트</td>
+                                <td>{{ cylinder.last_event_at|default:"-" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- FCMS 상세 정보 -->
+        <div class="card mt-3">
+            <div class="card-header">FCMS 상세 정보</div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <td class="text-muted" style="width: 40%;">최근이동서</td>
+                        <td><span class="font-monospace">{{ cylinder.move_report_no|default:"-" }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">제조LOT</td>
+                        <td><span class="font-monospace">{{ cylinder.manufacture_lot|default:"-" }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">충전LOT</td>
+                        <td><span class="font-monospace">{{ cylinder.filling_lot|default:"-" }}</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">빠른 액션</div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'dashboard:detail' %}?gas_name={{ cylinder.gas_name }}" class="btn btn-outline-light">
+                        동일 가스 현황 보기
+                    </a>
+                    <a href="{% url 'cylinders:list' %}?gas_name={{ cylinder.gas_name }}" class="btn btn-outline-light">
+                        동일 가스 용기 목록
+                    </a>
+                    <a href="{% url 'cylinders:list' %}?location={{ cylinder.location }}" class="btn btn-outline-light">
+                        동일 위치 용기 목록
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 메모 게시판 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>📝 메모</span>
+                <span class="badge bg-secondary">{{ memos|length }}건</span>
+            </div>
+            <div class="card-body">
+                <!-- 메모 작성 폼 -->
+                <form method="post" action="{% url 'cylinders:memo_create' cylinder.cylinder_no %}" class="mb-4">
+                    {% csrf_token %}
+                    <div class="row g-2">
+                        <div class="col-md-2">
+                            <input type="text" name="author_name" class="form-control form-control-sm" 
+                                   placeholder="작성자명" required maxlength="50">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="password" name="password" class="form-control form-control-sm" 
+                                   placeholder="암호 (4자리)" required maxlength="4" pattern="[0-9]{4}" title="4자리 숫자">
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" name="content" class="form-control form-control-sm" 
+                                   placeholder="메모 내용을 입력하세요..." required>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">등록</button>
+                        </div>
+                    </div>
+                </form>
+                
+                <!-- 메시지 표시 -->
+                {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show py-2" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+                {% endif %}
+                
+                <!-- 메모 목록 -->
+                {% if memos %}
+                <div class="memo-list">
+                    {% for memo in memos %}
+                    <div class="memo-item border-bottom pb-3 mb-3" id="memo-{{ memo.id }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong class="text-primary">{{ memo.author_name }}</strong>
+                                <small class="text-muted ms-2">{{ memo.created_at|date:"Y-m-d H:i" }}</small>
+                                {% if memo.updated_at != memo.created_at %}
+                                <small class="text-warning ms-1">(수정됨)</small>
+                                {% endif %}
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary btn-sm reply-toggle" 
+                                        data-memo-id="{{ memo.id }}" type="button">
+                                    답글 {{ memo.active_replies.count }}
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm edit-toggle" 
+                                        data-memo-id="{{ memo.id }}" type="button" title="수정">✏️</button>
+                                <button class="btn btn-outline-danger btn-sm delete-toggle" 
+                                        data-memo-id="{{ memo.id }}" type="button" title="삭제">🗑️</button>
+                            </div>
+                        </div>
+                        <p class="mt-2 mb-2 memo-content" id="memo-content-{{ memo.id }}">{{ memo.content }}</p>
+                        
+                        <!-- 수정 폼 -->
+                        <div class="edit-form mt-2" id="edit-form-{{ memo.id }}" style="display: none;">
+                            <form method="post" action="{% url 'cylinders:memo_edit' cylinder.cylinder_no memo.id %}">
+                                {% csrf_token %}
+                                <div class="row g-2">
+                                    <div class="col-2">
+                                        <input type="password" name="password" class="form-control form-control-sm" 
+                                               placeholder="암호" required maxlength="4" pattern="[0-9]{4}">
+                                    </div>
+                                    <div class="col-8">
+                                        <input type="text" name="content" class="form-control form-control-sm" 
+                                               value="{{ memo.content }}" required>
+                                    </div>
+                                    <div class="col-2">
+                                        <button type="submit" class="btn btn-warning btn-sm w-100">수정</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- 삭제 폼 -->
+                        <div class="delete-form mt-2" id="delete-form-{{ memo.id }}" style="display: none;">
+                            <form method="post" action="{% url 'cylinders:memo_delete' cylinder.cylinder_no memo.id %}" 
+                                  onsubmit="return confirm('정말 삭제하시겠습니까?');">
+                                {% csrf_token %}
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-auto">
+                                        <span class="text-danger small">삭제하려면 암호 입력:</span>
+                                    </div>
+                                    <div class="col-3">
+                                        <input type="password" name="password" class="form-control form-control-sm" 
+                                               placeholder="암호" required maxlength="4" pattern="[0-9]{4}">
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="submit" class="btn btn-danger btn-sm">삭제</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- 답글 목록 -->
+                        {% if memo.active_replies.count > 0 %}
+                        <div class="replies ms-4 mt-2" id="replies-{{ memo.id }}">
+                            {% for reply in memo.active_replies %}
+                            <div class="reply-item bg-dark bg-opacity-25 rounded p-2 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <small class="text-info">↳ {{ reply.author_name }}</small>
+                                        <small class="text-muted ms-2">{{ reply.created_at|date:"Y-m-d H:i" }}</small>
+                                    </div>
+                                </div>
+                                <p class="mb-0 mt-1 small">{{ reply.content }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- 답글 작성 폼 -->
+                        <div class="reply-form ms-4 mt-2" id="reply-form-{{ memo.id }}" style="display: none;">
+                            <form method="post" action="{% url 'cylinders:memo_reply' cylinder.cylinder_no memo.id %}">
+                                {% csrf_token %}
+                                <div class="row g-2">
+                                    <div class="col-2">
+                                        <input type="text" name="author_name" class="form-control form-control-sm" 
+                                               placeholder="작성자명" required maxlength="50">
+                                    </div>
+                                    <div class="col-2">
+                                        <input type="password" name="password" class="form-control form-control-sm" 
+                                               placeholder="암호 (4자리)" required maxlength="4" pattern="[0-9]{4}">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="text" name="content" class="form-control form-control-sm" 
+                                               placeholder="답글 내용..." required>
+                                    </div>
+                                    <div class="col-2">
+                                        <button type="submit" class="btn btn-outline-primary btn-sm w-100">답글</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <p class="mb-0">등록된 메모가 없습니다.</p>
+                    <small>이 용기에 대한 첫 메모를 남겨보세요!</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 답글 토글 버튼
+    document.querySelectorAll('.reply-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var memoId = this.dataset.memoId;
+            var replyForm = document.getElementById('reply-form-' + memoId);
+            if (replyForm.style.display === 'none') {
+                replyForm.style.display = 'block';
+                this.classList.add('active');
+            } else {
+                replyForm.style.display = 'none';
+                this.classList.remove('active');
+            }
+        });
+    });
+    
+    // 수정 토글 버튼
+    document.querySelectorAll('.edit-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var memoId = this.dataset.memoId;
+            var editForm = document.getElementById('edit-form-' + memoId);
+            var deleteForm = document.getElementById('delete-form-' + memoId);
+            deleteForm.style.display = 'none';
+            if (editForm.style.display === 'none') {
+                editForm.style.display = 'block';
+                this.classList.add('active');
+            } else {
+                editForm.style.display = 'none';
+                this.classList.remove('active');
+            }
+        });
+    });
+    
+    // 삭제 토글 버튼
+    document.querySelectorAll('.delete-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var memoId = this.dataset.memoId;
+            var deleteForm = document.getElementById('delete-form-' + memoId);
+            var editForm = document.getElementById('edit-form-' + memoId);
+            editForm.style.display = 'none';
+            if (deleteForm.style.display === 'none') {
+                deleteForm.style.display = 'block';
+                this.classList.add('active');
+            } else {
+                deleteForm.style.display = 'none';
+                this.classList.remove('active');
+            }
+        });
+    });
+});
+</script>
+
+<style>
+.memo-item:last-child {
+    border-bottom: none !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+.reply-toggle.active {
+    background-color: var(--bs-primary);
+    color: white;
+}
+.reply-item {
+    border-left: 3px solid var(--bs-info);
+}
+</style>
+{% endblock %}
