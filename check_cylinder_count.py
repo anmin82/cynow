@@ -91,17 +91,14 @@ def main():
         "5. CYNOW 대시보드 상태별 집계"
     )
     
-    # 6. FCMS 상태별 개수
+    # 6. ma_cylinders 테이블 구조 확인 (처음 5개 행)
     execute_query(
         """
-        SELECT 
-            "STATUS" as status,
-            COUNT(*) as qty
+        SELECT *
         FROM "fcms_cdc"."ma_cylinders"
-        GROUP BY "STATUS"
-        ORDER BY "STATUS";
+        LIMIT 5;
         """,
-        "6. FCMS 원본 상태별 개수"
+        "6. FCMS ma_cylinders 샘플 데이터 (테이블 구조 확인)"
     )
     
     # 7. dashboard_enduser가 NULL인 개수
