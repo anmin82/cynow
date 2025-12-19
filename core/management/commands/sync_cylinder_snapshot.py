@@ -33,13 +33,16 @@ class Command(BaseCommand):
                 c."CYLINDER_NO",
                 COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", '') as gas_name,
                 c."CAPACITY",
-                COALESCE(vs."NAME", '') as valve_spec,
-                COALESCE(cs."NAME", '') as cylinder_spec,
+                COALESCE(c."VALVE_SPEC_CODE", '') as valve_spec_code,
+                COALESCE(vs."NAME", '') as valve_spec_name,
+                COALESCE(c."CYLINDER_SPEC_CODE", '') as cylinder_spec_code,
+                COALESCE(cs."NAME", '') as cylinder_spec_name,
                 COALESCE(c."USE_DEPARTMENT_CODE", '') as usage_place,
                 COALESCE(ls."POSITION_USER_NAME", '') as location,
                 ls."CONDITION_CODE",
                 ls."MOVE_DATE",
                 c."WITHSTAND_PRESSURE_MAINTE_DATE",
+                c."MANUFACTURE_DATE",
                 GREATEST(
                     COALESCE(c."UPDATE_DATETIME", c."ADD_DATETIME"),
                     COALESCE(ls."MOVE_DATE", NOW())
@@ -69,8 +72,8 @@ class Command(BaseCommand):
                 if not row:
                     self.stdout.write(self.style.WARNING(f"건너뜀 (용기번호: {cylinder_no}): 데이터 없음"))
                     continue
-                if len(row) < 11:
-                    self.stdout.write(self.style.WARNING(f"건너뜀 (용기번호: {cylinder_no}): 컬럼 부족 (expected 11, got {len(row)})"))
+                if len(row) < 14:
+                    self.stdout.write(self.style.WARNING(f"건너뜀 (용기번호: {cylinder_no}): 컬럼 부족 (expected 14, got {len(row)})"))
                     continue
                 self.upsert_cylinder(cursor, row)
                 updated += 1
@@ -94,13 +97,16 @@ class Command(BaseCommand):
                 c."CYLINDER_NO",
                 COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", '') as gas_name,
                 c."CAPACITY",
-                COALESCE(vs."NAME", '') as valve_spec,
-                COALESCE(cs."NAME", '') as cylinder_spec,
+                COALESCE(c."VALVE_SPEC_CODE", '') as valve_spec_code,
+                COALESCE(vs."NAME", '') as valve_spec_name,
+                COALESCE(c."CYLINDER_SPEC_CODE", '') as cylinder_spec_code,
+                COALESCE(cs."NAME", '') as cylinder_spec_name,
                 COALESCE(c."USE_DEPARTMENT_CODE", '') as usage_place,
                 COALESCE(ls."POSITION_USER_NAME", '') as location,
                 ls."CONDITION_CODE",
                 ls."MOVE_DATE",
                 c."WITHSTAND_PRESSURE_MAINTE_DATE",
+                c."MANUFACTURE_DATE",
                 GREATEST(
                     COALESCE(c."UPDATE_DATETIME", c."ADD_DATETIME"),
                     COALESCE(ls."MOVE_DATE", NOW())
@@ -122,7 +128,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 for row in rows:
                     try:
-                        if row and len(row) >= 11:
+                        if row and len(row) >= 14:
                             self.upsert_cylinder(cursor, row)
                             total += 1
                     except Exception as e:
@@ -140,13 +146,16 @@ class Command(BaseCommand):
                 c."CYLINDER_NO",
                 COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", '') as gas_name,
                 c."CAPACITY",
-                COALESCE(vs."NAME", '') as valve_spec,
-                COALESCE(cs."NAME", '') as cylinder_spec,
+                COALESCE(c."VALVE_SPEC_CODE", '') as valve_spec_code,
+                COALESCE(vs."NAME", '') as valve_spec_name,
+                COALESCE(c."CYLINDER_SPEC_CODE", '') as cylinder_spec_code,
+                COALESCE(cs."NAME", '') as cylinder_spec_name,
                 COALESCE(c."USE_DEPARTMENT_CODE", '') as usage_place,
                 COALESCE(ls."POSITION_USER_NAME", '') as location,
                 ls."CONDITION_CODE",
                 ls."MOVE_DATE",
                 c."WITHSTAND_PRESSURE_MAINTE_DATE",
+                c."MANUFACTURE_DATE",
                 GREATEST(
                     COALESCE(c."UPDATE_DATETIME", c."ADD_DATETIME"),
                     COALESCE(ls."MOVE_DATE", NOW())
@@ -169,138 +178,141 @@ class Command(BaseCommand):
             self.stdout.write(f"용기 {cylinder_no} 삭제됨 (스냅샷에서 제거)")
     
     def upsert_cylinder(self, cursor, raw_data):
-        """단일 용기 Upsert (간소화 버전)"""
-        # Raw 값 추출
+        """단일 용기 Upsert (실제 테이블 구조에 맞춤)"""
+        # Raw 값 추출 (인덱스 변경됨)
         cylinder_no = raw_data[0]
         raw_gas_name = raw_data[1] or ''
         raw_capacity = raw_data[2]
-        raw_valve_spec = raw_data[3] or ''
-        raw_cylinder_spec = raw_data[4] or ''
-        raw_usage_place = raw_data[5] or ''
-        raw_location = raw_data[6] or ''
-        raw_condition_code = raw_data[7] or ''
-        raw_move_date = raw_data[8]
-        raw_withstand_pressure_mainte_date = raw_data[9]
-        source_updated_at = raw_data[10]
-        
-        # 간단한 파싱 (오류 발생 시 빈 문자열)
-        try:
-            valve_parsed = parse_valve_spec(raw_valve_spec)
-            valve_format = valve_parsed.get('format', '') if isinstance(valve_parsed, dict) else ''
-            valve_material = valve_parsed.get('material', '') if isinstance(valve_parsed, dict) else ''
-        except:
-            valve_format = ''
-            valve_material = ''
-        
-        try:
-            cylinder_parsed = parse_cylinder_spec(raw_cylinder_spec)
-            cylinder_format = cylinder_parsed.get('format', '') if isinstance(cylinder_parsed, dict) else ''
-            cylinder_material = cylinder_parsed.get('material', '') if isinstance(cylinder_parsed, dict) else ''
-        except:
-            cylinder_format = ''
-            cylinder_material = ''
-        
-        # 사용처 (간단 버전)
-        dashboard_usage_place = raw_usage_place or ''
-        
-        # 기본 EndUser
-        enduser_code = 'SDC'
-        enduser_name = 'SDC'
+        raw_valve_spec_code = raw_data[3] or ''
+        raw_valve_spec_name = raw_data[4] or ''
+        raw_cylinder_spec_code = raw_data[5] or ''
+        raw_cylinder_spec_name = raw_data[6] or ''
+        raw_usage_place = raw_data[7] or ''
+        raw_location = raw_data[8] or ''
+        raw_condition_code = raw_data[9] or ''
+        raw_move_date = raw_data[10]
+        raw_withstand_pressure_mainte_date = raw_data[11]
+        manufacture_date = raw_data[12]
+        source_updated_at = raw_data[13]
         
         # 상태 변환
         dashboard_status = self.map_condition_code(raw_condition_code)
         
-        # 위치
-        dashboard_location = raw_location or ''
+        # 기본 EndUser
+        dashboard_enduser = 'SDC'
         
-        # 용기종류 키 (간단 버전)
-        dashboard_cylinder_type_key = self.generate_type_key(
-            raw_gas_name, raw_capacity, raw_valve_spec,
-            raw_cylinder_spec, dashboard_usage_place, enduser_code
+        # 용기종류 키
+        cylinder_type_key = self.generate_type_key(
+            raw_gas_name, raw_capacity, raw_valve_spec_name,
+            raw_cylinder_spec_name, raw_usage_place, dashboard_enduser
         )
-        
-        # 밸브 스펙 (원본 사용)
-        dashboard_valve_spec = raw_valve_spec
         
         # 파생 필드
         is_available = dashboard_status in ('보관', '충전')
         
-        # Upsert 실행
+        # 압력시험 만료일 계산
+        if raw_withstand_pressure_mainte_date:
+            pressure_test_date = raw_withstand_pressure_mainte_date
+            pressure_test_term = 5  # 기본 5년
+            # 압력시험 만료일 = 압력시험일 + 5년
+            cursor.execute("SELECT %s::date + INTERVAL '5 years'", [pressure_test_date])
+            pressure_expire_date = cursor.fetchone()[0]
+        else:
+            pressure_test_date = None
+            pressure_test_term = None
+            pressure_expire_date = None
+        
+        # Upsert 실행 (실제 테이블 구조에 맞춤)
         cursor.execute("""
             INSERT INTO cy_cylinder_current (
                 cylinder_no,
-                raw_gas_name, raw_capacity, raw_valve_spec, raw_cylinder_spec,
-                raw_usage_place, raw_location, raw_condition_code,
-                raw_position_user_name, raw_move_date, raw_withstand_pressure_mainte_date,
+                raw_gas_name, raw_capacity,
+                raw_valve_spec_code, raw_valve_spec_name,
+                raw_cylinder_spec_code, raw_cylinder_spec_name,
+                raw_usage_place, raw_location, raw_condition_code, raw_position_user_name,
                 dashboard_gas_name, dashboard_capacity,
-                dashboard_valve_spec, dashboard_valve_format, dashboard_valve_material,
-                dashboard_cylinder_spec, dashboard_cylinder_format, dashboard_cylinder_material,
-                dashboard_enduser_code, dashboard_enduser_name, dashboard_usage_place,
-                dashboard_status, dashboard_location,
-                dashboard_cylinder_type_key,
-                dashboard_pressure_due_date, dashboard_last_event_at,
-                is_available,
-                source_updated_at, snapshot_updated_at
+                dashboard_valve_spec_code, dashboard_valve_spec_name, dashboard_valve_group_name,
+                dashboard_cylinder_spec_code, dashboard_cylinder_spec_name,
+                dashboard_usage_place, dashboard_location,
+                dashboard_status, dashboard_enduser,
+                cylinder_type_key, cylinder_type_key_raw,
+                condition_code, move_date, pressure_due_date, last_event_at,
+                source_updated_at, snapshot_updated_at,
+                status_category, is_available,
+                manufacture_date, pressure_test_date, pressure_test_term, pressure_expire_date,
+                needs_fcms_fix
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, NOW()
+                %s, %s, %s, %s, %s, %s, %s, NOW(), %s, %s,
+                %s, %s, %s, %s, FALSE
             )
             ON CONFLICT (cylinder_no) DO UPDATE SET
                 raw_gas_name = EXCLUDED.raw_gas_name,
                 raw_capacity = EXCLUDED.raw_capacity,
-                raw_valve_spec = EXCLUDED.raw_valve_spec,
-                raw_cylinder_spec = EXCLUDED.raw_cylinder_spec,
+                raw_valve_spec_code = EXCLUDED.raw_valve_spec_code,
+                raw_valve_spec_name = EXCLUDED.raw_valve_spec_name,
+                raw_cylinder_spec_code = EXCLUDED.raw_cylinder_spec_code,
+                raw_cylinder_spec_name = EXCLUDED.raw_cylinder_spec_name,
                 raw_usage_place = EXCLUDED.raw_usage_place,
                 raw_location = EXCLUDED.raw_location,
                 raw_condition_code = EXCLUDED.raw_condition_code,
-                raw_move_date = EXCLUDED.raw_move_date,
-                raw_withstand_pressure_mainte_date = EXCLUDED.raw_withstand_pressure_mainte_date,
+                raw_position_user_name = EXCLUDED.raw_position_user_name,
                 dashboard_gas_name = EXCLUDED.dashboard_gas_name,
                 dashboard_capacity = EXCLUDED.dashboard_capacity,
-                dashboard_valve_spec = EXCLUDED.dashboard_valve_spec,
-                dashboard_valve_format = EXCLUDED.dashboard_valve_format,
-                dashboard_valve_material = EXCLUDED.dashboard_valve_material,
-                dashboard_cylinder_spec = EXCLUDED.dashboard_cylinder_spec,
-                dashboard_cylinder_format = EXCLUDED.dashboard_cylinder_format,
-                dashboard_cylinder_material = EXCLUDED.dashboard_cylinder_material,
-                dashboard_enduser_code = EXCLUDED.dashboard_enduser_code,
-                dashboard_enduser_name = EXCLUDED.dashboard_enduser_name,
+                dashboard_valve_spec_code = EXCLUDED.dashboard_valve_spec_code,
+                dashboard_valve_spec_name = EXCLUDED.dashboard_valve_spec_name,
+                dashboard_valve_group_name = EXCLUDED.dashboard_valve_group_name,
+                dashboard_cylinder_spec_code = EXCLUDED.dashboard_cylinder_spec_code,
+                dashboard_cylinder_spec_name = EXCLUDED.dashboard_cylinder_spec_name,
                 dashboard_usage_place = EXCLUDED.dashboard_usage_place,
-                dashboard_status = EXCLUDED.dashboard_status,
                 dashboard_location = EXCLUDED.dashboard_location,
-                dashboard_cylinder_type_key = EXCLUDED.dashboard_cylinder_type_key,
-                dashboard_pressure_due_date = EXCLUDED.dashboard_pressure_due_date,
-                dashboard_last_event_at = EXCLUDED.dashboard_last_event_at,
-                is_available = EXCLUDED.is_available,
+                dashboard_status = EXCLUDED.dashboard_status,
+                dashboard_enduser = EXCLUDED.dashboard_enduser,
+                cylinder_type_key = EXCLUDED.cylinder_type_key,
+                cylinder_type_key_raw = EXCLUDED.cylinder_type_key_raw,
+                condition_code = EXCLUDED.condition_code,
+                move_date = EXCLUDED.move_date,
+                pressure_due_date = EXCLUDED.pressure_due_date,
+                last_event_at = EXCLUDED.last_event_at,
                 source_updated_at = EXCLUDED.source_updated_at,
-                snapshot_updated_at = NOW()
+                snapshot_updated_at = NOW(),
+                status_category = EXCLUDED.status_category,
+                is_available = EXCLUDED.is_available,
+                manufacture_date = EXCLUDED.manufacture_date,
+                pressure_test_date = EXCLUDED.pressure_test_date,
+                pressure_test_term = EXCLUDED.pressure_test_term,
+                pressure_expire_date = EXCLUDED.pressure_expire_date
         """, [
-            # 1-8: raw 필드
+            # 1: cylinder_no
             cylinder_no,
-            raw_gas_name, raw_capacity, raw_valve_spec, raw_cylinder_spec,
-            raw_usage_place, raw_location, raw_condition_code,
-            # 9-11: raw 필드 (position, move, pressure)
-            raw_location,  # raw_position_user_name (동일 값)
-            raw_move_date, raw_withstand_pressure_mainte_date,
+            # 2-3: raw 가스
+            raw_gas_name, raw_capacity,
+            # 4-7: raw 밸브 & 용기
+            raw_valve_spec_code, raw_valve_spec_name,
+            raw_cylinder_spec_code, raw_cylinder_spec_name,
+            # 8-11: raw 사용처, 위치, 상태
+            raw_usage_place, raw_location, raw_condition_code, raw_location,
             # 12-13: dashboard 가스
             raw_gas_name, raw_capacity,
             # 14-16: dashboard 밸브
-            dashboard_valve_spec, valve_format, valve_material,
-            # 17-19: dashboard 용기
-            raw_cylinder_spec, cylinder_format, cylinder_material,
-            # 20-22: dashboard enduser & usage
-            enduser_code, enduser_name, dashboard_usage_place,
-            # 23-24: dashboard 상태 & 위치
-            dashboard_status, dashboard_location,
-            # 25: cylinder_type_key
-            dashboard_cylinder_type_key,
-            # 26-27: dashboard pressure & event
-            raw_withstand_pressure_mainte_date, raw_move_date,
-            # 28: is_available
-            is_available,
+            raw_valve_spec_code, raw_valve_spec_name, '',  # valve_group_name은 일단 빈 문자열
+            # 17-18: dashboard 용기
+            raw_cylinder_spec_code, raw_cylinder_spec_name,
+            # 19-20: dashboard 사용처, 위치
+            raw_usage_place, raw_location,
+            # 21-22: dashboard 상태, enduser
+            dashboard_status, dashboard_enduser,
+            # 23-24: cylinder_type_key
+            cylinder_type_key, cylinder_type_key,
+            # 25-28: condition, dates
+            raw_condition_code, raw_move_date, raw_withstand_pressure_mainte_date, raw_move_date,
             # 29: source_updated_at
-            source_updated_at
+            source_updated_at,
+            # 30-31: status_category, is_available
+            dashboard_status, is_available,
+            # 32-35: 제조일, 압력시험일, 주기, 만료일
+            manufacture_date, pressure_test_date, pressure_test_term, pressure_expire_date
         ])
     
     def apply_valve_alias(self, cursor, raw_valve_spec):
