@@ -201,8 +201,11 @@ class Command(BaseCommand):
         # 상태 변환
         dashboard_status = self.map_condition_code(raw_condition_code)
         
-        # 기본 EndUser
-        dashboard_enduser = 'SDC'
+        # EndUser 결정 (EndUserDefault 테이블에서 조회)
+        dashboard_enduser = self.get_enduser_from_default(
+            cursor, raw_gas_name, raw_capacity, 
+            raw_valve_spec_code, raw_cylinder_spec_code
+        )
         
         # 용기종류 키
         cylinder_type_key = self.generate_type_key(
@@ -379,6 +382,48 @@ class Command(BaseCommand):
         """용기종류 키 생성 (enduser 포함)"""
         key_string = f"{gas_name}|{capacity or ''}|{valve_spec or ''}|{cylinder_spec or ''}|{usage_place or ''}|{enduser_code or ''}"
         return hashlib.md5(key_string.encode('utf-8')).hexdigest()
+    
+    def get_enduser_from_default(self, cursor, gas_name, capacity, valve_spec_code, cylinder_spec_code):
+        """EndUserDefault 테이블에서 EndUser 조회"""
+        try:
+            # 정확히 매칭되는 설정 찾기
+            cursor.execute("""
+                SELECT default_enduser
+                FROM cy_enduser_default
+                WHERE gas_name = %s
+                AND capacity = %s
+                AND valve_spec_code = %s
+                AND cylinder_spec_code = %s
+                AND is_active = TRUE
+                LIMIT 1
+            """, [gas_name, capacity, valve_spec_code or '', cylinder_spec_code or ''])
+            
+            result = cursor.fetchone()
+            if result:
+                return result[0]
+            
+            # 밸브/용기 코드 없이 가스명+용량만으로 매칭
+            cursor.execute("""
+                SELECT default_enduser
+                FROM cy_enduser_default
+                WHERE gas_name = %s
+                AND capacity = %s
+                AND (valve_spec_code IS NULL OR valve_spec_code = '')
+                AND (cylinder_spec_code IS NULL OR cylinder_spec_code = '')
+                AND is_active = TRUE
+                LIMIT 1
+            """, [gas_name, capacity])
+            
+            result = cursor.fetchone()
+            if result:
+                return result[0]
+            
+        except Exception as e:
+            # 오류 발생 시 기본값 반환
+            pass
+        
+        # 매칭 실패 시 기본값
+        return 'SDC'
     
     def map_condition_code(self, code):
         """상태 코드 → 상태명 변환"""
