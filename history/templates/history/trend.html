@@ -40,6 +40,14 @@
                 <button type="submit" class="btn btn-primary w-100">조회</button>
                 <a href="{% url 'history:history_trend' %}?reset=1" class="btn btn-outline-secondary w-100">초기화</a>
             </div>
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="text-muted small">빠른 기간:</span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-date-preset="this_h1">올해 상반기</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-date-preset="this_h2">올해 하반기</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-date-preset="last_year">작년</button>
+                </div>
+            </div>
         </form>
     </div>
 </div>
@@ -197,6 +205,43 @@
 {{ block.super }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+    function fmtDate(d) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function applyDatePreset(preset) {
+        const startEl = document.querySelector('input[name="start_date"]');
+        const endEl = document.querySelector('input[name="end_date"]');
+        const form = startEl?.closest('form');
+        if (!startEl || !endEl || !form) return;
+
+        const now = new Date();
+        const year = now.getFullYear();
+
+        let start, end;
+        if (preset === 'this_h1') {
+            start = new Date(year, 0, 1);
+            end = new Date(year, 5, 30);
+        } else if (preset === 'this_h2') {
+            start = new Date(year, 6, 1);
+            end = new Date(year, 11, 31);
+        } else if (preset === 'last_year') {
+            start = new Date(year - 1, 0, 1);
+            end = new Date(year - 1, 11, 31);
+        } else {
+            return;
+        }
+
+        startEl.value = fmtDate(start);
+        endEl.value = fmtDate(end);
+
+        // 바로 조회
+        form.requestSubmit?.() || form.submit();
+    }
+
     const weeklyData = {{ weekly_chart|safe }};
     const monthlyData = {{ monthly_chart|safe }};
     const monthlyOccupancyData = {{ monthly_occupancy_chart|safe }};
@@ -340,6 +385,11 @@
     });
     document.getElementById('monthlyChartType').addEventListener('change', (e) => {
         renderTrend('trendMonthly', monthlyData, e.target.value);
+    });
+
+    // 날짜 프리셋 버튼
+    document.querySelectorAll('[data-date-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => applyDatePreset(btn.getAttribute('data-date-preset')));
     });
 
     // 표 양식 변경 핸들러
