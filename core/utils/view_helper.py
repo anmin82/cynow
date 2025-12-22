@@ -212,11 +212,13 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
                     cylinder_types[group_key]['cylinder_type_key'] = row_type_key
         
         # 상태는 UI/JS에서 정해진 키로 조회되기도 하므로 공백/개행을 정규화하고,
-        # 레거시 표기(예: '분석')는 표준 상태로 정규화한다.
+        # 레거시 표기(예: '분석')는 사용자 표시용 상태로 정규화한다.
         status = (row.get('status', '') or '').strip()
         legacy_status_map = {
-            '분석': '분석완료',
-            '충전': '충전완료',
+            # 레거시 '분석'은 진행 상태로 취급하여 '분석중'으로 표시한다.
+            '분석': '분석중',
+            # 레거시 '충전'은 진행 상태로 취급하여 '충전중'으로 표시한다.
+            '충전': '충전중',
             '정비': '정비대상',
         }
         status = legacy_status_map.get(status, status)

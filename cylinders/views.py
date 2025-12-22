@@ -193,6 +193,18 @@ def cylinder_list(request):
         sort_order=sort_order,
         search_query=search_query
     )
+
+    # 상태 표시 정규화 (레거시 상태를 사용자 표시용 상태로 변환)
+    # - DB에는 '분석'이 남아있을 수 있으나 UI에서는 '분석중'으로 보이게 한다.
+    for c in cylinders_list:
+        try:
+            s = (c.get('status', '') or '').strip()
+            if s == '분석':
+                c['status'] = '분석중'
+            elif s == '충전':
+                c['status'] = '충전중'
+        except Exception:
+            pass
     
     # 페이지네이션 계산
     import math
