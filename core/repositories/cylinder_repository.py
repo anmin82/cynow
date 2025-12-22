@@ -6,6 +6,23 @@ from core.utils.translation import translate_list
 
 class CylinderRepository:
     """cy_cylinder_current 스냅샷 테이블 조회용 Repository"""
+
+    @staticmethod
+    def _current_table_sql() -> str:
+        """
+        cy_cylinder_current는 Oracle CHAR trailing space 때문에
+        같은 용기번호가 공백 유무로 중복될 수 있다. (예: '22E27597' vs '22E27597   ')
+        PostgreSQL에서는 DISTINCT ON으로 RTRIM(cylinder_no) 기준 최신 1행만 사용한다.
+        """
+        if connection.vendor == 'postgresql':
+            return """
+                (
+                    SELECT DISTINCT ON (RTRIM(cylinder_no)) *
+                    FROM cy_cylinder_current
+                    ORDER BY RTRIM(cylinder_no), snapshot_updated_at DESC
+                ) c
+            """
+        return "cy_cylinder_current c"
     
     @staticmethod
     def get_inventory_summary(filters: Optional[Dict] = None) -> List[Dict]:
@@ -17,6 +34,7 @@ class CylinderRepository:
             List[Dict]: 용기종류 × 상태 × 위치별 수량 집계
         """
         with connection.cursor() as cursor:
+            current_table = CylinderRepository._current_table_sql()
             query = """
                 SELECT 
                     c.cylinder_type_key,
@@ -29,11 +47,12 @@ class CylinderRepository:
                     COUNT(*) as qty,
                     SUM(CASE WHEN c.is_available THEN 1 ELSE 0 END) as available_qty,
                     c.dashboard_valve_spec_name as valve_spec_raw
-                FROM cy_cylinder_current c
+                FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
                 WHERE c.dashboard_enduser IS NOT NULL
             """
+            query = query.format(current_table=current_table)
             
             params = []
             conditions = []
@@ -95,9 +114,10 @@ class CylinderRepository:
             List[Dict]: 개별 용기 정보
         """
         with connection.cursor() as cursor:
+            current_table = CylinderRepository._current_table_sql()
             query = """
                 SELECT 
-                    c.cylinder_no,
+                    RTRIM(c.cylinder_no) as cylinder_no,
                     c.dashboard_gas_name as gas_name,
                     c.dashboard_capacity as capacity,
                     COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) as valve_spec,
@@ -130,13 +150,14 @@ class CylinderRepository:
                              ELSE '' 
                         END
                     ) as filling_lot
-                FROM cy_cylinder_current c
+                FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
                 LEFT JOIN "fcms_cdc"."tr_latest_cylinder_statuses" tcs
                     ON RTRIM(mc."CYLINDER_NO") = RTRIM(tcs."CYLINDER_NO")
                 WHERE c.dashboard_enduser IS NOT NULL
             """
+            query = query.format(current_table=current_table)
             
             params = []
             conditions = []
@@ -229,7 +250,7 @@ class CylinderRepository:
             
             # 정렬 컬럼 매핑 (SQL injection 방지)
             sort_columns = {
-                'cylinder_no': 'c.cylinder_no',
+                'cylinder_no': 'RTRIM(c.cylinder_no)',
                 'gas_name': 'c.dashboard_gas_name',
                 'status': 'c.dashboard_status',
                 'location': 'c.dashboard_location',
@@ -271,15 +292,17 @@ class CylinderRepository:
             int: 용기 개수
         """
         with connection.cursor() as cursor:
+            current_table = CylinderRepository._current_table_sql()
             query = """
                 SELECT COUNT(*) 
-                FROM cy_cylinder_current c
+                FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
                 LEFT JOIN "fcms_cdc"."tr_latest_cylinder_statuses" tcs
                     ON RTRIM(mc."CYLINDER_NO") = RTRIM(tcs."CYLINDER_NO")
                 WHERE c.dashboard_enduser IS NOT NULL
             """
+            query = query.format(current_table=current_table)
             
             params = []
             conditions = []
