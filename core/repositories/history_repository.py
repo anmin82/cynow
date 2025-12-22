@@ -416,6 +416,8 @@ class HistoryRepository:
         type_where = ""
         group_by = "GROUP BY bucket, c.cylinder_type_key"
         order_by = "ORDER BY bucket DESC, c.cylinder_type_key"
+        # 여러 키를 합산할 때는 SELECT에서 key를 그대로 노출하면 GROUP BY 에러가 나므로 집계로 처리한다.
+        type_key_select = "c.cylinder_type_key"
 
         keys = [k for k in (cylinder_type_keys or []) if k]
         if keys:
@@ -429,6 +431,7 @@ class HistoryRepository:
                 params.extend(keys)
             group_by = "GROUP BY bucket"
             order_by = "ORDER BY bucket DESC"
+            type_key_select = "MIN(c.cylinder_type_key) AS cylinder_type_key"
         elif cylinder_type_key:
             type_where = " AND c.cylinder_type_key = %s"
             params.append(cylinder_type_key)
@@ -436,7 +439,7 @@ class HistoryRepository:
         query = f"""
             SELECT 
                 date_trunc(%s, h."MOVE_DATE") AS bucket,
-                c.cylinder_type_key,
+                {type_key_select},
                 COUNT(DISTINCT (h."CYLINDER_NO", h."HISTORY_SEQ")) FILTER (WHERE h."MOVE_CODE" = ANY(%s)) AS ship_cnt,
                 COUNT(DISTINCT (h."CYLINDER_NO", h."HISTORY_SEQ")) FILTER (WHERE h."MOVE_CODE" = ANY(%s)) AS inbound_cnt,
                 COUNT(DISTINCT (h."CYLINDER_NO", h."HISTORY_SEQ")) FILTER (WHERE h."MOVE_CODE" = ANY(%s)) AS charge_cnt,
