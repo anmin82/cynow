@@ -92,6 +92,7 @@
                     </div>
                 </div>
                 <div class="status-distribution">
+                    {# 카드에는 세부 상태를 그대로 표시 (예: 분석완료) #}
                     {% for status, qty in type.statuses.items %}
                     {% if qty > 0 %}
                     <span class="status-item status-{{ status }}">{{ status }} <strong>{{ qty }}</strong></span>

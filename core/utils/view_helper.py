@@ -211,7 +211,8 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
                 if not cur_key or row_type_key < cur_key:
                     cylinder_types[group_key]['cylinder_type_key'] = row_type_key
         
-        status = row.get('status', '')
+        # 상태는 UI/JS에서 정해진 키로 조회되기도 하므로 공백/개행을 정규화한다.
+        status = (row.get('status', '') or '').strip()
         qty = row.get('qty', 0)
         
         # 상태별 수량 누적 (세분화된 상태)
