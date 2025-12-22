@@ -75,7 +75,9 @@ class HistoryRepository:
                     c.cylinder_type_key,
                     MIN(c.dashboard_gas_name) AS gas_name,
                     MIN(c.dashboard_capacity) AS capacity,
-                    MIN(COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name)) AS valve_display,
+                    MIN(NULLIF(RTRIM(c.dashboard_valve_group_name), '')) AS valve_group_name,
+                    MIN(NULLIF(RTRIM(c.dashboard_valve_spec_name), '')) AS valve_spec_name,
+                    MIN(COALESCE(NULLIF(RTRIM(c.dashboard_valve_group_name), ''), NULLIF(RTRIM(c.dashboard_valve_spec_name), ''))) AS valve_display,
                     MIN(c.dashboard_cylinder_spec_name) AS cylinder_display,
                     MIN(c.dashboard_enduser) AS enduser
                 FROM cy_cylinder_current c
@@ -85,7 +87,7 @@ class HistoryRepository:
                       WHERE h.cylinder_type_key = c.cylinder_type_key
                   )
                 GROUP BY c.cylinder_type_key
-                ORDER BY MIN(c.dashboard_gas_name), MIN(c.dashboard_capacity) NULLS LAST, MIN(COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name)), MIN(c.dashboard_enduser)
+                ORDER BY MIN(c.dashboard_gas_name), MIN(c.dashboard_capacity) NULLS LAST, MIN(COALESCE(NULLIF(RTRIM(c.dashboard_valve_group_name), ''), NULLIF(RTRIM(c.dashboard_valve_spec_name), ''))), MIN(c.dashboard_enduser)
                 """
             )
             cols = [col[0] for col in cursor.description]
@@ -94,6 +96,15 @@ class HistoryRepository:
 
         # 대시보드 카드처럼 읽기 쉬운 표기(예: COS / CGA330 / 47L)
         for r in results:
+            # 밸브 식별 보강: 그룹명이 있으면 "그룹명(밸브코드)" 형태로 표시
+            valve_group = (r.get("valve_group_name") or "").strip()
+            valve_raw = (r.get("valve_spec_name") or "").strip()
+            valve_code = (extract_valve_type(valve_raw) or "").strip()
+            if valve_group:
+                r["valve_display"] = f"{valve_group} ({valve_code})" if valve_code else valve_group
+            else:
+                r["valve_display"] = valve_code or (r.get("valve_display") or "")
+
             label_parts = []
             for p in [r.get("gas_name"), r.get("capacity"), r.get("valve_display"), r.get("cylinder_display")]:
                 if p is None:
