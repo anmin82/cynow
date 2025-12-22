@@ -440,13 +440,16 @@ class Command(BaseCommand):
     
     def get_valve_group(self, cursor, valve_spec_code, valve_spec_name):
         """밸브 그룹 조회"""
+        # Oracle CHAR 특성상 공백이 섞여 들어올 수 있으므로 항상 trim해서 비교한다.
+        valve_spec_code = (valve_spec_code or '').strip()
+        valve_spec_name = (valve_spec_name or '').strip()
         try:
             cursor.execute("""
                 SELECT vg.group_name
                 FROM cy_valve_group_mapping vgm
                 JOIN cy_valve_group vg ON vgm.group_id = vg.id
-                WHERE vgm.valve_spec_code = %s
-                AND vgm.valve_spec_name = %s
+                WHERE RTRIM(vgm.valve_spec_code) = RTRIM(%s)
+                AND RTRIM(vgm.valve_spec_name) = RTRIM(%s)
                 AND vgm.is_active = TRUE
                 AND vg.is_active = TRUE
                 LIMIT 1

@@ -40,13 +40,13 @@ class CylinderRepository:
                     c.cylinder_type_key,
                     c.dashboard_gas_name as gas_name,
                     c.dashboard_capacity as capacity,
-                    COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) as valve_spec,
-                    c.dashboard_cylinder_spec_name as cylinder_spec,
+                    RTRIM(COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name)) as valve_spec,
+                    RTRIM(c.dashboard_cylinder_spec_name) as cylinder_spec,
                     c.dashboard_status as status,
-                    c.dashboard_enduser as enduser,
+                    RTRIM(c.dashboard_enduser) as enduser,
                     COUNT(*) as qty,
                     SUM(CASE WHEN c.is_available THEN 1 ELSE 0 END) as available_qty,
-                    c.dashboard_valve_spec_name as valve_spec_raw
+                    RTRIM(c.dashboard_valve_spec_name) as valve_spec_raw
                 FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
@@ -79,11 +79,11 @@ class CylinderRepository:
                     c.cylinder_type_key,
                     c.dashboard_gas_name,
                     c.dashboard_capacity,
-                    COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name),
-                    c.dashboard_cylinder_spec_name,
+                    RTRIM(COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name)),
+                    RTRIM(c.dashboard_cylinder_spec_name),
                     c.dashboard_status,
-                    c.dashboard_enduser,
-                    c.dashboard_valve_spec_name
+                    RTRIM(c.dashboard_enduser),
+                    RTRIM(c.dashboard_valve_spec_name)
                 ORDER BY c.dashboard_gas_name, c.dashboard_enduser, c.dashboard_status
             """
             

@@ -161,11 +161,11 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
     for row in inventory_data:
         # EndUserDefault 정책과 일치하도록 그룹 키 생성
         # 밸브 그룹이 있으면 그룹명 사용, 없으면 밸브 스펙 사용
-        gas_name = row.get('gas_name', '')
+        gas_name = (row.get('gas_name', '') or '').strip()
         capacity = row.get('capacity') or ''
-        valve_spec = row.get('valve_spec', '')  # 밸브 그룹명 또는 밸브 스펙
-        cylinder_spec = row.get('cylinder_spec', '')
-        enduser = row.get('enduser', '') or ''
+        valve_spec = (row.get('valve_spec', '') or '').strip()  # 밸브 그룹명 또는 밸브 스펙
+        cylinder_spec = (row.get('cylinder_spec', '') or '').strip()
+        enduser = (row.get('enduser', '') or '').strip()
         
         # 그룹 키: 가스명 + 용량 + 밸브 + 용기 + EndUser
         group_key = f"{gas_name}|{capacity}|{valve_spec}|{cylinder_spec}|{enduser}"
@@ -178,7 +178,7 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
             # 용기 스펙 파싱
             cylinder_parsed = parse_cylinder_spec(cylinder_spec)
             # 밸브 스펙 파싱 (원본 스펙 우선 사용 - 그룹명은 재질 추출 불가)
-            valve_spec_raw = row.get('valve_spec_raw', '') or valve_spec
+            valve_spec_raw = (row.get('valve_spec_raw', '') or valve_spec).strip()
             valve_parsed = parse_valve_spec(valve_spec_raw)
             
             cylinder_types[group_key] = {
