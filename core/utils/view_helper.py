@@ -266,6 +266,25 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
             rep = v.get('cylinder_type_key', '')
             v['cylinder_type_keys'] = [rep] if rep else []
 
+        # 카드 하단 배지 표기용 상태 집계 (세부 상태 분리)
+        # - 카드에서는 분석중/분석완료, 충전중/충전완료를 분리해서 보여준다.
+        st = v.get('statuses', {}) or {}
+        def _sum(*keys):
+            return sum(int(st.get(key, 0) or 0) for key in keys)
+
+        v['statuses_card'] = {
+            '보관': _sum('보관:미회수', '보관:회수'),
+            '충전중': _sum('충전중'),
+            '충전완료': _sum('충전완료'),
+            '분석중': _sum('분석중'),
+            '분석완료': _sum('분석완료'),
+            '제품': _sum('제품'),
+            '출하': _sum('출하'),
+            '이상': _sum('이상'),
+            '정비': _sum('정비대상'),
+            '폐기': _sum('폐기'),
+        }
+
     return cylinder_types
 
 
