@@ -11,7 +11,7 @@
     </div>
     <div class="d-flex gap-2">
         <a href="{% url 'history:history_movement' %}" class="btn btn-outline-secondary btn-sm">입출하 이력</a>
-        <a href="{% url 'history:history_charge' %}" class="btn btn-outline-secondary btn-sm">충전 이력</a>
+        <a href="{% url 'history:history_charge' %}" class="btn btn-outline-secondary btn-sm">LOT조회</a>
         <a href="{% url 'history:history_clf3' %}" class="btn btn-outline-secondary btn-sm">CLF3</a>
         <a href="{% url 'history:history_trend' %}" class="btn btn-outline-secondary btn-sm">수요 추이</a>
         <a href="{% url 'history:export_excel' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}{% for k,v in filters.items %}&{{ k }}={{ v }}{% endfor %}" class="btn btn-success btn-sm">
