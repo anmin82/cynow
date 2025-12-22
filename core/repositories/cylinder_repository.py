@@ -40,7 +40,13 @@ class CylinderRepository:
                     c.cylinder_type_key,
                     c.dashboard_gas_name as gas_name,
                     c.dashboard_capacity as capacity,
-                    RTRIM(COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name)) as valve_spec,
+                    -- 밸브 그룹명이 ''(빈 문자열)인 경우가 있어 COALESCE만 쓰면 ''로 떨어져 카드가 분리됨.
+                    -- 목록(get_cylinder_list)과 동일하게 NULLIF + RTRIM로 안정화.
+                    COALESCE(
+                        NULLIF(RTRIM(c.dashboard_valve_group_name), ''),
+                        NULLIF(RTRIM(c.dashboard_valve_spec_name), ''),
+                        ''
+                    ) as valve_spec,
                     RTRIM(c.dashboard_cylinder_spec_name) as cylinder_spec,
                     c.dashboard_status as status,
                     RTRIM(c.dashboard_enduser) as enduser,
@@ -79,7 +85,11 @@ class CylinderRepository:
                     c.cylinder_type_key,
                     c.dashboard_gas_name,
                     c.dashboard_capacity,
-                    RTRIM(COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name)),
+                    COALESCE(
+                        NULLIF(RTRIM(c.dashboard_valve_group_name), ''),
+                        NULLIF(RTRIM(c.dashboard_valve_spec_name), ''),
+                        ''
+                    ),
                     RTRIM(c.dashboard_cylinder_spec_name),
                     c.dashboard_status,
                     RTRIM(c.dashboard_enduser),
