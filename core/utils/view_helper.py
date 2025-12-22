@@ -226,9 +226,9 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
         if status in ('보관:미회수', '보관:회수'):
             grouped_status = '보관'
         elif status in ('충전중', '충전완료'):
-            grouped_status = '충전'
+            grouped_status = '충전중'
         elif status == '분석완료':
-            grouped_status = '분석'
+            grouped_status = '분석중'
         elif status == '정비대상':
             grouped_status = '정비'
         # 제품, 출하, 이상, 폐기는 그대로

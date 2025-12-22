@@ -134,8 +134,8 @@
                         <th class="text-end">가용</th>
                         <th class="text-end">총</th>
                         <th class="text-end">보관</th>
-                        <th class="text-end">충전</th>
-                        <th class="text-end">분석</th>
+                        <th class="text-end">충전중</th>
+                        <th class="text-end">분석중</th>
                         <th class="text-end">제품</th>
                         <th class="text-end">출하</th>
                         <th class="text-end">이상</th>
@@ -160,8 +160,8 @@
                         </td>
                         <td class="text-end text-muted">{{ type.total_qty }}</td>
                         <td class="text-end">{{ type.statuses_grouped.보관|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses_grouped.충전|default:0 }}</td>
-                        <td class="text-end">{{ type.statuses_grouped.분석|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.충전중|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.분석중|default:0 }}</td>
                         <td class="text-end">{{ type.statuses_grouped.제품|default:0 }}</td>
                         <td class="text-end">{{ type.statuses_grouped.출하|default:0 }}</td>
                         <td class="text-end {% if type.statuses_grouped.이상 %}text-danger{% endif %}">{{ type.statuses_grouped.이상|default:0 }}</td>
@@ -174,6 +174,9 @@
         </div>
     </div>
 </div>
+
+<!-- 통합 상태(보관/충전중/분석중...) 숫자 카드: 모달에서 바로 보이도록 -->
+<!-- (JS로 내용을 채움) -->
 
 <!-- 상세 모달 -->
 <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
@@ -254,6 +257,14 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 통합 상태 숫자 카드 (보관/충전중/분석중/...) -->
+                <div class="modal-section">
+                    <h6 class="section-title">공정/상태 요약</h6>
+                    <div class="status-summary-grid" id="modal-status-summary">
+                        <!-- JS에서 동적 생성 -->
+                    </div>
+                </div>
                 
                 <!-- 상태별 상세 -->
                 <div class="modal-section">
@@ -296,6 +307,11 @@ const cylinderTypesMap = {
         usage_place: "{{ type.usage_place|default:'—'|escapejs }}",
         available_qty: {{ type.available_qty }},
         total_qty: {{ type.total_qty }},
+        statuses_grouped: {
+            {% for status, qty in type.statuses_grouped.items %}
+            "{{ status }}": {{ qty }}{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        },
         statuses: {
             {% for status, qty in type.statuses.items %}
             "{{ status }}": {{ qty }}{% if not forloop.last %},{% endif %}
@@ -368,6 +384,42 @@ function openDetailModal(typeKey) {
         `;
         statusGrid.appendChild(item);
     });
+
+    // 통합 상태 요약 카드 (보관/충전중/분석중/...)
+    const summaryGrid = document.getElementById('modal-status-summary');
+    if (summaryGrid) {
+        summaryGrid.innerHTML = '';
+        const summaryOrder = ['보관', '충전중', '분석중', '제품', '출하', '이상', '정비', '폐기'];
+        summaryOrder.forEach(status => {
+            const qty = (data.statuses_grouped && data.statuses_grouped[status]) ? data.statuses_grouped[status] : 0;
+            const card = document.createElement('div');
+            card.className = 'status-summary-card status-' + status + (qty > 0 ? '' : ' empty');
+
+            if (qty > 0) {
+                card.style.cursor = 'pointer';
+                card.title = '클릭하여 용기 리스트 보기';
+                const keysParam = (data.cylinder_type_keys && data.cylinder_type_keys.length > 0)
+                    ? data.cylinder_type_keys.join(',')
+                    : data.cylinder_type_key;
+                // 통합 상태(보관/충전중/분석중)는 리스트에서 세부 상태로 조회한다.
+                // 보관 → 보관:미회수+보관:회수 (표시만), 클릭 시에는 "보관"이 없으므로 상세 상태 페이지를 열지 않는다.
+                // 충전중 → 충전중, 분석중 → 분석완료 로 매핑
+                let mappedStatus = status;
+                if (status === '분석중') mappedStatus = '분석완료';
+                if (status === '충전중') mappedStatus = '충전중';
+                if (status === '정비') mappedStatus = '정비대상';
+                if (status === '보관') mappedStatus = '보관:미회수';
+                const cylinderListUrl = '{% url "cylinders:list" %}?cylinder_type_keys=' + encodeURIComponent(keysParam) + '&status=' + encodeURIComponent(mappedStatus);
+                card.onclick = function() { window.location.href = cylinderListUrl; };
+            }
+
+            card.innerHTML = `
+                <span class="status-name">${status}</span>
+                <span class="status-qty">${qty}</span>
+            `;
+            summaryGrid.appendChild(card);
+        });
+    }
     
     // 상세 링크
     document.getElementById('modal-detail-link').href = '{% url "dashboard:detail" %}?type=' + encodeURIComponent(data.cylinder_type_key);
@@ -538,8 +590,8 @@ function openDetailModal(typeKey) {
     background: rgba(0,0,0,0.05);
 }
 .status-item.status-보관 { background: rgba(52, 199, 89, 0.15); color: #1a7d3a; }
-.status-item.status-충전 { background: rgba(0, 122, 255, 0.15); color: #0055b3; }
-.status-item.status-분석 { background: rgba(90, 200, 250, 0.15); color: #1a8ab8; }
+.status-item.status-충전, .status-item.status-충전중 { background: rgba(0, 122, 255, 0.15); color: #0055b3; }
+.status-item.status-분석, .status-item.status-분석중 { background: rgba(90, 200, 250, 0.15); color: #1a8ab8; }
 .status-item.status-창입 { background: rgba(175, 82, 222, 0.15); color: #7a3d9c; }
 .status-item.status-출하 { background: rgba(88, 86, 214, 0.15); color: #4644a8; }
 .status-item.status-이상 { background: rgba(255, 59, 48, 0.15); color: #cc2b22; }
@@ -587,7 +639,7 @@ function openDetailModal(typeKey) {
     font-variant-numeric: tabular-nums;
 }
 .status-mini.status-보관 { background: rgba(52, 199, 89, 0.2); }
-.status-mini.status-충전 { background: rgba(0, 122, 255, 0.2); }
+.status-mini.status-충전, .status-mini.status-충전중 { background: rgba(0, 122, 255, 0.2); }
 .status-mini.status-이상 { background: rgba(255, 59, 48, 0.2); color: #cc2b22; }
 .status-mini.status-정비 { background: rgba(255, 159, 10, 0.3); }
 .status-mini.status-폐기 { background: rgba(142, 142, 147, 0.3); }
@@ -598,6 +650,41 @@ function openDetailModal(typeKey) {
     border: none;
     box-shadow: 0 25px 50px rgba(0,0,0,0.15);
 }
+
+/* 모달 통합 상태 요약 카드 */
+.status-summary-grid{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+.status-summary-card{
+    background: #F5F5F7;
+    border-radius: 14px;
+    padding: 12px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+}
+.status-summary-card.empty{
+    opacity: 0.55;
+}
+.status-summary-card .status-name{
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ios-gray-1);
+}
+.status-summary-card .status-qty{
+    font-size: 16px;
+    font-weight: 800;
+    color: #1C1C1E;
+}
+.status-summary-card.status-보관{ background: rgba(52, 199, 89, 0.12); }
+.status-summary-card.status-충전중{ background: rgba(0, 122, 255, 0.12); }
+.status-summary-card.status-분석중{ background: rgba(90, 200, 250, 0.12); }
+.status-summary-card.status-정비{ background: rgba(255, 159, 10, 0.15); }
+.status-summary-card.status-이상{ background: rgba(255, 59, 48, 0.12); }
+.status-summary-card.status-폐기{ background: rgba(142, 142, 147, 0.12); }
 .modal-header {
     border-bottom: 1px solid #f0f0f0;
     padding: 20px 24px;
@@ -742,10 +829,10 @@ function openDetailModal(typeKey) {
 }
 .status-detail-item.status-보관 { background: rgba(52, 199, 89, 0.12); }
 .status-detail-item.status-보관 .status-qty { color: var(--ios-green); }
-.status-detail-item.status-충전 { background: rgba(0, 122, 255, 0.12); }
-.status-detail-item.status-충전 .status-qty { color: var(--ios-blue); }
-.status-detail-item.status-분석 { background: rgba(90, 200, 250, 0.12); }
-.status-detail-item.status-분석 .status-qty { color: var(--ios-teal); }
+.status-detail-item.status-충전, .status-detail-item.status-충전중 { background: rgba(0, 122, 255, 0.12); }
+.status-detail-item.status-충전 .status-qty, .status-detail-item.status-충전중 .status-qty { color: var(--ios-blue); }
+.status-detail-item.status-분석, .status-detail-item.status-분석중 { background: rgba(90, 200, 250, 0.12); }
+.status-detail-item.status-분석 .status-qty, .status-detail-item.status-분석중 .status-qty { color: var(--ios-teal); }
 .status-detail-item.status-창입 { background: rgba(175, 82, 222, 0.12); }
 .status-detail-item.status-창입 .status-qty { color: var(--ios-purple); }
 .status-detail-item.status-출하 { background: rgba(88, 86, 214, 0.12); }
