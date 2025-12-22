@@ -28,25 +28,26 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">시작일</label>
                 <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">종료일</label>
                 <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
             </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary w-100">조회</button>
-                <a href="{% url 'history:history_trend' %}?reset=1" class="btn btn-outline-secondary w-100">초기화</a>
-            </div>
             <div class="col-12">
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <span class="text-muted small">빠른 기간:</span>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-date-preset="this_h1">올해 상반기</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-date-preset="this_h2">올해 하반기</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-date-preset="last_year">작년</button>
+                <label class="form-label d-none d-md-block">&nbsp;</label>
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-md-end">
+                    <span class="text-muted small me-1">빠른 기간</span>
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-date-preset="this_year">올해</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-date-preset="this_h1">상반기</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" data-date-preset="this_h2">하반기</button>
                 </div>
+            </div>
+            <div class="col-md-12 d-flex gap-2 justify-content-md-end">
+                <button type="submit" class="btn btn-primary">조회</button>
+                <a href="{% url 'history:history_trend' %}?reset=1" class="btn btn-outline-secondary">초기화</a>
             </div>
         </form>
     </div>
@@ -222,15 +223,15 @@
         const year = now.getFullYear();
 
         let start, end;
-        if (preset === 'this_h1') {
+        if (preset === 'this_year') {
+            start = new Date(year, 0, 1);
+            end = new Date(year, 11, 31);
+        } else if (preset === 'this_h1') {
             start = new Date(year, 0, 1);
             end = new Date(year, 5, 30);
         } else if (preset === 'this_h2') {
             start = new Date(year, 6, 1);
             end = new Date(year, 11, 31);
-        } else if (preset === 'last_year') {
-            start = new Date(year - 1, 0, 1);
-            end = new Date(year - 1, 11, 31);
         } else {
             return;
         }
