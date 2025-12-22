@@ -89,38 +89,16 @@
 <div class="row g-3 mt-2">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">월말 출하 상태 병수</div>
-            <div class="card-body">
-                <canvas id="trendMonthlyShipStock" height="140"></canvas>
-                <div class="small text-muted mt-2">
-                    각 월의 <strong>마지막 스냅샷</strong> 기준으로, 상태가 <strong>출하</strong>(또는 출하중)인 병수 합계입니다.
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-3 mt-2">
-    <div class="col-12">
-        <div class="card">
             <div class="card-header">월간 점유율(%) - 가용/공정중/제품/출하/비가용</div>
             <div class="card-body">
                 <canvas id="trendMonthlyOccupancy" height="170"></canvas>
                 <div class="small text-muted mt-2">
                     각 월의 <strong>마지막 스냅샷</strong> 기준 총량 대비 점유율입니다.
                     (가용=보관, 비가용=이상/정비대상/폐기)
-                    {% if occupancy_source == 'history' %}
                     <div class="mt-1">
-                        <span class="badge bg-warning text-dark">추정</span>
-                        스냅샷이 없어 <strong>상태 이력 기준으로 월말 상태를 추정</strong>한 값입니다. (미분류가 발생할 수 있음)
+                        <span class="badge bg-secondary">안내</span>
+                        월말 스냅샷이 쌓이기 전까지는 일부 기간이 <strong>데이터 없음</strong>으로 보일 수 있습니다.
                     </div>
-                    {% endif %}
-                    {% if occupancy_source == 'missing' %}
-                    <div class="mt-1">
-                        <span class="badge bg-danger">스냅샷 필요</span>
-                        기간이 길어 히스토리 추정 계산을 생략했습니다. 서버에서 <strong>월말 스냅샷 백필</strong>을 먼저 실행해주세요.
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -221,7 +199,6 @@
 <script>
     const weeklyData = {{ weekly_chart|safe }};
     const monthlyData = {{ monthly_chart|safe }};
-    const monthlyShipStockData = {{ monthly_ship_stock_chart|safe }};
     const monthlyOccupancyData = {{ monthly_occupancy_chart|safe }};
 
     function renderTrend(elId, data, type) {
@@ -303,43 +280,6 @@
         });
     }
 
-    function renderShipStock(elId, data) {
-        const ctx = document.getElementById(elId);
-        if (!ctx) return;
-        const hasData = data.labels && data.labels.length > 0;
-        
-        if (ctx.__chart) {
-            ctx.__chart.destroy();
-        }
-        
-        ctx.__chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: hasData ? data.labels : ['데이터 없음'],
-                datasets: [
-                    {
-                        label: '월말 출하중(재고)',
-                        data: hasData ? data.ship_stock : [0],
-                        borderColor: '#D4A600',
-                        backgroundColor: 'rgba(255, 204, 0, 0.35)',
-                        tension: 0.3,
-                        fill: true
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: { beginAtZero: true, ticks: { precision: 0 } }
-                },
-                plugins: {
-                    legend: { position: 'top' },
-                    tooltip: { mode: 'index', intersect: false }
-                }
-            }
-        });
-    }
-
     function renderOccupancy100(elId, data) {
         const ctx = document.getElementById(elId);
         if (!ctx) return;
@@ -392,7 +332,6 @@
     // 초기 렌더
     renderTrend('trendWeekly', weeklyData, 'line');
     renderTrend('trendMonthly', monthlyData, 'line');
-    renderShipStock('trendMonthlyShipStock', monthlyShipStockData);
     renderOccupancy100('trendMonthlyOccupancy', monthlyOccupancyData);
 
     // 타입 변경 핸들러
