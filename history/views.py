@@ -371,6 +371,7 @@ def history_trend(request):
                 "weekly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
                 "monthly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
                 "monthly_ship_stock_chart": json.dumps({"labels": [], "ship_stock": []}),
+                "monthly_occupancy_chart": json.dumps({"labels": [], "available": [], "process": [], "product": [], "ship": [], "unavailable": []}),
                 "yearly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
                 "error_message": "대시보드의 용기종류를 선택해서 조회해주세요.",
             },
@@ -396,6 +397,15 @@ def history_trend(request):
     ship_stock_rows = HistoryRepository.get_month_end_status_qty(
         cylinder_type_key=cylinder_type_key,
         statuses=["출하", "출하중"],
+        start_date=start_date,
+        end_date=end_date,
+        snapshot_type="DAILY",
+    )
+
+    # 월간 점유율(%) 추이: 월별 마지막 스냅샷 기준 상태 그룹 총량
+    occupancy_rows = HistoryRepository.get_period_end_occupancy_summary(
+        period="month",
+        cylinder_type_key=cylinder_type_key,
         start_date=start_date,
         end_date=end_date,
         snapshot_type="DAILY",
@@ -430,6 +440,24 @@ def history_trend(request):
         "labels": [_format_label("month", r.get("bucket")) for r in ship_stock_rows],
         "ship_stock": [r.get("qty", 0) or 0 for r in ship_stock_rows],
     }
+    # 점유율(%)로 변환
+    monthly_occupancy_chart = {
+        "labels": [_format_label("month", r.get("bucket")) for r in occupancy_rows],
+        "available": [],
+        "process": [],
+        "product": [],
+        "ship": [],
+        "unavailable": [],
+    }
+    for r in occupancy_rows:
+        total = (r.get("total_qty", 0) or 0) or 0
+        def pct(v):
+            return round((float(v or 0) / total * 100.0), 2) if total > 0 else 0
+        monthly_occupancy_chart["available"].append(pct(r.get("available_qty")))
+        monthly_occupancy_chart["process"].append(pct(r.get("process_qty")))
+        monthly_occupancy_chart["product"].append(pct(r.get("product_qty")))
+        monthly_occupancy_chart["ship"].append(pct(r.get("ship_qty")))
+        monthly_occupancy_chart["unavailable"].append(pct(r.get("unavailable_qty")))
     def _totals(rows):
         return {
             "inbound": sum(r.get("inbound_cnt", 0) or 0 for r in rows),
@@ -452,6 +480,7 @@ def history_trend(request):
         "weekly_chart": json.dumps(weekly_chart),
         "monthly_chart": json.dumps(monthly_chart),
         "monthly_ship_stock_chart": json.dumps(monthly_ship_stock_chart),
+        "monthly_occupancy_chart": json.dumps(monthly_occupancy_chart),
     }
     return render(request, "history/trend.html", context)
 

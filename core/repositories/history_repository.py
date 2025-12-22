@@ -433,6 +433,89 @@ class HistoryRepository:
         return [{"bucket": r[0], "qty": r[1]} for r in rows]
 
     @classmethod
+    def get_period_end_occupancy_summary(
+        cls,
+        *,
+        period: str,
+        cylinder_type_key: str,
+        start_date: date,
+        end_date: date,
+        snapshot_type: str = "DAILY",
+    ) -> List[Dict]:
+        """
+        HistInventorySnapshot에서 period(week/month)별 '기간 마지막 스냅샷' 기준 점유(총량) 집계.
+        - 가용: 보관:미회수, 보관:회수
+        - 공정중: 충전중, 충전완료, 분석완료
+        - 제품: 제품
+        - 출하: 출하 (환경에 따라 출하중이 있으면 포함)
+        - 비가용: 이상, 정비대상, 폐기
+        """
+        if not cylinder_type_key:
+            return []
+
+        if period not in ("week", "month"):
+            raise ValueError("period must be 'week' or 'month'")
+
+        start_dt = cls._ensure_datetime(start_date)
+        end_dt_exclusive = cls._ensure_datetime(end_date) + timedelta(days=1)
+
+        available_statuses = ["보관:미회수", "보관:회수"]
+        process_statuses = ["충전중", "충전완료", "분석완료"]
+        product_statuses = ["제품"]
+        ship_statuses = ["출하", "출하중"]
+        unavailable_statuses = ["이상", "정비대상", "폐기"]
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH last_snap AS (
+                    SELECT
+                        date_trunc(%s, snapshot_datetime) AS bucket,
+                        MAX(snapshot_datetime) AS last_dt
+                    FROM hist_inventory_snapshot
+                    WHERE cylinder_type_key = %s
+                      AND snapshot_datetime >= %s
+                      AND snapshot_datetime < %s
+                      AND snapshot_type = %s
+                    GROUP BY 1
+                )
+                SELECT
+                    l.bucket AS bucket,
+                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS available_qty,
+                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS process_qty,
+                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS product_qty,
+                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS ship_qty,
+                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS unavailable_qty,
+                    COALESCE(SUM(s.qty), 0) AS total_qty
+                FROM last_snap l
+                LEFT JOIN hist_inventory_snapshot s
+                    ON s.snapshot_datetime = l.last_dt
+                   AND s.cylinder_type_key = %s
+                   AND s.snapshot_type = %s
+                GROUP BY l.bucket
+                ORDER BY l.bucket ASC
+                """,
+                [
+                    period,
+                    cylinder_type_key,
+                    start_dt,
+                    end_dt_exclusive,
+                    snapshot_type,
+                    available_statuses,
+                    process_statuses,
+                    product_statuses,
+                    ship_statuses,
+                    unavailable_statuses,
+                    cylinder_type_key,
+                    snapshot_type,
+                ],
+            )
+            cols = [c[0] for c in cursor.description]
+            rows = cursor.fetchall()
+
+        return [dict(zip(cols, r)) for r in rows]
+
+    @classmethod
     def get_clf3_ship_counts(
         cls,
         ship_codes: List[str],
