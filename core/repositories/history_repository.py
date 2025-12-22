@@ -105,14 +105,31 @@ class HistoryRepository:
             else:
                 r["valve_display"] = valve_code or (r.get("valve_display") or "")
 
-            label_parts = []
-            for p in [r.get("gas_name"), r.get("capacity"), r.get("valve_display"), r.get("cylinder_display")]:
-                if p is None:
-                    continue
-                label_parts.append(str(p))
-            label = " / ".join([p for p in label_parts if p])
-            if r.get("enduser"):
-                label = f"{label} / {r['enduser']}"
+            gas_name = (r.get("gas_name") or "").strip()
+            capacity = (str(r.get("capacity") or "")).strip()
+            valve_display = (r.get("valve_display") or "").strip()
+            cylinder_display = (r.get("cylinder_display") or "").strip()
+            enduser = (r.get("enduser") or "").strip()
+
+            # 누락값이 있으면 사용자가 식별할 수 있게 '미상'을 명시적으로 표시
+            missing_core = False
+            if not gas_name:
+                gas_name = "가스미상"
+                missing_core = True
+            if not capacity:
+                capacity = "용량미상"
+                missing_core = True
+            if not valve_display:
+                valve_display = "밸브미상"
+            if not cylinder_display:
+                cylinder_display = "용기미상"
+
+            label = f"{gas_name} / {capacity} / {valve_display} / {cylinder_display}"
+            if enduser:
+                label = f"{label} / {enduser}"
+            # 핵심 정보(가스/용량)가 누락된 항목은 키 일부를 함께 보여줘서 선택 실수를 방지
+            if missing_core and r.get("cylinder_type_key"):
+                label = f"{label}  [key:{str(r['cylinder_type_key'])[:8]}]"
             r["display_label"] = label
         return results
 
