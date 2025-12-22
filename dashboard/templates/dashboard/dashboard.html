@@ -92,8 +92,8 @@
                     </div>
                 </div>
                 <div class="status-distribution">
-                    {# 카드에는 세부 상태를 그대로 표시 (예: 분석완료) #}
-                    {% for status, qty in type.statuses.items %}
+                    {# 카드/모달 표시를 통합 상태로 일원화 (분석중/충전중)하여 중복/혼선을 방지 #}
+                    {% for status, qty in type.statuses_grouped.items %}
                     {% if qty > 0 %}
                     <span class="status-item status-{{ status }}">{{ status }} <strong>{{ qty }}</strong></span>
                     {% endif %}
@@ -368,6 +368,9 @@ function openDetailModal(typeKey) {
             let cylinderListUrl = baseUrl;
             if (status === '보관') {
                 cylinderListUrl += '&statuses=' + encodeURIComponent('보관:미회수') + '&statuses=' + encodeURIComponent('보관:회수');
+            } else if (status === '충전중') {
+                // 통합 '충전중'은 (충전중 + 충전완료) 합계이므로 둘 다 전달
+                cylinderListUrl += '&statuses=' + encodeURIComponent('충전중') + '&statuses=' + encodeURIComponent('충전완료');
             } else {
                 let mappedStatus = status;
                 if (status === '분석중') mappedStatus = '분석완료';

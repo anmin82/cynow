@@ -211,8 +211,15 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
                 if not cur_key or row_type_key < cur_key:
                     cylinder_types[group_key]['cylinder_type_key'] = row_type_key
         
-        # 상태는 UI/JS에서 정해진 키로 조회되기도 하므로 공백/개행을 정규화한다.
+        # 상태는 UI/JS에서 정해진 키로 조회되기도 하므로 공백/개행을 정규화하고,
+        # 레거시 표기(예: '분석')는 표준 상태로 정규화한다.
         status = (row.get('status', '') or '').strip()
+        legacy_status_map = {
+            '분석': '분석완료',
+            '충전': '충전완료',
+            '정비': '정비대상',
+        }
+        status = legacy_status_map.get(status, status)
         qty = row.get('qty', 0)
         
         # 상태별 수량 누적 (세분화된 상태)
