@@ -199,10 +199,14 @@
                         </td>
                         <td>{{ cylinder.gas_name|translate_gas_name }}</td>
                         <td title="{{ cylinder.valve_spec|translate_valve_spec }}">
-                            {% with parsed=cylinder.valve_spec|parse_valve_spec %}{{ parsed.format|default:"-" }}{% endwith %}
+                            {% with raw=cylinder.valve_spec_raw|default:cylinder.valve_spec %}
+                                {% with parsed=raw|parse_valve_spec %}{{ parsed.format|default:"-" }}{% endwith %}
+                            {% endwith %}
                         </td>
                         <td title="{{ cylinder.valve_spec|translate_valve_spec }}">
-                            {% with parsed=cylinder.valve_spec|parse_valve_spec %}{{ parsed.material|default:"-" }}{% endwith %}
+                            {% with raw=cylinder.valve_spec_raw|default:cylinder.valve_spec %}
+                                {% with parsed=raw|parse_valve_spec %}{{ parsed.material|default:"-" }}{% endwith %}
+                            {% endwith %}
                         </td>
                         <td title="{{ cylinder.cylinder_spec|translate_cylinder_spec }}">
                             {% with parsed=cylinder.cylinder_spec|parse_cylinder_spec %}{{ parsed.format|default:"-" }}{% endwith %}

@@ -120,7 +120,14 @@ class CylinderRepository:
                     RTRIM(c.cylinder_no) as cylinder_no,
                     c.dashboard_gas_name as gas_name,
                     c.dashboard_capacity as capacity,
-                    COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) as valve_spec,
+                    -- 밸브 그룹명이 빈 문자열이면 원래 밸브명으로 fallback (빈 문자열 때문에 '-'로 보이는 문제 방지)
+                    COALESCE(
+                        NULLIF(RTRIM(c.dashboard_valve_group_name), ''),
+                        NULLIF(RTRIM(c.dashboard_valve_spec_name), ''),
+                        ''
+                    ) as valve_spec,
+                    -- 파싱은 번역/그룹명 대신 raw 밸브명으로 수행할 수 있도록 별도 제공
+                    COALESCE(NULLIF(RTRIM(c.dashboard_valve_spec_name), ''), '') as valve_spec_raw,
                     c.dashboard_cylinder_spec_name as cylinder_spec,
                     c.dashboard_usage_place as usage_place,
                     c.dashboard_status as status,
@@ -174,7 +181,7 @@ class CylinderRepository:
                     # 각 단어는 6개 필드 중 하나라도 일치하면 됨 (OR)
                     search_conditions = [
                         "c.cylinder_no ILIKE %s",  # 용기번호
-                        "COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) ILIKE %s",  # 밸브형식
+                        "COALESCE(NULLIF(RTRIM(c.dashboard_valve_group_name), ''), NULLIF(RTRIM(c.dashboard_valve_spec_name), ''), '') ILIKE %s",  # 밸브형식
                         "c.dashboard_cylinder_spec_name ILIKE %s",  # 용기재질
                         "CONCAT(COALESCE(tcs.\"MANUFACTURE_LOT_NO\", ''), CASE WHEN tcs.\"MANUFACTURE_LOT_BRANCH\" IS NOT NULL AND tcs.\"MANUFACTURE_LOT_BRANCH\" != '' THEN CONCAT('-', tcs.\"MANUFACTURE_LOT_BRANCH\") ELSE '' END) ILIKE %s",  # 제조lot
                         "CONCAT(COALESCE(tcs.\"FILLING_LOT_HEADER\", ''), COALESCE(tcs.\"FILLING_LOT_NO\", ''), CASE WHEN tcs.\"FILLING_LOT_BRANCH\" IS NOT NULL AND tcs.\"FILLING_LOT_BRANCH\" != '' THEN CONCAT('-', tcs.\"FILLING_LOT_BRANCH\") ELSE '' END) ILIKE %s",  # 충전lot
@@ -234,7 +241,7 @@ class CylinderRepository:
                     conditions.append("c.dashboard_enduser = %s")
                     params.append(filters['enduser'])
                 if 'valve_spec' in filters:
-                    conditions.append("COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) = %s")
+                    conditions.append("COALESCE(NULLIF(RTRIM(c.dashboard_valve_group_name), ''), NULLIF(RTRIM(c.dashboard_valve_spec_name), ''), '') = %s")
                     params.append(filters['valve_spec'])
                 if 'cylinder_spec' in filters:
                     conditions.append("c.dashboard_cylinder_spec_name = %s")
@@ -273,6 +280,7 @@ class CylinderRepository:
             results = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
             # 번역 적용
+            # valve_spec_raw는 파싱용 raw 값이므로 번역하지 않는다.
             results = translate_list(results, ['gas_name', 'valve_spec', 'cylinder_spec', 'usage_place', 'location'])
             
             return results
