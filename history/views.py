@@ -341,7 +341,8 @@ def history_charge(request):
     from core.utils.view_helper import extract_valve_type
     for r in rows:
         valve_spec = (r.get("valve_spec") or "").strip()
-        r["valve_type"] = extract_valve_type(valve_spec) or valve_spec
+        valve_raw = (r.get("valve_spec_raw") or "").strip()
+        r["valve_type"] = extract_valve_type(valve_raw) or extract_valve_type(valve_spec) or valve_spec or valve_raw
         gas = (r.get("gas_name") or "").strip()
         cap = (str(r.get("capacity") or "")).strip()
         cyl = (r.get("cylinder_spec") or "").strip()
@@ -391,7 +392,8 @@ def history_charge_export(request):
     from core.utils.view_helper import extract_valve_type
     for r in rows:
         valve_spec = (r.get("valve_spec") or "").strip()
-        r["valve_type"] = extract_valve_type(valve_spec) or valve_spec
+        valve_raw = (r.get("valve_spec_raw") or "").strip()
+        r["valve_type"] = extract_valve_type(valve_raw) or extract_valve_type(valve_spec) or valve_spec or valve_raw
         gas = (r.get("gas_name") or "").strip()
         cap = (str(r.get("capacity") or "")).strip()
         cyl = (r.get("cylinder_spec") or "").strip()

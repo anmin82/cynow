@@ -534,7 +534,14 @@ class HistoryRepository:
                     c.cylinder_type_key,
                     c.dashboard_gas_name AS gas_name,
                     c.dashboard_capacity AS capacity,
-                    COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) AS valve_spec,
+                    -- 밸브 그룹명이 ''(빈 문자열)인 경우가 있어 NULLIF+RTRIM로 안정화
+                    COALESCE(
+                        NULLIF(RTRIM(c.dashboard_valve_group_name), ''),
+                        NULLIF(RTRIM(c.dashboard_valve_spec_name), ''),
+                        ''
+                    ) AS valve_spec,
+                    -- 파싱/표시 보강용 raw 밸브명
+                    COALESCE(NULLIF(RTRIM(c.dashboard_valve_spec_name), ''), '') AS valve_spec_raw,
                     c.dashboard_cylinder_spec_name AS cylinder_spec,
                     c.dashboard_enduser AS enduser,
                     h."MANUFACTURE_LOT_HEADER" AS manufacture_lot_header,
