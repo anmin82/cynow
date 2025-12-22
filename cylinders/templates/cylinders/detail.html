@@ -91,6 +91,10 @@
             <div class="card-body">
                 <table class="table table-borderless">
                     <tr>
+                        <td class="text-muted" style="width: 40%;">출하일자</td>
+                        <td>{{ cylinder.ship_date|date:"Y-m-d"|default:"-" }}</td>
+                    </tr>
+                    <tr>
                         <td class="text-muted" style="width: 40%;">최근이동서</td>
                         <td><span class="font-monospace">{{ cylinder.move_report_no|default:"-" }}</span></td>
                     </tr>

@@ -260,6 +260,42 @@ def cylinder_detail(request, cylinder_no):
         raise Http404("용기를 찾을 수 없습니다.")
     
     cylinder = cylinders[0]
+
+    # FCMS 출하일자: 이력(tr_cylinder_status_histories)에서 출하 이동코드(기본 60)의 최신 MOVE_DATE
+    try:
+        from core.repositories.history_repository import HistoryRepository
+
+        ship_codes = (HistoryRepository.get_move_code_sets() or {}).get("ship") or ["60"]
+        ship_dt = None
+        if ship_codes:
+            with connection.cursor() as cursor:
+                if connection.vendor == "postgresql":
+                    cursor.execute(
+                        """
+                        SELECT MAX(h."MOVE_DATE") AS ship_date
+                        FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                        WHERE RTRIM(h."CYLINDER_NO") = %s
+                          AND TRIM(h."MOVE_CODE") = ANY(%s)
+                        """,
+                        [cylinder_no, ship_codes],
+                    )
+                else:
+                    placeholders = ", ".join(["%s"] * len(ship_codes))
+                    cursor.execute(
+                        f"""
+                        SELECT MAX(h."MOVE_DATE") AS ship_date
+                        FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                        WHERE TRIM(h."CYLINDER_NO") = %s
+                          AND TRIM(h."MOVE_CODE") IN ({placeholders})
+                        """,
+                        [cylinder_no, *ship_codes],
+                    )
+                row = cursor.fetchone()
+                ship_dt = row[0] if row else None
+
+        cylinder["ship_date"] = ship_dt
+    except Exception:
+        cylinder["ship_date"] = None
     
     # 메모 목록 조회 (최상위 메모만, 답글은 prefetch)
     memos = CylinderMemo.objects.filter(
