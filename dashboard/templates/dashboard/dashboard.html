@@ -377,9 +377,18 @@ function openDetailModal(typeKey) {
                 : data.cylinder_type_key;
             const baseUrl = '{% url "cylinders:list" %}?cylinder_type_keys=' + encodeURIComponent(keysParam);
             let cylinderListUrl = baseUrl;
-            // 세부 상태는 그대로 status=로 전달한다.
-            // (보관:미회수/회수도 단일 상태 클릭이므로 status= 사용)
-            cylinderListUrl += '&status=' + encodeURIComponent(status);
+            // 세부 상태는 기본적으로 status=로 전달한다.
+            // 단, 대시보드 표시에서 레거시 상태를 표준 상태로 정규화(예: 분석→분석완료)했을 수 있으므로
+            // 클릭 시에는 레거시 상태도 함께 포함해 카운트/리스트를 일치시킨다.
+            if (status === '분석완료') {
+                cylinderListUrl += '&statuses=' + encodeURIComponent('분석완료') + '&statuses=' + encodeURIComponent('분석');
+            } else if (status === '충전완료') {
+                cylinderListUrl += '&statuses=' + encodeURIComponent('충전완료') + '&statuses=' + encodeURIComponent('충전');
+            } else if (status === '정비대상') {
+                cylinderListUrl += '&statuses=' + encodeURIComponent('정비대상') + '&statuses=' + encodeURIComponent('정비');
+            } else {
+                cylinderListUrl += '&status=' + encodeURIComponent(status);
+            }
             item.onclick = function() {
                 window.location.href = cylinderListUrl;
             };
