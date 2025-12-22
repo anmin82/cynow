@@ -204,6 +204,11 @@ class CylinderRepository:
                 if 'cylinder_type_key' in filters:
                     conditions.append("c.cylinder_type_key = %s")
                     params.append(filters['cylinder_type_key'])
+                if 'cylinder_type_keys' in filters and filters['cylinder_type_keys']:
+                    keys = filters['cylinder_type_keys']
+                    placeholders = ', '.join(['%s'] * len(keys))
+                    conditions.append(f"c.cylinder_type_key IN ({placeholders})")
+                    params.extend(keys)
                 if 'enduser' in filters:
                     conditions.append("c.dashboard_enduser = %s")
                     params.append(filters['enduser'])
@@ -342,6 +347,11 @@ class CylinderRepository:
                 if 'cylinder_type_key' in filters:
                     conditions.append("c.cylinder_type_key = %s")
                     params.append(filters['cylinder_type_key'])
+                if 'cylinder_type_keys' in filters and filters['cylinder_type_keys']:
+                    keys = filters['cylinder_type_keys']
+                    placeholders = ', '.join(['%s'] * len(keys))
+                    conditions.append(f"c.cylinder_type_key IN ({placeholders})")
+                    params.extend(keys)
                 if 'enduser' in filters:
                     conditions.append("c.dashboard_enduser = %s")
                     params.append(filters['enduser'])

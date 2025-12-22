@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import json
+import re
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -145,17 +146,33 @@ def _get_date_range(request, default_days=30):
         request.session.pop("history_start_date", None)
         request.session.pop("history_end_date", None)
 
+    def _parse_date_param(value: str) -> date:
+        """'YYYY-MM-DD' 또는 'YYYY년 M월 D일' 형태를 date로 파싱."""
+        if value is None:
+            raise ValueError("date param is None")
+        v = str(value).strip()
+        if not v:
+            raise ValueError("empty date param")
+        try:
+            return datetime.strptime(v, "%Y-%m-%d").date()
+        except Exception:
+            pass
+        m = re.match(r"^\s*(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*$", v)
+        if m:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        raise ValueError(f"Unsupported date format: {v}")
+
     start_date_param = request.GET.get("start_date")
     end_date_param = request.GET.get("end_date")
 
     # 1) GET이 있으면 세션 갱신
     if start_date_param and end_date_param:
-        request.session["history_start_date"] = start_date_param
-        request.session["history_end_date"] = end_date_param
-        return (
-            datetime.strptime(start_date_param, "%Y-%m-%d").date(),
-            datetime.strptime(end_date_param, "%Y-%m-%d").date(),
-        )
+        start_dt = _parse_date_param(start_date_param)
+        end_dt = _parse_date_param(end_date_param)
+        # 세션에는 항상 ISO 포맷으로 정규화해서 저장
+        request.session["history_start_date"] = start_dt.strftime("%Y-%m-%d")
+        request.session["history_end_date"] = end_dt.strftime("%Y-%m-%d")
+        return (start_dt, end_dt)
 
     # 2) 세션이 있으면 사용
     s_start = request.session.get("history_start_date")
@@ -163,8 +180,8 @@ def _get_date_range(request, default_days=30):
     if s_start and s_end:
         try:
             return (
-                datetime.strptime(s_start, "%Y-%m-%d").date(),
-                datetime.strptime(s_end, "%Y-%m-%d").date(),
+                _parse_date_param(s_start),
+                _parse_date_param(s_end),
             )
         except Exception:
             pass
@@ -583,8 +600,20 @@ def export_excel(request):
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=30)
     else:
-        start_date = datetime.strptime(start_date_param, "%Y-%m-%d").date()
-        end_date = datetime.strptime(end_date_param, "%Y-%m-%d").date()
+        # _get_date_range와 동일하게 한국어 날짜 포맷도 허용
+        def _parse_date_param(value: str) -> date:
+            v = str(value).strip()
+            try:
+                return datetime.strptime(v, "%Y-%m-%d").date()
+            except Exception:
+                pass
+            m = re.match(r"^\s*(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*$", v)
+            if m:
+                return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            raise ValueError(f"Unsupported date format: {v}")
+
+        start_date = _parse_date_param(start_date_param)
+        end_date = _parse_date_param(end_date_param)
 
     # 필터
     filters = {

@@ -100,7 +100,7 @@
                 <input type="radio" class="btn-check" name="tableType" id="tableTypeDelta" value="delta">
                 <label class="btn btn-outline-primary btn-sm" for="tableTypeDelta">증감</label>
             </div>
-            <a class="btn btn-sm btn-success ms-auto" href="{% url 'history:history_trend_export' %}?cylinder_type_key={{ cylinder_type_key }}&start_date={{ start_date }}&end_date={{ end_date }}">
+            <a class="btn btn-sm btn-success ms-auto" href="{% url 'history:history_trend_export' %}?cylinder_type_key={{ cylinder_type_key }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">
                 <i class="bi bi-file-earmark-excel"></i> 전체 엑셀 다운로드
             </a>
         </div>

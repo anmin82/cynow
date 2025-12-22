@@ -287,6 +287,7 @@ const cylinderTypesMap = {
     {% for type in cylinder_types %}
     "{{ type.cylinder_type_key|escapejs }}": {
         cylinder_type_key: "{{ type.cylinder_type_key|escapejs }}",
+        cylinder_type_keys: [{% for k in type.cylinder_type_keys %}"{{ k|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}],
         gas_name: "{{ type.gas_name|escapejs }}",
         capacity: "{{ type.capacity|format_capacity }}",
         valve_type: "{{ type.valve_type|default:'—'|escapejs }}",
@@ -347,7 +348,12 @@ function openDetailModal(typeKey) {
         if (qty > 0) {
             item.style.cursor = 'pointer';
             item.title = '클릭하여 용기 리스트 보기';
-            const cylinderListUrl = '{% url "cylinders:list" %}?cylinder_type_key=' + encodeURIComponent(data.cylinder_type_key) + '&status=' + encodeURIComponent(status);
+            // 카드 집계는 속성 기반 그룹화로 여러 cylinder_type_key를 합칠 수 있으므로,
+            // 리스트 이동 시에도 동일한 집합이 조회되도록 cylinder_type_keys(IN)로 전달한다.
+            const keysParam = (data.cylinder_type_keys && data.cylinder_type_keys.length > 0)
+                ? data.cylinder_type_keys.join(',')
+                : data.cylinder_type_key;
+            const cylinderListUrl = '{% url "cylinders:list" %}?cylinder_type_keys=' + encodeURIComponent(keysParam) + '&status=' + encodeURIComponent(status);
             item.onclick = function() {
                 window.location.href = cylinderListUrl;
             };

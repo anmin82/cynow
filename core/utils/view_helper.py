@@ -172,6 +172,8 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
         
         valve_type = extract_valve_type(valve_spec)
         
+        row_type_key = row.get('cylinder_type_key', '') or ''
+
         if group_key not in cylinder_types:
             # 용기 스펙 파싱
             cylinder_parsed = parse_cylinder_spec(cylinder_spec)
@@ -180,7 +182,10 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
             valve_parsed = parse_valve_spec(valve_spec_raw)
             
             cylinder_types[group_key] = {
-                'cylinder_type_key': row.get('cylinder_type_key', ''),
+                # 대표 키(기존 동작 유지): 최초 row의 키를 유지하되,
+                # 실제 카드 집계가 여러 키를 합칠 수 있으므로 cylinder_type_keys로 전체 키를 함께 보관한다.
+                'cylinder_type_key': row_type_key,
+                'cylinder_type_keys': set([row_type_key]) if row_type_key else set(),
                 'gas_name': gas_name,
                 'capacity': capacity,
                 'valve_type': valve_type,
@@ -196,6 +201,15 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
                 'total_qty': 0,
                 'available_qty': 0,
             }
+        else:
+            # 같은 카드(속성 그룹)에 서로 다른 cylinder_type_key가 섞일 수 있음.
+            # 리스트 이동 시 집계와 동일한 결과를 보장하기 위해 전체 키를 누적.
+            if row_type_key:
+                cylinder_types[group_key].setdefault('cylinder_type_keys', set()).add(row_type_key)
+                # 대표 키는 deterministic 하게 가장 작은 값을 사용 (옵션/숨김키 안정화)
+                cur_key = cylinder_types[group_key].get('cylinder_type_key', '') or ''
+                if not cur_key or row_type_key < cur_key:
+                    cylinder_types[group_key]['cylinder_type_key'] = row_type_key
         
         status = row.get('status', '')
         qty = row.get('qty', 0)
@@ -232,6 +246,16 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
     # 가용 수량이 0이어도 카드는 표시 (필터링 제거)
     # 고아 데이터는 get_inventory_summary에서 이미 제외됨
     
+    # set -> list (템플릿/JSON 직렬화 용)
+    for k, v in cylinder_types.items():
+        keys_set = v.get('cylinder_type_keys')
+        if isinstance(keys_set, set):
+            v['cylinder_type_keys'] = sorted([x for x in keys_set if x])
+        elif not v.get('cylinder_type_keys'):
+            # fallback
+            rep = v.get('cylinder_type_key', '')
+            v['cylinder_type_keys'] = [rep] if rep else []
+
     return cylinder_types
 
 

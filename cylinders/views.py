@@ -31,6 +31,7 @@ def cylinder_list(request):
     cylinder_spec = request.GET.get('cylinder_spec', '')
     usage_place = request.GET.get('usage_place', '')
     cylinder_type_key = request.GET.get('cylinder_type_key', '')
+    cylinder_type_keys_param = request.GET.get('cylinder_type_keys', '').strip()
     days = request.GET.get('days', '')
     
     # 정렬 파라미터
@@ -70,6 +71,10 @@ def cylinder_list(request):
         filters['cylinder_spec'] = cylinder_spec
     if cylinder_type_key:
         filters['cylinder_type_key'] = cylinder_type_key
+    if cylinder_type_keys_param:
+        cylinder_type_keys = [k.strip() for k in cylinder_type_keys_param.split(',') if k.strip()]
+        if cylinder_type_keys:
+            filters['cylinder_type_keys'] = cylinder_type_keys
     
     # 기간 필터
     days_int = None
@@ -227,6 +232,7 @@ def cylinder_list(request):
         'cylinder_spec': cylinder_spec,
         'usage_place': usage_place,
         'cylinder_type_key': cylinder_type_key,
+        'cylinder_type_keys': cylinder_type_keys_param,
         'days': days,
         # 정렬
         'sort_by': sort_by,
