@@ -50,6 +50,33 @@ def po_list(request):
 
     try:
         pos = PO.objects.all()
+
+        if status:
+            pos = pos.filter(status=status)
+
+        if supplier:
+            pos = pos.filter(supplier_user_code__icontains=supplier)
+
+        # 상위 100개만 (페이지네이션 필요 시 추가)
+        pos = pos[:100]
+
+        # 각 PO의 추천번호와 진행현황 추가
+        po_list = []
+        for po in pos:
+            # 최신 가이드
+            guide = po.move_guides.first()
+
+            # 매칭 상태
+            try:
+                match_status = po.fcms_match_status
+            except FCMSMatchStatus.DoesNotExist:
+                match_status = None
+
+            po_list.append({
+                'po': po,
+                'guide': guide,
+                'match_status': match_status,
+            })
     except (ProgrammingError, OperationalError):
         # 마이그레이션 미적용 등으로 테이블이 없을 때 500 대신 안내
         context = {
@@ -60,33 +87,6 @@ def po_list(request):
             "error_message": "PO 기능이 아직 초기화되지 않았습니다. (DB 테이블 없음) 관리자에게 문의해주세요.",
         }
         return render(request, "orders/po_list.html", context)
-    
-    if status:
-        pos = pos.filter(status=status)
-    
-    if supplier:
-        pos = pos.filter(supplier_user_code__icontains=supplier)
-    
-    # 상위 100개만 (페이지네이션 필요 시 추가)
-    pos = pos[:100]
-    
-    # 각 PO의 추천번호와 진행현황 추가
-    po_list = []
-    for po in pos:
-        # 최신 가이드
-        guide = po.move_guides.first()
-        
-        # 매칭 상태
-        try:
-            match_status = po.fcms_match_status
-        except FCMSMatchStatus.DoesNotExist:
-            match_status = None
-        
-        po_list.append({
-            'po': po,
-            'guide': guide,
-            'match_status': match_status,
-        })
     
     context = {
         'po_list': po_list,
