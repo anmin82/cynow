@@ -437,14 +437,13 @@ class HistoryRepository:
                 like = f"%{w}%"
                 conditions.append(
                     "("
-                    "c.dashboard_gas_name ILIKE %s OR "
                     'RTRIM(h."CYLINDER_NO") ILIKE %s OR '
                     f"{mlot_sql} ILIKE %s OR "
                     f"{flot_sql} ILIKE %s OR "
                     'RTRIM(h."MOVE_REPORT_NO") ILIKE %s'
                     ")"
                 )
-                params.extend([like, like, like, like, like])
+                params.extend([like, like, like, like])
 
         where = " AND ".join(conditions) if conditions else "TRUE"
 
@@ -515,14 +514,13 @@ class HistoryRepository:
                 like = f"%{w}%"
                 conditions.append(
                     "("
-                    "c.dashboard_gas_name ILIKE %s OR "
                     'RTRIM(h."CYLINDER_NO") ILIKE %s OR '
                     f"{mlot_sql} ILIKE %s OR "
                     f"{flot_sql} ILIKE %s OR "
                     'RTRIM(h."MOVE_REPORT_NO") ILIKE %s'
                     ")"
                 )
-                params.extend([like, like, like, like, like])
+                params.extend([like, like, like, like])
 
         where = " AND ".join(conditions) if conditions else "TRUE"
         params.extend([limit, offset])
