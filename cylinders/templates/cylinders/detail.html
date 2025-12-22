@@ -92,7 +92,13 @@
                 <table class="table table-borderless">
                     <tr>
                         <td class="text-muted" style="width: 40%;">출하일자</td>
-                        <td>{{ cylinder.ship_date|date:"Y-m-d"|default:"-" }}</td>
+                        <td>
+                            {% if cylinder.status == '출하' or cylinder.status == '출하중' %}
+                                {{ cylinder.ship_date|date:"Y-m-d"|default:"-" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                     </tr>
                     <tr>
                         <td class="text-muted" style="width: 40%;">최근이동서</td>
