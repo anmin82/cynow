@@ -18,7 +18,7 @@
                 <span class="input-group-text bg-white border-end-0">
                     <i class="bi bi-search"></i>
                 </span>
-                <input type="text" name="search" class="form-control border-start-0 ps-0" 
+                <input type="text" name="search" class="form-control border-start-0 ps-0" id="searchInput"
                        placeholder="용기번호, 밸브형식, 용기재질, 제조LOT, 충전LOT, 최근이동서 검색 (공백으로 다중어 검색)..." 
                        value="{{ search_query }}" 
                        autocomplete="off">
@@ -116,6 +116,8 @@
                 <span class="text-muted small ms-2">({{ total_count|intcomma }}건)</span>
             </div>
             {% endif %}
+
+            <div class="mt-2 small text-muted" id="modeHint" style="display:none;"></div>
         </form>
     </div>
 </div>
@@ -324,6 +326,49 @@ const currentFilters = {
 };
 </script>
 
+<script>
+// 검색/조건필터 모드를 단순화: 한쪽을 사용하면 다른 쪽은 비활성화
+(function () {
+    const hasSearch = !!(currentFilters.search && String(currentFilters.search).trim());
+    const hasFilter =
+        (currentFilters.gases && currentFilters.gases.length) ||
+        (currentFilters.locations && currentFilters.locations.length) ||
+        (currentFilters.statuses && currentFilters.statuses.length) ||
+        (currentFilters.days && String(currentFilters.days).trim()) ||
+        (currentFilters.cylinder_type_key && String(currentFilters.cylinder_type_key).trim());
+
+    const searchInput = document.getElementById('searchInput');
+    const filterForm = document.getElementById('multiFilterForm');
+    const modeHint = document.getElementById('modeHint');
+
+    // 검색 모드: 필터 비활성화
+    if (hasSearch) {
+        if (filterForm) {
+            filterForm.querySelectorAll('input, button, select').forEach(el => {
+                // 초기화 링크/버튼은 유지
+                if (el.tagName === 'A') return;
+                // filterForm 내부에 a 태그는 없어서 방어용
+                el.disabled = true;
+            });
+        }
+        if (modeHint) {
+            modeHint.style.display = 'block';
+            modeHint.textContent = '검색 모드: 조건(가스/위치/상태) 필터는 비활성화됩니다. 필터를 사용하려면 검색을 초기화하세요.';
+        }
+    }
+
+    // 필터 모드: 검색 입력 비활성화(혼선 방지)
+    if (!hasSearch && hasFilter) {
+        if (searchInput) searchInput.disabled = true;
+        const info = document.querySelector('.search-result-info');
+        if (modeHint && !modeHint.textContent) {
+            modeHint.style.display = 'block';
+            modeHint.textContent = '필터 모드: 검색 입력은 비활성화됩니다. 검색을 사용하려면 필터를 초기화하세요.';
+        }
+    }
+})();
+</script>
+
 <style>
 /* 검색 카드 */
 .search-card {
@@ -333,7 +378,7 @@ const currentFilters = {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 .search-card .card-body {
-    padding: 1rem 1.25rem;
+    padding: 0.65rem 0.85rem;
 }
 .search-card .input-group-text {
     background: white;
@@ -363,16 +408,16 @@ const currentFilters = {
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .multi-filter-card .card-body {
-    padding: 1rem 1.25rem;
+    padding: 0.65rem 0.85rem;
 }
 
 /* 필터 섹션 라벨 */
 .filter-section-label {
     display: block;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #495057;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 .filter-section-label i {
     margin-right: 4px;
@@ -383,8 +428,8 @@ const currentFilters = {
 .multi-select-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    max-height: 120px;
+    gap: 4px;
+    max-height: 90px;
     overflow-y: auto;
     padding: 2px;
 }
@@ -393,9 +438,9 @@ const currentFilters = {
 .multi-chip {
     display: inline-flex;
     align-items: center;
-    padding: 5px 12px;
+    padding: 4px 10px;
     border-radius: 16px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     cursor: pointer;
     transition: all 0.15s;
     background: white;
@@ -419,12 +464,14 @@ const currentFilters = {
 
 /* 상태별 칩 색상 */
 .multi-chip.status-보관.active, .multi-chip.status-보관:has(input:checked) { background: #28a745; border-color: #28a745; }
-.multi-chip.status-충전.active, .multi-chip.status-충전:has(input:checked) { background: #17a2b8; border-color: #17a2b8; }
-.multi-chip.status-분석.active, .multi-chip.status-분석:has(input:checked) { background: #ffc107; border-color: #ffc107; color: #212529; }
+.multi-chip.status-충전중.active, .multi-chip.status-충전중:has(input:checked) { background: #0d6efd; border-color: #0d6efd; }
+.multi-chip.status-충전완료.active, .multi-chip.status-충전완료:has(input:checked) { background: #0d6efd; border-color: #0d6efd; }
+.multi-chip.status-분석중.active, .multi-chip.status-분석중:has(input:checked) { background: #6f42c1; border-color: #6f42c1; }
+.multi-chip.status-분석완료.active, .multi-chip.status-분석완료:has(input:checked) { background: #6f42c1; border-color: #6f42c1; }
 .multi-chip.status-창입.active, .multi-chip.status-창입:has(input:checked) { background: #6c757d; border-color: #6c757d; }
 .multi-chip.status-출하.active, .multi-chip.status-출하:has(input:checked) { background: #007bff; border-color: #007bff; }
 .multi-chip.status-이상.active, .multi-chip.status-이상:has(input:checked) { background: #dc3545; border-color: #dc3545; }
-.multi-chip.status-정비.active, .multi-chip.status-정비:has(input:checked) { background: #fd7e14; border-color: #fd7e14; }
+.multi-chip.status-정비대상.active, .multi-chip.status-정비대상:has(input:checked) { background: #fd7e14; border-color: #fd7e14; }
 .multi-chip.status-폐기.active, .multi-chip.status-폐기:has(input:checked) { background: #343a40; border-color: #343a40; }
 
 /* 필터 버튼 */

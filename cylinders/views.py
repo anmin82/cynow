@@ -141,6 +141,10 @@ def cylinder_list(request):
             if not ss:
                 continue
             expanded.append(ss)
+            if ss == '보관':
+                # 통합 '보관' 선택 시 실제 DB 상태로 확장
+                expanded.append('보관:미회수')
+                expanded.append('보관:회수')
             if ss == '분석중':
                 expanded.append('분석')
             elif ss == '충전중':
@@ -315,8 +319,10 @@ def cylinder_list(request):
             seen_translated.add(translated)
             unique_locations.append(loc)
     
-    # 상태 목록 (고정 순서)
-    status_options = ['보관', '충전', '분석', '창입', '출하', '이상', '정비', '폐기']
+    # 상태 목록 (UI 표시용, 새 체계 기준)
+    # - '보관'은 통합 선택(미회수/회수)을 의미
+    # - '분석중'은 레거시 '분석'에 대응
+    status_options = ['보관', '충전중', '충전완료', '분석중', '분석완료', '제품', '출하', '이상', '정비대상', '폐기']
     
     # 현재 페이지 용기들 중 메모가 있는 용기 번호 조회
     cylinder_nos = [c.get('cylinder_no') for c in cylinders_list if c.get('cylinder_no')]
