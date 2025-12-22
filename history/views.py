@@ -316,7 +316,7 @@ def history_charge(request):
                 "per_page": per_page,
                 "results": [],
                 "cylinder_type_options": cylinder_type_options,
-                "error_message": "검색어를 입력하거나(가스명/용기번호/제조LOT/충전LOT/이동서번호), 대시보드에서 용기종류로 진입해주세요.",
+                "error_message": "검색어를 입력하거나(용기번호/제조LOT/충전LOT/이동서번호), 대시보드에서 용기종류로 진입해주세요.",
             },
         )
 
