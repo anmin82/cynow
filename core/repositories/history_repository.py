@@ -391,6 +391,219 @@ class HistoryRepository:
         return results
 
     @classmethod
+    def count_charge_lot_rows(
+        cls,
+        *,
+        start_date,
+        end_date,
+        charge_codes: List[str],
+        search_query: str = "",
+        cylinder_type_keys: Optional[List[str]] = None,
+    ) -> int:
+        """충전(이동코드) 기준, 용기별 LOT 검색 결과 총 개수(용기 기준)"""
+        params: List = [
+            cls._ensure_datetime(start_date),
+            cls._ensure_datetime(end_date) + timedelta(days=1),
+            charge_codes or ["__none__"],
+        ]
+
+        conditions = [
+            'h."MOVE_DATE" >= %s',
+            'h."MOVE_DATE" < %s',
+            'h."MOVE_CODE" = ANY(%s)',
+        ]
+
+        keys = [k for k in (cylinder_type_keys or []) if k]
+        if keys:
+            conditions.append("c.cylinder_type_key = ANY(%s)")
+            params.append(keys)
+
+        words = [w for w in (search_query or "").strip().split() if w]
+        if words:
+            # lot 문자열 SQL (header+no(+branch))
+            mlot_sql = """
+                (COALESCE(h."MANUFACTURE_LOT_HEADER", '') ||
+                 COALESCE(h."MANUFACTURE_LOT_NO", '') ||
+                 CASE WHEN h."MANUFACTURE_LOT_BRANCH" IS NOT NULL AND h."MANUFACTURE_LOT_BRANCH" != ''
+                      THEN '-' || h."MANUFACTURE_LOT_BRANCH" ELSE '' END)
+            """
+            flot_sql = """
+                (COALESCE(h."FILLING_LOT_HEADER", '') ||
+                 COALESCE(h."FILLING_LOT_NO", '') ||
+                 CASE WHEN h."FILLING_LOT_BRANCH" IS NOT NULL AND h."FILLING_LOT_BRANCH" != ''
+                      THEN '-' || h."FILLING_LOT_BRANCH" ELSE '' END)
+            """
+            for w in words:
+                like = f"%{w}%"
+                conditions.append(
+                    "("
+                    "c.dashboard_gas_name ILIKE %s OR "
+                    'RTRIM(h."CYLINDER_NO") ILIKE %s OR '
+                    f"{mlot_sql} ILIKE %s OR "
+                    f"{flot_sql} ILIKE %s OR "
+                    'RTRIM(h."MOVE_REPORT_NO") ILIKE %s'
+                    ")"
+                )
+                params.extend([like, like, like, like, like])
+
+        where = " AND ".join(conditions) if conditions else "TRUE"
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT COUNT(DISTINCT RTRIM(h."CYLINDER_NO")) AS cnt
+                FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                LEFT JOIN cy_cylinder_current c
+                    ON RTRIM(h."CYLINDER_NO") = RTRIM(c.cylinder_no)
+                WHERE {where}
+                """,
+                params,
+            )
+            row = cursor.fetchone()
+        return int(row[0] or 0) if row else 0
+
+    @classmethod
+    def fetch_charge_lot_rows(
+        cls,
+        *,
+        start_date,
+        end_date,
+        charge_codes: List[str],
+        search_query: str = "",
+        cylinder_type_keys: Optional[List[str]] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[Dict]:
+        """
+        충전(이동코드) 기준, 용기별 최신 LOT/중량/이동서 정보 조회.
+        - 용기별 최신 1건(DISTINCT ON)만 반환
+        - search_query: 공백 다중어(AND), 각 단어는 5개 필드(가스/용기번호/제조LOT/충전LOT/이동서) 중 하나라도 매칭(OR)
+        """
+        params: List = [
+            cls._ensure_datetime(start_date),
+            cls._ensure_datetime(end_date) + timedelta(days=1),
+            charge_codes or ["__none__"],
+        ]
+
+        conditions = [
+            'h."MOVE_DATE" >= %s',
+            'h."MOVE_DATE" < %s',
+            'h."MOVE_CODE" = ANY(%s)',
+        ]
+
+        keys = [k for k in (cylinder_type_keys or []) if k]
+        if keys:
+            conditions.append("c.cylinder_type_key = ANY(%s)")
+            params.append(keys)
+
+        mlot_sql = """
+            (COALESCE(h."MANUFACTURE_LOT_HEADER", '') ||
+             COALESCE(h."MANUFACTURE_LOT_NO", '') ||
+             CASE WHEN h."MANUFACTURE_LOT_BRANCH" IS NOT NULL AND h."MANUFACTURE_LOT_BRANCH" != ''
+                  THEN '-' || h."MANUFACTURE_LOT_BRANCH" ELSE '' END)
+        """
+        flot_sql = """
+            (COALESCE(h."FILLING_LOT_HEADER", '') ||
+             COALESCE(h."FILLING_LOT_NO", '') ||
+             CASE WHEN h."FILLING_LOT_BRANCH" IS NOT NULL AND h."FILLING_LOT_BRANCH" != ''
+                  THEN '-' || h."FILLING_LOT_BRANCH" ELSE '' END)
+        """
+
+        words = [w for w in (search_query or "").strip().split() if w]
+        if words:
+            for w in words:
+                like = f"%{w}%"
+                conditions.append(
+                    "("
+                    "c.dashboard_gas_name ILIKE %s OR "
+                    'RTRIM(h."CYLINDER_NO") ILIKE %s OR '
+                    f"{mlot_sql} ILIKE %s OR "
+                    f"{flot_sql} ILIKE %s OR "
+                    'RTRIM(h."MOVE_REPORT_NO") ILIKE %s'
+                    ")"
+                )
+                params.extend([like, like, like, like, like])
+
+        where = " AND ".join(conditions) if conditions else "TRUE"
+        params.extend([limit, offset])
+
+        query = f"""
+            WITH latest AS (
+                SELECT DISTINCT ON (RTRIM(h."CYLINDER_NO"))
+                    RTRIM(h."CYLINDER_NO") AS cylinder_no,
+                    h."MOVE_DATE" AS move_date,
+                    h."MOVE_REPORT_NO" AS move_report_no,
+                    c.cylinder_type_key,
+                    c.dashboard_gas_name AS gas_name,
+                    c.dashboard_capacity AS capacity,
+                    COALESCE(c.dashboard_valve_group_name, c.dashboard_valve_spec_name) AS valve_spec,
+                    c.dashboard_cylinder_spec_name AS cylinder_spec,
+                    c.dashboard_enduser AS enduser,
+                    h."MANUFACTURE_LOT_HEADER" AS manufacture_lot_header,
+                    h."MANUFACTURE_LOT_NO" AS manufacture_lot_no,
+                    h."MANUFACTURE_LOT_BRANCH" AS manufacture_lot_branch,
+                    h."FILLING_LOT_HEADER" AS filling_lot_header,
+                    h."FILLING_LOT_NO" AS filling_lot_no,
+                    h."FILLING_LOT_BRANCH" AS filling_lot_branch,
+                    h."FILLING_WEIGHT" AS filling_weight_hist,
+                    d."FILLING_WEIGHT" AS filling_weight_detail
+                FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                LEFT JOIN cy_cylinder_current c
+                    ON RTRIM(h."CYLINDER_NO") = RTRIM(c.cylinder_no)
+                LEFT JOIN "fcms_cdc"."tr_move_report_details" d
+                    ON RTRIM(h."CYLINDER_NO") = RTRIM(d."CYLINDER_NO")
+                   AND h."MOVE_REPORT_NO" IS NOT NULL
+                   AND RTRIM(h."MOVE_REPORT_NO") = RTRIM(d."MOVE_REPORT_NO")
+                WHERE {where}
+                ORDER BY RTRIM(h."CYLINDER_NO"), h."MOVE_DATE" DESC
+            )
+            SELECT *
+            FROM latest
+            ORDER BY move_date DESC, cylinder_no
+            LIMIT %s OFFSET %s
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+        results: List[Dict] = []
+        for row in rows:
+            data = dict(zip(columns, row))
+
+            def _compose_lot(header, no, branch):
+                if not (header or no or branch):
+                    return None
+                return f"{header or ''}{no or ''}{('-' + branch) if branch else ''}"
+
+            manufacture_lot = _compose_lot(
+                data.pop("manufacture_lot_header", None),
+                data.pop("manufacture_lot_no", None),
+                data.pop("manufacture_lot_branch", None),
+            )
+            filling_lot = _compose_lot(
+                data.pop("filling_lot_header", None),
+                data.pop("filling_lot_no", None),
+                data.pop("filling_lot_branch", None),
+            )
+
+            filling_weight = data.pop("filling_weight_detail", None)
+            if filling_weight is None:
+                filling_weight = data.pop("filling_weight_hist", None)
+
+            data.update(
+                {
+                    "manufacture_lot": manufacture_lot,
+                    "filling_lot": filling_lot,
+                    "net_weight": filling_weight,
+                }
+            )
+            results.append(data)
+
+        return results
+
+    @classmethod
     def get_period_summary(
         cls,
         period: str,

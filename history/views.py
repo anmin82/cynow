@@ -278,61 +278,168 @@ def history_movement(request):
 
 
 def history_charge(request):
-    """충전 이력"""
+    """용기별 LOT정보 조회 (충전 이동코드 기준, 다중검색)"""
     start_date, end_date = _get_date_range(request, default_days=60)
     move_code_sets = HistoryRepository.get_move_code_sets()
-    available_move_codes = HistoryRepository.get_available_move_codes()
     cylinder_type_options = HistoryRepository.get_cylinder_type_options()
-    move_code_names = HistoryRepository.get_move_code_options(sorted(available_move_codes))
 
-    filters = {
-        "cylinder_no": request.GET.get("cylinder_no", "").strip(),
-        "move_code": request.GET.get("move_code", "").strip(),
-        "gas_name": request.GET.get("gas_name", "").strip(),
-        "cylinder_type_key": request.GET.get("cylinder_type_key", "").strip(),
-    }
-    filters = {k: v for k, v in filters.items() if v}
+    search_query = request.GET.get("search", "").strip()
+    cylinder_type_key = request.GET.get("cylinder_type_key", "").strip()
+
+    filters = {"cylinder_type_key": cylinder_type_key} if cylinder_type_key else {}
     filters = _expand_cylinder_type_keys(filters, cylinder_type_options)
+    cylinder_type_keys = filters.get("cylinder_type_keys")
 
-    if not filters.get("cylinder_type_key"):
+    # 페이지네이션
+    page = request.GET.get("page", "1")
+    try:
+        page = int(page)
+    except Exception:
+        page = 1
+    per_page = 50
+    offset = (page - 1) * per_page
+
+    charge_codes = move_code_sets.get("charge", [])
+
+    # 검색어/용기종류 둘 다 없으면 빈 화면
+    if not search_query and not cylinder_type_key:
         return render(
             request,
             "history/charge.html",
             {
                 "start_date": start_date,
                 "end_date": end_date,
-                "filters": filters,
-                "available_move_codes": sorted(available_move_codes),
-                "move_code_names": move_code_names,
+                "search_query": "",
+                "cylinder_type_key": "",
+                "total_count": 0,
+                "page": page,
+                "per_page": per_page,
+                "results": [],
                 "cylinder_type_options": cylinder_type_options,
-                "histories": [],
-                "charge_types": [],
-                "error_message": "대시보드의 용기종류를 선택해서 조회해주세요.",
+                "error_message": "검색어를 입력하거나(가스명/용기번호/제조LOT/충전LOT/이동서번호), 대시보드에서 용기종류로 진입해주세요.",
             },
         )
 
-    histories = HistoryRepository.fetch_history(
+    total_count = HistoryRepository.count_charge_lot_rows(
         start_date=start_date,
         end_date=end_date,
-        filters=filters,
-        limit=500,
-        offset=0,
+        charge_codes=charge_codes,
+        search_query=search_query,
+        cylinder_type_keys=cylinder_type_keys,
+    )
+    rows = HistoryRepository.fetch_charge_lot_rows(
+        start_date=start_date,
+        end_date=end_date,
+        charge_codes=charge_codes,
+        search_query=search_query,
+        cylinder_type_keys=cylinder_type_keys,
+        limit=per_page,
+        offset=offset,
     )
 
-    charge_codes = move_code_sets.get("charge", [])
-    charge_types = HistoryRepository.get_type_counts(charge_codes, start_date, end_date)
+    # 표기 보강
+    from core.utils.view_helper import extract_valve_type
+    for r in rows:
+        valve_spec = (r.get("valve_spec") or "").strip()
+        r["valve_type"] = extract_valve_type(valve_spec) or valve_spec
+        gas = (r.get("gas_name") or "").strip()
+        cap = (str(r.get("capacity") or "")).strip()
+        cyl = (r.get("cylinder_spec") or "").strip()
+        enduser = (r.get("enduser") or "").strip()
+        r["cylinder_type_label"] = f"{gas} / {cap} / {r['valve_type']} / {cyl}" + (f" / {enduser}" if enduser else "")
 
     context = {
         "start_date": start_date,
         "end_date": end_date,
-        "filters": filters,
-        "available_move_codes": sorted(available_move_codes),
-        "move_code_names": move_code_names,
+        "search_query": search_query,
+        "cylinder_type_key": cylinder_type_key,
+        "total_count": total_count,
+        "page": page,
+        "per_page": per_page,
+        "results": rows,
         "cylinder_type_options": cylinder_type_options,
-        "histories": histories,
-        "charge_types": charge_types,
     }
     return render(request, "history/charge.html", context)
+
+
+def history_charge_export(request):
+    """용기별 LOT정보 조회 - 엑셀 다운로드"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    start_date, end_date = _get_date_range(request, default_days=60)
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    charge_codes = move_code_sets.get("charge", [])
+
+    search_query = request.GET.get("search", "").strip()
+    cylinder_type_key = request.GET.get("cylinder_type_key", "").strip()
+    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
+    filters = {"cylinder_type_key": cylinder_type_key} if cylinder_type_key else {}
+    filters = _expand_cylinder_type_keys(filters, cylinder_type_options)
+    cylinder_type_keys = filters.get("cylinder_type_keys")
+
+    rows = HistoryRepository.fetch_charge_lot_rows(
+        start_date=start_date,
+        end_date=end_date,
+        charge_codes=charge_codes,
+        search_query=search_query,
+        cylinder_type_keys=cylinder_type_keys,
+        limit=200000,
+        offset=0,
+    )
+
+    from core.utils.view_helper import extract_valve_type
+    for r in rows:
+        valve_spec = (r.get("valve_spec") or "").strip()
+        r["valve_type"] = extract_valve_type(valve_spec) or valve_spec
+        gas = (r.get("gas_name") or "").strip()
+        cap = (str(r.get("capacity") or "")).strip()
+        cyl = (r.get("cylinder_spec") or "").strip()
+        enduser = (r.get("enduser") or "").strip()
+        r["cylinder_type_label"] = f"{gas} / {cap} / {r['valve_type']} / {cyl}" + (f" / {enduser}" if enduser else "")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "LOT조회"
+
+    headers = [
+        "용기번호",
+        "가스명",
+        "용기종류",
+        "이동서번호",
+        "밸브종류",
+        "용기용량",
+        "충전중량(kg)",
+        "제조LOT",
+        "충전LOT",
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    for r in rows:
+        ws.append(
+            [
+                r.get("cylinder_no") or "",
+                r.get("gas_name") or "",
+                r.get("cylinder_type_label") or "",
+                r.get("move_report_no") or "",
+                r.get("valve_type") or "",
+                r.get("capacity") or "",
+                r.get("net_weight") or "",
+                r.get("manufacture_lot") or "",
+                r.get("filling_lot") or "",
+            ]
+        )
+
+    filename = f"cynow_charge_lot_{start_date}_{end_date}.xlsx"
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename=\"{filename}\"'
+    wb.save(response)
+    return response
 
 
 def history_clf3(request):
