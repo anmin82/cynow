@@ -84,7 +84,7 @@ class CylinderRepository:
                     c.dashboard_status,
                     RTRIM(c.dashboard_enduser),
                     RTRIM(c.dashboard_valve_spec_name)
-                ORDER BY c.dashboard_gas_name, c.dashboard_enduser, c.dashboard_status
+                ORDER BY c.dashboard_gas_name, RTRIM(c.dashboard_enduser), c.dashboard_status
             """
             
             cursor.execute(query, params)
