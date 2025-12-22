@@ -344,14 +344,27 @@ function openDetailModal(typeKey) {
         availBox.classList.add('low');
     }
     
-    // 공정/상태 요약 그리드 (통합 상태)
+    // 공정/상태 요약 그리드 (세부 상태를 분리 표시)
     const statusGrid = document.getElementById('modal-status-grid');
     statusGrid.innerHTML = '';
-    const groupedOrder = ['보관', '충전중', '분석중', '제품', '출하', '이상', '정비', '폐기'];
-    groupedOrder.forEach(status => {
-        const qty = (data.statuses_grouped && data.statuses_grouped[status]) ? data.statuses_grouped[status] : 0;
+    // 보관(미회수/회수), 충전(중/완료), 분석(중/완료)을 분리해서 보여준다.
+    // 현재 데이터에 없는 상태(예: 분석중)는 0으로 표시된다.
+    const statusOrder = [
+        '보관:미회수', '보관:회수',
+        '충전중', '충전완료',
+        '분석중', '분석완료',
+        '제품', '출하', '이상', '정비대상', '폐기'
+    ];
+    statusOrder.forEach(status => {
+        const qty = (data.statuses && data.statuses[status]) ? data.statuses[status] : 0;
         const item = document.createElement('div');
-        item.className = 'status-detail-item status-' + status;
+        // 스타일 클래스는 통합 카테고리로 부여(콜론 등 특수문자 문제 방지)
+        let styleStatus = status;
+        if (status.startsWith('보관')) styleStatus = '보관';
+        else if (status.startsWith('충전')) styleStatus = '충전중';
+        else if (status.startsWith('분석')) styleStatus = '분석중';
+        else if (status === '정비대상') styleStatus = '정비';
+        item.className = 'status-detail-item status-' + styleStatus;
         
         // 수량이 0보다 크면 클릭 가능하게
         if (qty > 0) {
@@ -362,22 +375,11 @@ function openDetailModal(typeKey) {
             const keysParam = (data.cylinder_type_keys && data.cylinder_type_keys.length > 0)
                 ? data.cylinder_type_keys.join(',')
                 : data.cylinder_type_key;
-            // 통합 상태는 리스트에서 세부 상태로 조회해야 한다.
-            // 보관:미회수/회수는 statuses=로 2개 전달.
             const baseUrl = '{% url "cylinders:list" %}?cylinder_type_keys=' + encodeURIComponent(keysParam);
             let cylinderListUrl = baseUrl;
-            if (status === '보관') {
-                cylinderListUrl += '&statuses=' + encodeURIComponent('보관:미회수') + '&statuses=' + encodeURIComponent('보관:회수');
-            } else if (status === '충전중') {
-                // 통합 '충전중'은 (충전중 + 충전완료) 합계이므로 둘 다 전달
-                cylinderListUrl += '&statuses=' + encodeURIComponent('충전중') + '&statuses=' + encodeURIComponent('충전완료');
-            } else {
-                let mappedStatus = status;
-                if (status === '분석중') mappedStatus = '분석완료';
-                if (status === '정비') mappedStatus = '정비대상';
-                // 충전중은 그대로(세부 상태 중 하나만 선택하면 되므로)
-                cylinderListUrl += '&status=' + encodeURIComponent(mappedStatus);
-            }
+            // 세부 상태는 그대로 status=로 전달한다.
+            // (보관:미회수/회수도 단일 상태 클릭이므로 status= 사용)
+            cylinderListUrl += '&status=' + encodeURIComponent(status);
             item.onclick = function() {
                 window.location.href = cylinderListUrl;
             };
