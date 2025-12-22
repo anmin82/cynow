@@ -132,6 +132,25 @@ def cylinder_list(request):
     if status and status not in selected_statuses:
         selected_statuses.append(status)
     
+    # 대시보드/모달에서 표시용 상태(분석중/충전중)가 DB 레거시 상태(분석/충전)와 섞여 있을 수 있어
+    # 필터는 둘 다 포함하도록 확장한다. (표시는 아래에서 분석중/충전중으로 정규화)
+    if selected_statuses:
+        expanded = []
+        for s in selected_statuses:
+            ss = (s or '').strip()
+            if not ss:
+                continue
+            expanded.append(ss)
+            if ss == '분석중':
+                expanded.append('분석')
+            elif ss == '충전중':
+                expanded.append('충전')
+            elif ss == '정비대상':
+                expanded.append('정비')
+        # 중복 제거 + 원래 순서 대략 유지
+        seen = set()
+        selected_statuses = [x for x in expanded if not (x in seen or seen.add(x))]
+
     filters = {}
     # 다중 가스 필터
     if selected_gases:
