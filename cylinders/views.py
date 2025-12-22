@@ -393,6 +393,96 @@ def cylinder_detail(request, cylinder_no):
     return render(request, 'cylinders/detail.html', context)
 
 
+def cylinder_ship_history(request, cylinder_no):
+    """
+    용기 출하 이력 조회 (모달용 JSON)
+    - 항목: 이동서번호(move_report_no), 출하일자(move_date)
+    """
+    cylinder_no = (cylinder_no or "").strip()
+    limit = request.GET.get("limit", "50")
+    try:
+        limit_n = max(1, min(200, int(limit)))
+    except Exception:
+        limit_n = 50
+
+    try:
+        from core.repositories.history_repository import HistoryRepository
+
+        ship_codes = (HistoryRepository.get_move_code_sets() or {}).get("ship") or []
+        if not ship_codes:
+            # 라벨 기반으로 출하 코드 후보 탐색
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT DISTINCT TRIM(p."KEY1") AS code
+                    FROM "fcms_cdc"."ma_parameters" p
+                    WHERE p."KEY1" IS NOT NULL
+                      AND (p."KEY2" IS NULL OR TRIM(p."KEY2") = '')
+                      AND (p."KEY3" IS NULL OR TRIM(p."KEY3") = '')
+                      AND (
+                        COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
+                        OR COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
+                        OR COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
+                      )
+                    """,
+                    ["%출하%", "%出荷%", "%SHIP%"],
+                )
+                ship_codes = [r[0] for r in cursor.fetchall() if r and r[0]]
+        if not ship_codes:
+            ship_codes = ["60"]
+
+        # 0-padding 제거 비교용 코드 집합
+        ship_codes_norm = []
+        for c in ship_codes:
+            s = str(c).strip() if c is not None else ""
+            if not s:
+                continue
+            ship_codes_norm.append((s.lstrip("0") or s))
+        ship_codes_norm = sorted(set(ship_codes_norm))
+
+        rows = []
+        with connection.cursor() as cursor:
+            if connection.vendor == "postgresql":
+                cursor.execute(
+                    """
+                    SELECT
+                        RTRIM(h."MOVE_REPORT_NO") AS move_report_no,
+                        h."MOVE_DATE" AS ship_date
+                    FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                    WHERE RTRIM(h."CYLINDER_NO") = RTRIM(%s)
+                      AND NULLIF(regexp_replace(TRIM(h."MOVE_CODE"::text), '^0+', ''), '') = ANY(%s)
+                    ORDER BY h."MOVE_DATE" DESC NULLS LAST, h."HISTORY_SEQ" DESC NULLS LAST
+                    LIMIT %s
+                    """,
+                    [cylinder_no, ship_codes_norm, limit_n],
+                )
+            else:
+                placeholders = ", ".join(["%s"] * len(ship_codes_norm))
+                cursor.execute(
+                    f"""
+                    SELECT
+                        TRIM(h."MOVE_REPORT_NO") AS move_report_no,
+                        h."MOVE_DATE" AS ship_date
+                    FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                    WHERE TRIM(h."CYLINDER_NO") = TRIM(%s)
+                      AND TRIM(h."MOVE_CODE") IN ({placeholders})
+                    ORDER BY h."MOVE_DATE" DESC
+                    """,
+                    [cylinder_no, *ship_codes_norm],
+                )
+            for move_report_no, ship_date in cursor.fetchall():
+                rows.append(
+                    {
+                        "move_report_no": (move_report_no or "").strip(),
+                        "ship_date": ship_date.isoformat() if hasattr(ship_date, "isoformat") else (str(ship_date) if ship_date else ""),
+                    }
+                )
+
+        return JsonResponse({"ok": True, "cylinder_no": cylinder_no, "rows": rows})
+    except Exception as e:
+        return JsonResponse({"ok": False, "cylinder_no": cylinder_no, "rows": [], "error": str(e)})
+
+
 @require_POST
 def memo_create(request, cylinder_no):
     """메모 작성"""

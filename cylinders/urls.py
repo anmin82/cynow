@@ -11,6 +11,7 @@ urlpatterns = [
     path('export/excel/', views.cylinder_export_excel, name='export_excel'),
     path('export/qr-pdf/', views.cylinder_export_qr_pdf, name='export_qr_pdf'),
     path('<str:cylinder_no>/', views.cylinder_detail, name='detail'),
+    path('<str:cylinder_no>/ship-history/', views.cylinder_ship_history, name='ship_history'),
     path('<str:cylinder_no>/memo/', views.memo_create, name='memo_create'),
     path('<str:cylinder_no>/memo/<int:memo_id>/reply/', views.memo_reply, name='memo_reply'),
     path('<str:cylinder_no>/memo/<int:memo_id>/edit/', views.memo_edit, name='memo_edit'),

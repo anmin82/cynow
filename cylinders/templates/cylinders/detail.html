@@ -87,7 +87,16 @@
         
         <!-- FCMS 상세 정보 -->
         <div class="card mt-3">
-            <div class="card-header">FCMS 상세 정보</div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>FCMS 상세 정보</span>
+                <button type="button"
+                        class="btn btn-outline-light btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#shipHistoryModal"
+                        id="btnShipHistory">
+                    출하 이력
+                </button>
+            </div>
             <div class="card-body">
                 <table class="table table-borderless">
                     <tr>
@@ -135,6 +144,100 @@
         </div>
     </div>
 </div>
+
+<!-- 출하 이력 모달 -->
+<div class="modal fade" id="shipHistoryModal" tabindex="-1" aria-labelledby="shipHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shipHistoryModalLabel">출하 이력 - {{ cylinder.cylinder_no }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="shipHistoryLoading" class="text-muted">불러오는 중...</div>
+                <div id="shipHistoryError" class="alert alert-danger d-none"></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 45%;">이동서번호</th>
+                                <th style="width: 35%;">출하일자</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shipHistoryBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+  const modalEl = document.getElementById('shipHistoryModal');
+  if (!modalEl) return;
+
+  const loadingEl = document.getElementById('shipHistoryLoading');
+  const errorEl = document.getElementById('shipHistoryError');
+  const bodyEl = document.getElementById('shipHistoryBody');
+  let loadedOnce = false;
+
+  function setError(msg) {
+    errorEl.textContent = msg || '조회 중 오류가 발생했습니다.';
+    errorEl.classList.remove('d-none');
+  }
+
+  function clearError() {
+    errorEl.textContent = '';
+    errorEl.classList.add('d-none');
+  }
+
+  function resetTable() {
+    bodyEl.innerHTML = '';
+  }
+
+  function renderRows(rows) {
+    resetTable();
+    if (!rows || rows.length === 0) {
+      bodyEl.innerHTML = '<tr><td colspan="2" class="text-muted">출하 이력이 없습니다.</td></tr>';
+      return;
+    }
+    const html = rows.map(r => {
+      const mr = (r.move_report_no || '-');
+      const dt = (r.ship_date || '-').substring(0, 10);
+      return `<tr><td class="font-monospace">${mr}</td><td>${dt || '-'}</td></tr>`;
+    }).join('');
+    bodyEl.innerHTML = html;
+  }
+
+  modalEl.addEventListener('show.bs.modal', async () => {
+    if (loadedOnce) return;
+    loadedOnce = true;
+    clearError();
+    loadingEl.classList.remove('d-none');
+    resetTable();
+
+    try {
+      const url = "{% url 'cylinders:ship_history' cylinder.cylinder_no %}?limit=50";
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await res.json();
+      if (!data || !data.ok) {
+        setError((data && data.error) ? data.error : '출하 이력 조회에 실패했습니다.');
+        return;
+      }
+      renderRows(data.rows);
+    } catch (e) {
+      setError(e && e.message ? e.message : '출하 이력 조회에 실패했습니다.');
+    } finally {
+      loadingEl.classList.add('d-none');
+    }
+  });
+})();
+</script>
 
 <!-- 메모 게시판 -->
 <div class="row mt-4">
