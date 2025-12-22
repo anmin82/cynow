@@ -109,6 +109,12 @@
                 <div class="small text-muted mt-2">
                     각 월의 <strong>마지막 스냅샷</strong> 기준 총량 대비 점유율입니다.
                     (가용=보관, 비가용=이상/정비대상/폐기)
+                    {% if occupancy_source == 'history' %}
+                    <div class="mt-1">
+                        <span class="badge bg-warning text-dark">추정</span>
+                        스냅샷이 없어 <strong>상태 이력 기준으로 월말 상태를 추정</strong>한 값입니다. (미분류가 발생할 수 있음)
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -347,6 +353,7 @@
                     { label: '제품', data: hasData ? data.product : [0], backgroundColor: 'rgba(85, 190, 240, 0.55)', stack: 'pct' },
                     { label: '출하', data: hasData ? data.ship : [0], backgroundColor: 'rgba(255,204,0,0.55)', stack: 'pct' },
                     { label: '비가용', data: hasData ? data.unavailable : [0], backgroundColor: 'rgba(255,59,48,0.55)', stack: 'pct' },
+                    { label: '미분류', data: hasData ? (data.unknown || []) : [0], backgroundColor: 'rgba(142,142,147,0.55)', stack: 'pct' },
                 ]
             },
             options: {

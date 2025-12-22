@@ -516,6 +516,90 @@ class HistoryRepository:
         return [dict(zip(cols, r)) for r in rows]
 
     @classmethod
+    def get_month_end_occupancy_from_histories(
+        cls,
+        *,
+        cylinder_type_key: str,
+        start_date: date,
+        end_date: date,
+    ) -> List[Dict]:
+        """
+        (스냅샷이 없을 때) 상태 이력(tr_cylinder_status_histories)로 월말 상태를 '추정'해서 점유(병수)를 만든다.
+        - 각 월 bucket_end 이전의 "가장 최근 이력"의 CONDITION_CODE를 월말 상태로 간주
+        - 히스토리가 전혀 없는 용기는 unknown으로 분류
+        주의: 과거 시점의 cylinder_type_key(정책/밸브그룹 등)가 바뀐 경우 100% 정확하진 않지만, 2025년 전체 '대략' 목적에 적합.
+        """
+        if not cylinder_type_key:
+            return []
+
+        start_dt = cls._ensure_datetime(start_date)
+        end_dt = cls._ensure_datetime(end_date)
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH cylinders AS (
+                    SELECT DISTINCT RTRIM(c.cylinder_no) AS cylinder_no
+                    FROM cy_cylinder_current c
+                    WHERE c.cylinder_type_key = %s
+                      AND c.cylinder_no IS NOT NULL
+                ),
+                buckets AS (
+                    SELECT generate_series(
+                        date_trunc('month', %s::timestamp),
+                        date_trunc('month', %s::timestamp),
+                        interval '1 month'
+                    ) AS bucket_start
+                ),
+                last_code AS (
+                    SELECT
+                        b.bucket_start,
+                        cy.cylinder_no,
+                        lh.condition_code
+                    FROM buckets b
+                    CROSS JOIN cylinders cy
+                    LEFT JOIN LATERAL (
+                        SELECT TRIM(h."CONDITION_CODE") AS condition_code
+                        FROM "fcms_cdc"."tr_cylinder_status_histories" h
+                        WHERE RTRIM(h."CYLINDER_NO") = cy.cylinder_no
+                          AND h."MOVE_DATE" < (b.bucket_start + interval '1 month')
+                        ORDER BY h."MOVE_DATE" DESC, h."HISTORY_SEQ" DESC
+                        LIMIT 1
+                    ) lh ON true
+                ),
+                grouped AS (
+                    SELECT
+                        bucket_start,
+                        CASE
+                            WHEN condition_code IN ('00','100','102') THEN 'available'
+                            WHEN condition_code IN ('210','220','420') THEN 'process'
+                            WHEN condition_code IN ('500') THEN 'product'
+                            WHEN condition_code IN ('600') THEN 'ship'
+                            WHEN condition_code IN ('190','950','952','990') THEN 'unavailable'
+                            ELSE 'unknown'
+                        END AS grp
+                    FROM last_code
+                )
+                SELECT
+                    bucket_start::date AS bucket,
+                    COUNT(*) FILTER (WHERE grp = 'available') AS available_qty,
+                    COUNT(*) FILTER (WHERE grp = 'process') AS process_qty,
+                    COUNT(*) FILTER (WHERE grp = 'product') AS product_qty,
+                    COUNT(*) FILTER (WHERE grp = 'ship') AS ship_qty,
+                    COUNT(*) FILTER (WHERE grp = 'unavailable') AS unavailable_qty,
+                    COUNT(*) FILTER (WHERE grp = 'unknown') AS unknown_qty,
+                    COUNT(*) AS total_qty
+                FROM grouped
+                GROUP BY bucket_start
+                ORDER BY bucket_start ASC
+                """,
+                [cylinder_type_key, start_dt, end_dt],
+            )
+            cols = [c[0] for c in cursor.description]
+            rows = cursor.fetchall()
+        return [dict(zip(cols, r)) for r in rows]
+
+    @classmethod
     def get_clf3_ship_counts(
         cls,
         ship_codes: List[str],
