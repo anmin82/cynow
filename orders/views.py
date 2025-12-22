@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.models import Sum
+from django.db.utils import ProgrammingError, OperationalError
 
 from .models import PO, POItem, MoveNoGuide, FCMSMatchStatus
 from .forms import POForm, POItemFormSet
@@ -35,7 +36,30 @@ def po_list(request):
     status = request.GET.get('status', '')
     supplier = request.GET.get('supplier', '')
     
-    pos = PO.objects.all()
+    # 비로그인 사용자는 에러 대신 빈 화면(안내)로 처리
+    # - 메뉴 클릭 시 서버에러(500) 방지
+    if not request.user.is_authenticated:
+        context = {
+            "po_list": [],
+            "current_status": "",
+            "current_supplier": "",
+            "status_choices": PO.STATUS_CHOICES,
+            "error_message": "PO 관리는 로그인 후 사용 가능합니다.",
+        }
+        return render(request, "orders/po_list.html", context)
+
+    try:
+        pos = PO.objects.all()
+    except (ProgrammingError, OperationalError):
+        # 마이그레이션 미적용 등으로 테이블이 없을 때 500 대신 안내
+        context = {
+            "po_list": [],
+            "current_status": "",
+            "current_supplier": "",
+            "status_choices": PO.STATUS_CHOICES,
+            "error_message": "PO 기능이 아직 초기화되지 않았습니다. (DB 테이블 없음) 관리자에게 문의해주세요.",
+        }
+        return render(request, "orders/po_list.html", context)
     
     if status:
         pos = pos.filter(status=status)

@@ -15,6 +15,12 @@
         </div>
     </div>
 
+    {% if error_message %}
+    <div class="alert alert-warning">
+        {{ error_message }}
+    </div>
+    {% endif %}
+
     <!-- 필터 -->
     <div class="card mb-3">
         <div class="card-body">
