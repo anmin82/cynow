@@ -19,6 +19,25 @@ from core.repositories.history_repository import HistoryRepository
 from core.repositories.view_repository import ViewRepository
 
 
+def _expand_cylinder_type_keys(filters: dict, cylinder_type_options: list) -> dict:
+    """
+    history 페이지는 select에서 대표 cylinder_type_key 1개를 받지만,
+    실제 조회는 같은 카드(속성 그룹)에 속한 모든 키를 포함해 일관된 결과가 나오게 한다.
+    """
+    selected_key = (filters.get("cylinder_type_key") or "").strip()
+    if not selected_key:
+        return filters
+
+    opt_map = {str(o.get("cylinder_type_key") or "").strip(): o for o in (cylinder_type_options or [])}
+    opt = opt_map.get(selected_key)
+    if opt:
+        keys = opt.get("cylinder_type_keys") or []
+        keys = [k.strip() for k in keys if k and str(k).strip()]
+        if keys:
+            filters["cylinder_type_keys"] = keys
+    return filters
+
+
 def history(request):
     """상태 변경 이력/집계 (tr_cylinder_status_histories 기반)"""
     start_date, end_date = _get_date_range(request, default_days=30)
@@ -34,6 +53,7 @@ def history(request):
     }
     # 빈 문자열 제거
     filters = {k: v for k, v in filters.items() if v}
+    filters = _expand_cylinder_type_keys(filters, cylinder_type_options)
 
     # 이동코드 분류 (실제 존재 코드에 한정)
     move_code_sets = HistoryRepository.get_move_code_sets()
@@ -207,6 +227,7 @@ def history_movement(request):
         "cylinder_type_key": request.GET.get("cylinder_type_key", "").strip(),
     }
     filters = {k: v for k, v in filters.items() if v}
+    filters = _expand_cylinder_type_keys(filters, cylinder_type_options)
 
     if not filters.get("cylinder_type_key"):
         return render(
@@ -268,6 +289,7 @@ def history_charge(request):
         "cylinder_type_key": request.GET.get("cylinder_type_key", "").strip(),
     }
     filters = {k: v for k, v in filters.items() if v}
+    filters = _expand_cylinder_type_keys(filters, cylinder_type_options)
 
     if not filters.get("cylinder_type_key"):
         return render(
@@ -358,6 +380,8 @@ def history_trend(request):
     move_code_sets = HistoryRepository.get_move_code_sets()
     cylinder_type_options = HistoryRepository.get_cylinder_type_options()
     cylinder_type_key = request.GET.get("cylinder_type_key", "").strip()
+    # trend는 repository 함수가 cylinder_type_key 1개를 받는 구간이 있어, 대표키만 사용(기존 동작 유지)
+    # export도 trend와 동일하게 대표키 기준으로 유지
 
     if not cylinder_type_key:
         return render(

@@ -131,7 +131,48 @@ class HistoryRepository:
             if missing_core and r.get("cylinder_type_key"):
                 label = f"{label}  [key:{str(r['cylinder_type_key'])[:8]}]"
             r["display_label"] = label
-        return results
+
+        # history 페이지의 "용기종류" 옵션은 대시보드 카드처럼 속성 기준으로 묶어준다.
+        # (대시보드에서 여러 cylinder_type_key가 한 카드로 합쳐질 수 있어,
+        #  key 기준으로 그대로 보여주면 옵션 수가 불필요하게 늘어난다.)
+        grouped: Dict[str, Dict] = {}
+        for r in results:
+            gas_name = (r.get("gas_name") or "").strip()
+            capacity = (str(r.get("capacity") or "")).strip()
+            valve_display = (r.get("valve_display") or "").strip()
+            cylinder_display = (r.get("cylinder_display") or "").strip()
+            enduser = (r.get("enduser") or "").strip()
+            group_key = f"{gas_name}|{capacity}|{valve_display}|{cylinder_display}|{enduser}"
+
+            k = (r.get("cylinder_type_key") or "").strip()
+            if group_key not in grouped:
+                base = dict(r)
+                base["cylinder_type_keys"] = [k] if k else []
+                grouped[group_key] = base
+            else:
+                if k:
+                    grouped[group_key].setdefault("cylinder_type_keys", []).append(k)
+                # 대표 키는 deterministic 하게 가장 작은 값을 유지 (선택/URL 안정화)
+                cur = (grouped[group_key].get("cylinder_type_key") or "").strip()
+                if k and (not cur or k < cur):
+                    grouped[group_key]["cylinder_type_key"] = k
+
+        grouped_list: List[Dict] = []
+        for g in grouped.values():
+            keys = sorted({x for x in (g.get("cylinder_type_keys") or []) if x})
+            g["cylinder_type_keys"] = keys
+            # display_label은 기존 라벨 유지 (속성 동일 그룹이므로 동일한 값)
+            grouped_list.append(g)
+
+        grouped_list.sort(
+            key=lambda x: (
+                (x.get("gas_name") or ""),
+                str(x.get("capacity") or ""),
+                (x.get("valve_display") or ""),
+                (x.get("enduser") or ""),
+            )
+        )
+        return grouped_list
 
     @classmethod
     def get_move_code_options(cls, only_codes: Optional[List[str]] = None) -> Dict[str, str]:
@@ -209,7 +250,18 @@ class HistoryRepository:
         if filters.get("gas_name"):
             conditions.append("c.dashboard_gas_name = %s")
             params.append(filters["gas_name"])
-        if filters.get("cylinder_type_key"):
+        # 대시보드 카드 기준으로 여러 키가 묶일 수 있으므로, IN 필터를 지원한다.
+        if filters.get("cylinder_type_keys"):
+            keys = [k for k in (filters.get("cylinder_type_keys") or []) if k]
+            if keys:
+                if connection.vendor == "postgresql":
+                    conditions.append("c.cylinder_type_key = ANY(%s)")
+                    params.append(keys)
+                else:
+                    placeholders = ", ".join(["%s"] * len(keys))
+                    conditions.append(f"c.cylinder_type_key IN ({placeholders})")
+                    params.extend(keys)
+        elif filters.get("cylinder_type_key"):
             conditions.append("c.cylinder_type_key = %s")
             params.append(filters["cylinder_type_key"])
 
