@@ -3,6 +3,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
+from django.db import connection
 from core.repositories.cylinder_repository import CylinderRepository
 from core.utils.view_helper import parse_cylinder_spec, parse_valve_spec, parse_usage_place
 from core.utils.translation import translate_text
@@ -11,6 +12,91 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from datetime import datetime
 from .models import CylinderMemo
+
+
+_TCS_SHIP_DATE_COL: str | None = None
+_TCS_SHIP_DATE_COL_READY: bool = False
+
+
+def _detect_tcs_ship_date_column(cursor) -> str | None:
+    """
+    fcms_cdc.tr_latest_cylinder_statuses 에서 출하일자(Shipping Date)로 보이는 컬럼을 탐지한다.
+    - 환경/버전별로 컬럼명이 다를 수 있어 런타임에 한 번만 탐지 후 캐시한다.
+    """
+    global _TCS_SHIP_DATE_COL, _TCS_SHIP_DATE_COL_READY
+    if _TCS_SHIP_DATE_COL_READY:
+        return _TCS_SHIP_DATE_COL
+
+    try:
+        cursor.execute(
+            """
+            SELECT LOWER(column_name) AS col
+            FROM information_schema.columns
+            WHERE table_schema = %s
+              AND table_name = %s
+            """,
+            ["fcms_cdc", "tr_latest_cylinder_statuses"],
+        )
+        cols = [r[0] for r in cursor.fetchall() if r and r[0]]
+    except Exception:
+        cols = []
+
+    # 우선순위: 흔한 컬럼명들
+    priority = [
+        "shipping_date",
+        "ship_date",
+        "shipping_dt",
+        "ship_dt",
+        "shipped_date",
+        "out_date",
+        "out_dt",
+        "delivery_date",
+        "deliver_date",
+    ]
+
+    col = None
+    for p in priority:
+        if p in cols:
+            col = p
+            break
+
+    # 다음 후보: ship + date 같은 패턴
+    if col is None:
+        for c in cols:
+            if "ship" in c and ("date" in c or "dt" in c):
+                col = c
+                break
+
+    _TCS_SHIP_DATE_COL = col
+    _TCS_SHIP_DATE_COL_READY = True
+    return _TCS_SHIP_DATE_COL
+
+
+def _coerce_to_dateish(value):
+    """DB에서 가져온 출하일자를 date/datetime로 최대한 변환 (템플릿 date 필터가 먹도록)."""
+    if value is None:
+        return None
+    if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
+        return value  # date/datetime
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    # yyyymmdd 같은 숫자형
+    if s.isdigit() and len(s) == 8:
+        try:
+            return datetime.strptime(s, "%Y%m%d").date()
+        except Exception:
+            pass
+
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S"):
+        try:
+            parsed = datetime.strptime(s, fmt)
+            return parsed.date() if "H" not in fmt else parsed
+        except Exception:
+            continue
+    return value
 
 
 def cylinder_list(request):
@@ -261,80 +347,29 @@ def cylinder_detail(request, cylinder_no):
     
     cylinder = cylinders[0]
 
-    # FCMS 출하일자: 이력(tr_cylinder_status_histories)에서 "출하" 이동의 최신 MOVE_DATE
-    # - 환경에 따라 MOVE_CODE가 '60'이 아니라 '060'처럼 0-padding이 들어가거나, 출하 코드 자체가 다를 수 있음
-    # - 따라서 (1) 0-padding 제거 후 비교 (2) 필요 시 ma_parameters에서 "출하/出荷/SHIP" 라벨로 출하 코드를 탐색
+    # FCMS 출하일자: tr_latest_cylinder_statuses의 shipping date 컬럼을 그대로 사용 (가장 최신/정합)
     try:
-        from core.repositories.history_repository import HistoryRepository
-
-        ship_codes = (HistoryRepository.get_move_code_sets() or {}).get("ship") or []
-
-        # ship 코드가 기본셋과 교집합이 비면(환경별 코드 상이), 파라미터에서 출하 코드 후보를 찾는다.
-        if not ship_codes:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT DISTINCT TRIM(p."KEY1") AS code
-                    FROM "fcms_cdc"."ma_parameters" p
-                    WHERE p."KEY1" IS NOT NULL
-                      AND (p."KEY2" IS NULL OR TRIM(p."KEY2") = '')
-                      AND (p."KEY3" IS NULL OR TRIM(p."KEY3") = '')
-                      AND (
-                        COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
-                        OR COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
-                        OR COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
-                      )
-                    """,
-                    ["%출하%", "%出荷%", "%SHIP%"],
-                )
-                ship_codes = [r[0] for r in cursor.fetchall() if r and r[0]]
-
-        # 마지막 fallback: 그래도 없으면 관례적 코드 60을 사용
-        if not ship_codes:
-            ship_codes = ["60"]
-
-        # 0-padding 제거한 비교용 코드 집합 생성 (예: '060' -> '60')
-        ship_codes_norm = []
-        for c in ship_codes:
-            if c is None:
-                continue
-            s = str(c).strip()
-            if not s:
-                continue
-            s2 = s.lstrip("0") or s
-            ship_codes_norm.append(s2)
-        # 중복 제거
-        ship_codes_norm = sorted(set(ship_codes_norm))
-
         ship_dt = None
-        if ship_codes_norm:
-            with connection.cursor() as cursor:
-                if connection.vendor == "postgresql":
-                    cursor.execute(
-                        """
-                        SELECT MAX(h."MOVE_DATE") AS ship_date
-                        FROM "fcms_cdc"."tr_cylinder_status_histories" h
-                        WHERE RTRIM(h."CYLINDER_NO") = RTRIM(%s)
-                          AND NULLIF(regexp_replace(TRIM(h."MOVE_CODE"::text), '^0+', ''), '') = ANY(%s)
-                        """,
-                        [cylinder_no, ship_codes_norm],
-                    )
-                else:
-                    # 비-PG 환경에서는 단순 비교 (0-padding 제거 비교는 지원하지 않음)
-                    placeholders = ", ".join(["%s"] * len(ship_codes_norm))
+        with connection.cursor() as cursor:
+            col = _detect_tcs_ship_date_column(cursor)
+            if col:
+                # 식별자 안전성 체크(동적 컬럼 사용)
+                import re
+
+                if re.match(r"^[a-z0-9_]+$", col):
                     cursor.execute(
                         f"""
-                        SELECT MAX(h."MOVE_DATE") AS ship_date
-                        FROM "fcms_cdc"."tr_cylinder_status_histories" h
-                        WHERE TRIM(h."CYLINDER_NO") = TRIM(%s)
-                          AND TRIM(h."MOVE_CODE") IN ({placeholders})
+                        SELECT tcs."{col.upper()}" AS ship_date
+                        FROM "fcms_cdc"."tr_latest_cylinder_statuses" tcs
+                        WHERE RTRIM(tcs."CYLINDER_NO") = RTRIM(%s)
+                        LIMIT 1
                         """,
-                        [cylinder_no, *ship_codes_norm],
+                        [cylinder_no],
                     )
-                row = cursor.fetchone()
-                ship_dt = row[0] if row else None
+                    row = cursor.fetchone()
+                    ship_dt = row[0] if row else None
 
-        cylinder["ship_date"] = ship_dt
+        cylinder["ship_date"] = _coerce_to_dateish(ship_dt)
     except Exception:
         cylinder["ship_date"] = None
     
