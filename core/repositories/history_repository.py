@@ -364,6 +364,75 @@ class HistoryRepository:
         return [dict(zip(columns, row)) for row in rows]
 
     @classmethod
+    def get_month_end_status_qty(
+        cls,
+        *,
+        cylinder_type_key: str,
+        statuses: List[str],
+        start_date: date,
+        end_date: date,
+        snapshot_type: str = "DAILY",
+    ) -> List[Dict]:
+        """
+        HistInventorySnapshot에서 월별 '월말(해당 월의 마지막 스냅샷)' 기준 특정 상태(statuses)의 총 수량을 반환.
+        - 동일 월에 스냅샷이 여러 번 있으면 MAX(snapshot_datetime)를 월말로 간주
+        - 해당 월말 스냅샷에 상태 row가 없으면 0으로 반환
+        """
+        if not cylinder_type_key or not statuses:
+            return []
+
+        start_dt = cls._ensure_datetime(start_date)
+        end_dt_exclusive = cls._ensure_datetime(end_date) + timedelta(days=1)  # 끝일 포함
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH last_snap AS (
+                    SELECT
+                        date_trunc('month', snapshot_datetime) AS bucket,
+                        MAX(snapshot_datetime) AS last_dt
+                    FROM hist_inventory_snapshot
+                    WHERE cylinder_type_key = %s
+                      AND snapshot_datetime >= %s
+                      AND snapshot_datetime < %s
+                      AND snapshot_type = %s
+                    GROUP BY 1
+                ),
+                qty_by_bucket AS (
+                    SELECT
+                        date_trunc('month', s.snapshot_datetime) AS bucket,
+                        SUM(s.qty) AS qty
+                    FROM hist_inventory_snapshot s
+                    INNER JOIN last_snap l
+                        ON s.snapshot_datetime = l.last_dt
+                    WHERE s.cylinder_type_key = %s
+                      AND s.snapshot_type = %s
+                      AND s.status = ANY(%s)
+                    GROUP BY 1
+                )
+                SELECT
+                    l.bucket::date AS bucket,
+                    COALESCE(q.qty, 0) AS qty
+                FROM last_snap l
+                LEFT JOIN qty_by_bucket q
+                    ON q.bucket = l.bucket
+                ORDER BY l.bucket ASC
+                """,
+                [
+                    cylinder_type_key,
+                    start_dt,
+                    end_dt_exclusive,
+                    snapshot_type,
+                    cylinder_type_key,
+                    snapshot_type,
+                    statuses,
+                ],
+            )
+            rows = cursor.fetchall()
+
+        return [{"bucket": r[0], "qty": r[1]} for r in rows]
+
+    @classmethod
     def get_clf3_ship_counts(
         cls,
         ship_codes: List[str],

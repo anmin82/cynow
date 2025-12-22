@@ -370,6 +370,7 @@ def history_trend(request):
                 "cylinder_type_options": cylinder_type_options,
                 "weekly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
                 "monthly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
+                "monthly_ship_stock_chart": json.dumps({"labels": [], "ship_stock": []}),
                 "yearly_chart": json.dumps({"labels": [], "inbound": [], "ship": [], "charge": []}),
                 "error_message": "대시보드의 용기종류를 선택해서 조회해주세요.",
             },
@@ -388,6 +389,16 @@ def history_trend(request):
         end_date=end_date,
         code_sets=move_code_sets,
         cylinder_type_key=cylinder_type_key,
+    )
+
+    # 월말(해당 월 마지막 스냅샷) 기준 "출하중(재고)" 총량 추이
+    # 표준 상태명은 '출하'지만, 환경에 따라 '출하중'이 섞일 수 있어 둘 다 허용
+    ship_stock_rows = HistoryRepository.get_month_end_status_qty(
+        cylinder_type_key=cylinder_type_key,
+        statuses=["출하", "출하중"],
+        start_date=start_date,
+        end_date=end_date,
+        snapshot_type="DAILY",
     )
 
     def _format_label(period: str, bucket):
@@ -415,6 +426,10 @@ def history_trend(request):
 
     weekly_chart = _chart_data(weekly_summary, "week")
     monthly_chart = _chart_data(monthly_summary, "month")
+    monthly_ship_stock_chart = {
+        "labels": [_format_label("month", r.get("bucket")) for r in ship_stock_rows],
+        "ship_stock": [r.get("qty", 0) or 0 for r in ship_stock_rows],
+    }
     def _totals(rows):
         return {
             "inbound": sum(r.get("inbound_cnt", 0) or 0 for r in rows),
@@ -436,6 +451,7 @@ def history_trend(request):
         "monthly_total_row": monthly_total_row,
         "weekly_chart": json.dumps(weekly_chart),
         "monthly_chart": json.dumps(monthly_chart),
+        "monthly_ship_stock_chart": json.dumps(monthly_ship_stock_chart),
     }
     return render(request, "history/trend.html", context)
 
