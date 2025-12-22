@@ -398,6 +398,7 @@ class HistoryRepository:
         end_date,
         code_sets: Dict[str, List[str]],
         cylinder_type_key: Optional[str] = None,
+        cylinder_type_keys: Optional[List[str]] = None,
     ) -> List[Dict]:
         """
         기간별(week/month) 이동유형 집계
@@ -413,7 +414,22 @@ class HistoryRepository:
             cls._ensure_datetime(end_date) + timedelta(days=1),
         ]
         type_where = ""
-        if cylinder_type_key:
+        group_by = "GROUP BY bucket, c.cylinder_type_key"
+        order_by = "ORDER BY bucket DESC, c.cylinder_type_key"
+
+        keys = [k for k in (cylinder_type_keys or []) if k]
+        if keys:
+            # 여러 키를 한 용기종류(카드)로 묶어서 조회하는 경우: 버킷 단위로 합산
+            if connection.vendor == "postgresql":
+                type_where = " AND c.cylinder_type_key = ANY(%s)"
+                params.append(keys)
+            else:
+                placeholders = ", ".join(["%s"] * len(keys))
+                type_where = f" AND c.cylinder_type_key IN ({placeholders})"
+                params.extend(keys)
+            group_by = "GROUP BY bucket"
+            order_by = "ORDER BY bucket DESC"
+        elif cylinder_type_key:
             type_where = " AND c.cylinder_type_key = %s"
             params.append(cylinder_type_key)
 
@@ -432,8 +448,8 @@ class HistoryRepository:
             WHERE h."MOVE_DATE" >= %s
               AND h."MOVE_DATE" < %s
               {type_where}
-            GROUP BY bucket, c.cylinder_type_key
-            ORDER BY bucket DESC, c.cylinder_type_key
+            {group_by}
+            {order_by}
         """
 
         with connection.cursor() as cursor:
@@ -449,7 +465,8 @@ class HistoryRepository:
         cls,
         *,
         period: str,
-        cylinder_type_key: str,
+        cylinder_type_key: Optional[str] = None,
+        cylinder_type_keys: Optional[List[str]] = None,
         start_date: date,
         end_date: date,
         snapshot_type: str = "DAILY",
@@ -462,7 +479,8 @@ class HistoryRepository:
         - 출하: 출하 (환경에 따라 출하중이 있으면 포함)
         - 비가용: 이상, 정비대상, 폐기
         """
-        if not cylinder_type_key:
+        keys = [k for k in (cylinder_type_keys or []) if k]
+        if not cylinder_type_key and not keys:
             return []
 
         if period not in ("week", "month"):
@@ -478,50 +496,98 @@ class HistoryRepository:
         unavailable_statuses = ["이상", "정비대상", "폐기"]
 
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                WITH last_snap AS (
+            if keys:
+                # 여러 키를 합산할 때는 "키별 마지막 스냅샷"을 잡아 합산해야 누락이 없다.
+                cursor.execute(
+                    """
+                    WITH last_snap AS (
+                        SELECT
+                            cylinder_type_key,
+                            date_trunc(%s, snapshot_datetime) AS bucket,
+                            MAX(snapshot_datetime) AS last_dt
+                        FROM hist_inventory_snapshot
+                        WHERE cylinder_type_key = ANY(%s)
+                          AND snapshot_datetime >= %s
+                          AND snapshot_datetime < %s
+                          AND snapshot_type = %s
+                        GROUP BY 1, 2
+                    )
                     SELECT
-                        date_trunc(%s, snapshot_datetime) AS bucket,
-                        MAX(snapshot_datetime) AS last_dt
-                    FROM hist_inventory_snapshot
-                    WHERE cylinder_type_key = %s
-                      AND snapshot_datetime >= %s
-                      AND snapshot_datetime < %s
-                      AND snapshot_type = %s
-                    GROUP BY 1
+                        l.bucket AS bucket,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS available_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS process_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS product_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS ship_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS unavailable_qty,
+                        COALESCE(SUM(s.qty), 0) AS total_qty
+                    FROM last_snap l
+                    LEFT JOIN hist_inventory_snapshot s
+                        ON s.snapshot_datetime = l.last_dt
+                       AND s.cylinder_type_key = l.cylinder_type_key
+                       AND s.snapshot_type = %s
+                    GROUP BY l.bucket
+                    ORDER BY l.bucket ASC
+                    """,
+                    [
+                        period,
+                        keys,
+                        start_dt,
+                        end_dt_exclusive,
+                        snapshot_type,
+                        available_statuses,
+                        process_statuses,
+                        product_statuses,
+                        ship_statuses,
+                        unavailable_statuses,
+                        snapshot_type,
+                    ],
                 )
-                SELECT
-                    l.bucket AS bucket,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS available_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS process_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS product_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS ship_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS unavailable_qty,
-                    COALESCE(SUM(s.qty), 0) AS total_qty
-                FROM last_snap l
-                LEFT JOIN hist_inventory_snapshot s
-                    ON s.snapshot_datetime = l.last_dt
-                   AND s.cylinder_type_key = %s
-                   AND s.snapshot_type = %s
-                GROUP BY l.bucket
-                ORDER BY l.bucket ASC
-                """,
-                [
-                    period,
-                    cylinder_type_key,
-                    start_dt,
-                    end_dt_exclusive,
-                    snapshot_type,
-                    available_statuses,
-                    process_statuses,
-                    product_statuses,
-                    ship_statuses,
-                    unavailable_statuses,
-                    cylinder_type_key,
-                    snapshot_type,
-                ],
-            )
+            else:
+                cursor.execute(
+                    """
+                    WITH last_snap AS (
+                        SELECT
+                            date_trunc(%s, snapshot_datetime) AS bucket,
+                            MAX(snapshot_datetime) AS last_dt
+                        FROM hist_inventory_snapshot
+                        WHERE cylinder_type_key = %s
+                          AND snapshot_datetime >= %s
+                          AND snapshot_datetime < %s
+                          AND snapshot_type = %s
+                        GROUP BY 1
+                    )
+                    SELECT
+                        l.bucket AS bucket,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS available_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS process_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS product_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS ship_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS unavailable_qty,
+                        COALESCE(SUM(s.qty), 0) AS total_qty
+                    FROM last_snap l
+                    LEFT JOIN hist_inventory_snapshot s
+                        ON s.snapshot_datetime = l.last_dt
+                       AND s.cylinder_type_key = %s
+                       AND s.snapshot_type = %s
+                    GROUP BY l.bucket
+                    ORDER BY l.bucket ASC
+                    """,
+                    [
+                        period,
+                        cylinder_type_key,
+                        start_dt,
+                        end_dt_exclusive,
+                        snapshot_type,
+                        available_statuses,
+                        process_statuses,
+                        product_statuses,
+                        ship_statuses,
+                        unavailable_statuses,
+                        cylinder_type_key,
+                        snapshot_type,
+                    ],
+                )
+
             cols = [c[0] for c in cursor.description]
             rows = cursor.fetchall()
 

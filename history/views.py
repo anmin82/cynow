@@ -92,12 +92,14 @@ def history(request):
 
     # 집계 (주/월)
     cylinder_type_key = filters.get("cylinder_type_key")
+    cylinder_type_keys = filters.get("cylinder_type_keys")
     weekly_summary = HistoryRepository.get_period_summary(
         period="week",
         start_date=start_date,
         end_date=end_date,
         code_sets=move_code_sets,
         cylinder_type_key=cylinder_type_key,
+        cylinder_type_keys=cylinder_type_keys,
     )
     monthly_summary = HistoryRepository.get_period_summary(
         period="month",
@@ -105,6 +107,7 @@ def history(request):
         end_date=end_date,
         code_sets=move_code_sets,
         cylinder_type_key=cylinder_type_key,
+        cylinder_type_keys=cylinder_type_keys,
     )
 
     def _aggregate_latest(summary_rows):
@@ -380,8 +383,6 @@ def history_trend(request):
     move_code_sets = HistoryRepository.get_move_code_sets()
     cylinder_type_options = HistoryRepository.get_cylinder_type_options()
     cylinder_type_key = request.GET.get("cylinder_type_key", "").strip()
-    # trend는 repository 함수가 cylinder_type_key 1개를 받는 구간이 있어, 대표키만 사용(기존 동작 유지)
-    # export도 trend와 동일하게 대표키 기준으로 유지
 
     if not cylinder_type_key:
         return render(
@@ -400,12 +401,17 @@ def history_trend(request):
             },
         )
 
+    # 선택된 대표 키를 카드(속성) 기준의 전체 키로 확장
+    filters = _expand_cylinder_type_keys({"cylinder_type_key": cylinder_type_key}, cylinder_type_options)
+    cylinder_type_keys = filters.get("cylinder_type_keys")
+
     weekly_summary = HistoryRepository.get_period_summary(
         period="week",
         start_date=start_date,
         end_date=end_date,
         code_sets=move_code_sets,
         cylinder_type_key=cylinder_type_key,
+        cylinder_type_keys=cylinder_type_keys,
     )
     monthly_summary = HistoryRepository.get_period_summary(
         period="month",
@@ -413,12 +419,14 @@ def history_trend(request):
         end_date=end_date,
         code_sets=move_code_sets,
         cylinder_type_key=cylinder_type_key,
+        cylinder_type_keys=cylinder_type_keys,
     )
 
     # 월간 점유율(%) 추이: 월별 마지막 스냅샷 기준 상태 그룹 총량
     occupancy_rows = HistoryRepository.get_period_end_occupancy_summary(
         period="month",
         cylinder_type_key=cylinder_type_key,
+        cylinder_type_keys=cylinder_type_keys,
         start_date=start_date,
         end_date=end_date,
         snapshot_type="DAILY",
@@ -503,11 +511,15 @@ def history_trend_export(request):
 
     start_date, end_date = _get_date_range(request, default_days=90)
     move_code_sets = HistoryRepository.get_move_code_sets()
+    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
     cylinder_type_key = request.GET.get("cylinder_type_key", "").strip()
 
     if not cylinder_type_key:
         messages.error(request, "용기종류를 선택해주세요.")
         return redirect("history:history_trend")
+
+    filters = _expand_cylinder_type_keys({"cylinder_type_key": cylinder_type_key}, cylinder_type_options)
+    cylinder_type_keys = filters.get("cylinder_type_keys")
 
     weekly_summary = HistoryRepository.get_period_summary(
         period="week",
@@ -515,6 +527,7 @@ def history_trend_export(request):
         end_date=end_date,
         code_sets=move_code_sets,
         cylinder_type_key=cylinder_type_key,
+        cylinder_type_keys=cylinder_type_keys,
     )
     monthly_summary = HistoryRepository.get_period_summary(
         period="month",
@@ -522,6 +535,7 @@ def history_trend_export(request):
         end_date=end_date,
         code_sets=move_code_sets,
         cylinder_type_key=cylinder_type_key,
+        cylinder_type_keys=cylinder_type_keys,
     )
     def _format_label(period: str, bucket):
         if not bucket:
