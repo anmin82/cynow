@@ -412,14 +412,24 @@ def history_trend(request):
         end_date=end_date,
         snapshot_type="DAILY",
     )
-    # 스냅샷이 없으면 히스토리 기반으로 월말 상태를 '추정'하여 점유율을 만든다 (2025 전체 대략 목적)
+    # 스냅샷이 없으면 히스토리 기반 추정이 가능하지만(대략), 긴 기간/대량 용기에서는 504가 날 수 있어 가드한다.
     if not occupancy_rows:
-        occupancy_rows = HistoryRepository.get_month_end_occupancy_from_histories(
-            cylinder_type_key=cylinder_type_key,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        occupancy_source = "history"
+        max_days_for_history_fallback = 120
+        try:
+            days = (end_date - start_date).days
+        except Exception:
+            days = max_days_for_history_fallback + 1
+
+        if days <= max_days_for_history_fallback:
+            occupancy_rows = HistoryRepository.get_month_end_occupancy_from_histories(
+                cylinder_type_key=cylinder_type_key,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            occupancy_source = "history"
+        else:
+            occupancy_rows = []
+            occupancy_source = "missing"
 
     def _format_label(period: str, bucket):
         if not bucket:

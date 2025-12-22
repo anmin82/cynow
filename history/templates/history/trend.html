@@ -115,6 +115,12 @@
                         스냅샷이 없어 <strong>상태 이력 기준으로 월말 상태를 추정</strong>한 값입니다. (미분류가 발생할 수 있음)
                     </div>
                     {% endif %}
+                    {% if occupancy_source == 'missing' %}
+                    <div class="mt-1">
+                        <span class="badge bg-danger">스냅샷 필요</span>
+                        기간이 길어 히스토리 추정 계산을 생략했습니다. 서버에서 <strong>월말 스냅샷 백필</strong>을 먼저 실행해주세요.
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
