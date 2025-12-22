@@ -42,6 +42,12 @@ def history(request):
     """상태 변경 이력/집계 (tr_cylinder_status_histories 기반)"""
     start_date, end_date = _get_date_range(request, default_days=30)
 
+    # 이동코드/옵션 (필터 확장에 필요)
+    move_code_sets = HistoryRepository.get_move_code_sets()
+    available_move_codes = HistoryRepository.get_available_move_codes()
+    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
+    move_code_names = HistoryRepository.get_move_code_options(sorted(available_move_codes))
+
     # 필터 파라미터
     filters = {
         "cylinder_no": request.GET.get("cylinder_no", "").strip(),
@@ -54,12 +60,6 @@ def history(request):
     # 빈 문자열 제거
     filters = {k: v for k, v in filters.items() if v}
     filters = _expand_cylinder_type_keys(filters, cylinder_type_options)
-
-    # 이동코드 분류 (실제 존재 코드에 한정)
-    move_code_sets = HistoryRepository.get_move_code_sets()
-    available_move_codes = HistoryRepository.get_available_move_codes()
-    cylinder_type_options = HistoryRepository.get_cylinder_type_options()
-    move_code_names = HistoryRepository.get_move_code_options(sorted(available_move_codes))
 
     if not filters.get("cylinder_type_key"):
         return render(
