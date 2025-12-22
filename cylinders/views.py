@@ -261,34 +261,75 @@ def cylinder_detail(request, cylinder_no):
     
     cylinder = cylinders[0]
 
-    # FCMS 출하일자: 이력(tr_cylinder_status_histories)에서 출하 이동코드(기본 60)의 최신 MOVE_DATE
+    # FCMS 출하일자: 이력(tr_cylinder_status_histories)에서 "출하" 이동의 최신 MOVE_DATE
+    # - 환경에 따라 MOVE_CODE가 '60'이 아니라 '060'처럼 0-padding이 들어가거나, 출하 코드 자체가 다를 수 있음
+    # - 따라서 (1) 0-padding 제거 후 비교 (2) 필요 시 ma_parameters에서 "출하/出荷/SHIP" 라벨로 출하 코드를 탐색
     try:
         from core.repositories.history_repository import HistoryRepository
 
-        ship_codes = (HistoryRepository.get_move_code_sets() or {}).get("ship") or ["60"]
+        ship_codes = (HistoryRepository.get_move_code_sets() or {}).get("ship") or []
+
+        # ship 코드가 기본셋과 교집합이 비면(환경별 코드 상이), 파라미터에서 출하 코드 후보를 찾는다.
+        if not ship_codes:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT DISTINCT TRIM(p."KEY1") AS code
+                    FROM "fcms_cdc"."ma_parameters" p
+                    WHERE p."KEY1" IS NOT NULL
+                      AND (p."KEY2" IS NULL OR TRIM(p."KEY2") = '')
+                      AND (p."KEY3" IS NULL OR TRIM(p."KEY3") = '')
+                      AND (
+                        COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
+                        OR COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
+                        OR COALESCE(p."VALUE2", p."VALUE1", p."VALUE3", '') ILIKE %s
+                      )
+                    """,
+                    ["%출하%", "%出荷%", "%SHIP%"],
+                )
+                ship_codes = [r[0] for r in cursor.fetchall() if r and r[0]]
+
+        # 마지막 fallback: 그래도 없으면 관례적 코드 60을 사용
+        if not ship_codes:
+            ship_codes = ["60"]
+
+        # 0-padding 제거한 비교용 코드 집합 생성 (예: '060' -> '60')
+        ship_codes_norm = []
+        for c in ship_codes:
+            if c is None:
+                continue
+            s = str(c).strip()
+            if not s:
+                continue
+            s2 = s.lstrip("0") or s
+            ship_codes_norm.append(s2)
+        # 중복 제거
+        ship_codes_norm = sorted(set(ship_codes_norm))
+
         ship_dt = None
-        if ship_codes:
+        if ship_codes_norm:
             with connection.cursor() as cursor:
                 if connection.vendor == "postgresql":
                     cursor.execute(
                         """
                         SELECT MAX(h."MOVE_DATE") AS ship_date
                         FROM "fcms_cdc"."tr_cylinder_status_histories" h
-                        WHERE RTRIM(h."CYLINDER_NO") = %s
-                          AND TRIM(h."MOVE_CODE") = ANY(%s)
+                        WHERE RTRIM(h."CYLINDER_NO") = RTRIM(%s)
+                          AND NULLIF(regexp_replace(TRIM(h."MOVE_CODE"::text), '^0+', ''), '') = ANY(%s)
                         """,
-                        [cylinder_no, ship_codes],
+                        [cylinder_no, ship_codes_norm],
                     )
                 else:
-                    placeholders = ", ".join(["%s"] * len(ship_codes))
+                    # 비-PG 환경에서는 단순 비교 (0-padding 제거 비교는 지원하지 않음)
+                    placeholders = ", ".join(["%s"] * len(ship_codes_norm))
                     cursor.execute(
                         f"""
                         SELECT MAX(h."MOVE_DATE") AS ship_date
                         FROM "fcms_cdc"."tr_cylinder_status_histories" h
-                        WHERE TRIM(h."CYLINDER_NO") = %s
+                        WHERE TRIM(h."CYLINDER_NO") = TRIM(%s)
                           AND TRIM(h."MOVE_CODE") IN ({placeholders})
                         """,
-                        [cylinder_no, *ship_codes],
+                        [cylinder_no, *ship_codes_norm],
                     )
                 row = cursor.fetchone()
                 ship_dt = row[0] if row else None
