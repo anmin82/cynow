@@ -99,17 +99,19 @@ def _coerce_to_dateish(value):
     return value
 
 
-def cylinder_list(request):
-    """용기번호 리스트"""
+def _parse_cylinders_list_request(request):
+    """
+    리스트/엑셀/QR 출력이 동일한 필터 규칙을 사용하도록 공통 파서로 통합.
+    """
     # 검색어 파라미터
     search_query = request.GET.get('search', '').strip()
-    
-    # 다중 선택 필터 파라미터 (getlist로 여러 값 받기)
+
+    # 다중 선택 필터 파라미터
     selected_gases = request.GET.getlist('gases')
     selected_locations = request.GET.getlist('locations')
     selected_statuses = request.GET.getlist('statuses')
-    
-    # 단일 선택 파라미터 (하위 호환)
+
+    # 단일 선택(하위 호환)
     gas_name = request.GET.get('gas_name', '')
     status = request.GET.get('status', '')
     location = request.GET.get('location', '')
@@ -119,21 +121,18 @@ def cylinder_list(request):
     cylinder_type_key = request.GET.get('cylinder_type_key', '')
     cylinder_type_keys_param = request.GET.get('cylinder_type_keys', '').strip()
     days = request.GET.get('days', '')
-    
-    # 정렬 파라미터
-    sort_by = request.GET.get('sort', 'cylinder_no')  # 기본: 용기번호
-    sort_order = request.GET.get('order', 'asc')  # 기본: 오름차순
-    
-    # 단일 선택을 다중 선택에 병합 (하위 호환)
+
+    sort_by = request.GET.get('sort', 'cylinder_no')
+    sort_order = request.GET.get('order', 'asc')
+
     if gas_name and gas_name not in selected_gases:
         selected_gases.append(gas_name)
     if location and location not in selected_locations:
         selected_locations.append(location)
     if status and status not in selected_statuses:
         selected_statuses.append(status)
-    
-    # 대시보드/모달에서 표시용 상태(분석중/충전중)가 DB 레거시 상태(분석/충전)와 섞여 있을 수 있어
-    # 필터는 둘 다 포함하도록 확장한다. (표시는 아래에서 분석중/충전중으로 정규화)
+
+    # 상태 확장/레거시 호환
     if selected_statuses:
         expanded = []
         for s in selected_statuses:
@@ -142,7 +141,6 @@ def cylinder_list(request):
                 continue
             expanded.append(ss)
             if ss == '보관':
-                # 통합 '보관' 선택 시 실제 DB 상태로 확장
                 expanded.append('보관:미회수')
                 expanded.append('보관:회수')
             if ss == '분석중':
@@ -151,24 +149,20 @@ def cylinder_list(request):
                 expanded.append('충전')
             elif ss == '정비대상':
                 expanded.append('정비')
-        # 중복 제거 + 원래 순서 대략 유지
         seen = set()
         selected_statuses = [x for x in expanded if not (x in seen or seen.add(x))]
 
     filters = {}
-    # 다중 가스 필터
     if selected_gases:
         if len(selected_gases) == 1:
             filters['gas_name'] = selected_gases[0]
         else:
             filters['gases'] = selected_gases
-    # 다중 위치 필터
     if selected_locations:
         if len(selected_locations) == 1:
             filters['location'] = selected_locations[0]
         else:
             filters['locations'] = selected_locations
-    # 다중 상태 필터
     if selected_statuses:
         if len(selected_statuses) == 1:
             filters['status'] = selected_statuses[0]
@@ -178,20 +172,63 @@ def cylinder_list(request):
         filters['valve_spec'] = valve_spec
     if cylinder_spec:
         filters['cylinder_spec'] = cylinder_spec
+    if usage_place:
+        filters['usage_place'] = usage_place
     if cylinder_type_key:
         filters['cylinder_type_key'] = cylinder_type_key
     if cylinder_type_keys_param:
         cylinder_type_keys = [k.strip() for k in cylinder_type_keys_param.split(',') if k.strip()]
         if cylinder_type_keys:
             filters['cylinder_type_keys'] = cylinder_type_keys
-    
-    # 기간 필터
+
     days_int = None
     if days:
         try:
             days_int = int(days)
-        except:
+        except Exception:
             days_int = None
+
+    return {
+        "search_query": search_query,
+        "selected_gases": selected_gases,
+        "selected_locations": selected_locations,
+        "selected_statuses": selected_statuses,
+        "gas_name": gas_name,
+        "status": status,
+        "location": location,
+        "valve_spec": valve_spec,
+        "cylinder_spec": cylinder_spec,
+        "usage_place": usage_place,
+        "cylinder_type_key": cylinder_type_key,
+        "cylinder_type_keys_param": cylinder_type_keys_param,
+        "days": days,
+        "days_int": days_int,
+        "sort_by": sort_by,
+        "sort_order": sort_order,
+        "filters": filters,
+    }
+
+
+def cylinder_list(request):
+    """용기번호 리스트"""
+    parsed = _parse_cylinders_list_request(request)
+    search_query = parsed["search_query"]
+    selected_gases = parsed["selected_gases"]
+    selected_locations = parsed["selected_locations"]
+    selected_statuses = parsed["selected_statuses"]
+    gas_name = parsed["gas_name"]
+    status = parsed["status"]
+    location = parsed["location"]
+    valve_spec = parsed["valve_spec"]
+    cylinder_spec = parsed["cylinder_spec"]
+    usage_place = parsed["usage_place"]
+    cylinder_type_key = parsed["cylinder_type_key"]
+    cylinder_type_keys_param = parsed["cylinder_type_keys_param"]
+    days = parsed["days"]
+    days_int = parsed["days_int"]
+    sort_by = parsed["sort_by"]
+    sort_order = parsed["sort_order"]
+    filters = parsed["filters"]
     
     # 페이지네이션
     page = request.GET.get('page', 1)
@@ -627,69 +664,13 @@ def memo_delete(request, cylinder_no, memo_id):
 def cylinder_export_excel(request):
     """용기 리스트 엑셀 다운로드"""
     from urllib.parse import quote
-    
-    # 검색어 파라미터
-    search_query = request.GET.get('search', '').strip()
-    
-    # 다중 선택 필터 파라미터 (getlist로 여러 값 받기)
-    selected_gases = request.GET.getlist('gases')
-    selected_locations = request.GET.getlist('locations')
-    selected_statuses = request.GET.getlist('statuses')
-    
-    # 단일 선택 파라미터 (하위 호환)
-    gas_name = request.GET.get('gas_name', '')
-    status = request.GET.get('status', '')
-    location = request.GET.get('location', '')
-    valve_spec = request.GET.get('valve_spec', '')
-    cylinder_spec = request.GET.get('cylinder_spec', '')
-    cylinder_type_key = request.GET.get('cylinder_type_key', '')
-    days = request.GET.get('days', '')
-    
-    # 정렬 파라미터
-    sort_by = request.GET.get('sort', 'cylinder_no')
-    sort_order = request.GET.get('order', 'asc')
-    
-    # 단일 선택을 다중 선택에 병합 (하위 호환)
-    if gas_name and gas_name not in selected_gases:
-        selected_gases.append(gas_name)
-    if location and location not in selected_locations:
-        selected_locations.append(location)
-    if status and status not in selected_statuses:
-        selected_statuses.append(status)
-    
-    filters = {}
-    # 다중 가스 필터
-    if selected_gases:
-        if len(selected_gases) == 1:
-            filters['gas_name'] = selected_gases[0]
-        else:
-            filters['gases'] = selected_gases
-    # 다중 위치 필터
-    if selected_locations:
-        if len(selected_locations) == 1:
-            filters['location'] = selected_locations[0]
-        else:
-            filters['locations'] = selected_locations
-    # 다중 상태 필터
-    if selected_statuses:
-        if len(selected_statuses) == 1:
-            filters['status'] = selected_statuses[0]
-        else:
-            filters['statuses'] = selected_statuses
-    if valve_spec:
-        filters['valve_spec'] = valve_spec
-    if cylinder_spec:
-        filters['cylinder_spec'] = cylinder_spec
-    if cylinder_type_key:
-        filters['cylinder_type_key'] = cylinder_type_key
-    
-    # 기간 필터
-    days_int = None
-    if days:
-        try:
-            days_int = int(days)
-        except:
-            days_int = None
+
+    parsed = _parse_cylinders_list_request(request)
+    search_query = parsed["search_query"]
+    filters = parsed["filters"]
+    days_int = parsed["days_int"]
+    sort_by = parsed["sort_by"]
+    sort_order = parsed["sort_order"]
     
     # 전체 데이터 조회 (엑셀용 - 최대 10,000건 제한)
     cylinders = CylinderRepository.get_cylinder_list(
@@ -831,65 +812,12 @@ def cylinder_export_qr_pdf(request):
     from reportlab.lib.utils import ImageReader
     import os
     
-    # 검색어 파라미터
-    search_query = request.GET.get('search', '').strip()
-    
-    # 다중 선택 필터 파라미터
-    selected_gases = request.GET.getlist('gases')
-    selected_locations = request.GET.getlist('locations')
-    selected_statuses = request.GET.getlist('statuses')
-    
-    # 단일 선택 파라미터 (하위 호환)
-    gas_name = request.GET.get('gas_name', '')
-    status = request.GET.get('status', '')
-    location = request.GET.get('location', '')
-    valve_spec = request.GET.get('valve_spec', '')
-    cylinder_spec = request.GET.get('cylinder_spec', '')
-    cylinder_type_key = request.GET.get('cylinder_type_key', '')
-    days = request.GET.get('days', '')
-    
-    # 정렬 파라미터
-    sort_by = request.GET.get('sort', 'cylinder_no')
-    sort_order = request.GET.get('order', 'asc')
-    
-    # 단일 선택을 다중 선택에 병합
-    if gas_name and gas_name not in selected_gases:
-        selected_gases.append(gas_name)
-    if location and location not in selected_locations:
-        selected_locations.append(location)
-    if status and status not in selected_statuses:
-        selected_statuses.append(status)
-    
-    filters = {}
-    if selected_gases:
-        if len(selected_gases) == 1:
-            filters['gas_name'] = selected_gases[0]
-        else:
-            filters['gases'] = selected_gases
-    if selected_locations:
-        if len(selected_locations) == 1:
-            filters['location'] = selected_locations[0]
-        else:
-            filters['locations'] = selected_locations
-    if selected_statuses:
-        if len(selected_statuses) == 1:
-            filters['status'] = selected_statuses[0]
-        else:
-            filters['statuses'] = selected_statuses
-    if valve_spec:
-        filters['valve_spec'] = valve_spec
-    if cylinder_spec:
-        filters['cylinder_spec'] = cylinder_spec
-    if cylinder_type_key:
-        filters['cylinder_type_key'] = cylinder_type_key
-    
-    # 기간 필터
-    days_int = None
-    if days:
-        try:
-            days_int = int(days)
-        except:
-            days_int = None
+    parsed = _parse_cylinders_list_request(request)
+    search_query = parsed["search_query"]
+    filters = parsed["filters"]
+    days_int = parsed["days_int"]
+    sort_by = parsed["sort_by"]
+    sort_order = parsed["sort_order"]
     
     # 전체 데이터 조회 (최대 1000건 제한 - PDF 크기 고려)
     cylinders = CylinderRepository.get_cylinder_list(

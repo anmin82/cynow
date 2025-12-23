@@ -154,13 +154,13 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li>
-                        <a class="dropdown-item" href="{% url 'cylinders:export_excel' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
+                        <a class="dropdown-item" href="{% url 'cylinders:export_excel' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}{% if cylinder_type_keys %}cylinder_type_keys={{ cylinder_type_keys|urlencode }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
                             <i class="bi bi-file-earmark-excel text-success"></i> 엑셀
                         </a>
                     </li>
                     {% if user.is_authenticated %}
                     <li>
-                        <a class="dropdown-item" href="{% url 'cylinders:export_qr_pdf' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
+                        <a class="dropdown-item" href="{% url 'cylinders:export_qr_pdf' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% for g in selected_gases %}gases={{ g|urlencode }}&{% endfor %}{% for l in selected_locations %}locations={{ l|urlencode }}&{% endfor %}{% for s in selected_statuses %}statuses={{ s }}&{% endfor %}{% if days %}days={{ days }}&{% endif %}{% if cylinder_type_key %}cylinder_type_key={{ cylinder_type_key }}&{% endif %}{% if cylinder_type_keys %}cylinder_type_keys={{ cylinder_type_keys|urlencode }}&{% endif %}sort={{ sort_by }}&order={{ sort_order }}">
                             <i class="bi bi-qr-code text-primary"></i> QR
                         </a>
                     </li>
