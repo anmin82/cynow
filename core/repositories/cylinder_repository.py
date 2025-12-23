@@ -250,34 +250,53 @@ class CylinderRepository:
             
             if filters:
                 if 'cylinder_no' in filters:
-                    # 공백 trim 처리 (DB에 trailing space가 있을 수 있음)
                     conditions.append("RTRIM(c.cylinder_no) = %s")
                     params.append(filters['cylinder_no'])
-                # 단일 가스 필터
                 if 'gas_name' in filters:
                     conditions.append("c.dashboard_gas_name = %s")
                     params.append(filters['gas_name'])
-                # 다중 가스 필터
                 if 'gases' in filters and filters['gases']:
                     gas_list = filters['gases']
                     placeholders = ', '.join(['%s'] * len(gas_list))
                     conditions.append(f"c.dashboard_gas_name IN ({placeholders})")
                     params.extend(gas_list)
-                # 단일 상태 필터
+                # 단일 상태 필터 (보관:미회수/보관:회수는 condition_code로 분리)
                 if 'status' in filters:
-                    conditions.append("c.dashboard_status = %s")
-                    params.append(filters['status'])
-                # 다중 상태 필터
+                    st = filters['status']
+                    if st == '보관:미회수':
+                        conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                    elif st == '보관:회수':
+                        conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                    else:
+                        conditions.append("c.dashboard_status = %s")
+                        params.append(st)
+                # 다중 상태 필터 (보관:미회수/보관:회수 특별 처리)
                 if 'statuses' in filters and filters['statuses']:
                     status_list = filters['statuses']
-                    placeholders = ', '.join(['%s'] * len(status_list))
-                    conditions.append(f"c.dashboard_status IN ({placeholders})")
-                    params.extend(status_list)
-                # 단일 위치 필터
+                    normal_statuses = []
+                    has_bogwan_mihoesu = False
+                    has_bogwan_hoesu = False
+                    for st in status_list:
+                        if st == '보관:미회수':
+                            has_bogwan_mihoesu = True
+                        elif st == '보관:회수':
+                            has_bogwan_hoesu = True
+                        else:
+                            normal_statuses.append(st)
+                    or_conditions = []
+                    if normal_statuses:
+                        placeholders = ', '.join(['%s'] * len(normal_statuses))
+                        or_conditions.append(f"c.dashboard_status IN ({placeholders})")
+                        params.extend(normal_statuses)
+                    if has_bogwan_mihoesu:
+                        or_conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                    if has_bogwan_hoesu:
+                        or_conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                    if or_conditions:
+                        conditions.append(f"({' OR '.join(or_conditions)})")
                 if 'location' in filters:
                     conditions.append("c.dashboard_location = %s")
                     params.append(filters['location'])
-                # 다중 위치 필터
                 if 'locations' in filters and filters['locations']:
                     loc_list = filters['locations']
                     placeholders = ', '.join(['%s'] * len(loc_list))
@@ -301,7 +320,6 @@ class CylinderRepository:
                     conditions.append("c.dashboard_cylinder_spec_name = %s")
                     params.append(filters['cylinder_spec'])
             
-            # 기간 필터 (SQL에서 처리)
             if days is not None:
                 conditions.append("(c.last_event_at IS NULL OR c.last_event_at >= NOW() - INTERVAL %s)")
                 params.append(f'{days} days')
@@ -396,34 +414,53 @@ class CylinderRepository:
             
             if filters:
                 if 'cylinder_no' in filters:
-                    # 공백 trim 처리 (DB에 trailing space가 있을 수 있음)
                     conditions.append("RTRIM(c.cylinder_no) = %s")
                     params.append(filters['cylinder_no'])
-                # 단일 가스 필터
                 if 'gas_name' in filters:
                     conditions.append("c.dashboard_gas_name = %s")
                     params.append(filters['gas_name'])
-                # 다중 가스 필터
                 if 'gases' in filters and filters['gases']:
                     gas_list = filters['gases']
                     placeholders = ', '.join(['%s'] * len(gas_list))
                     conditions.append(f"c.dashboard_gas_name IN ({placeholders})")
                     params.extend(gas_list)
-                # 단일 상태 필터
+                # 단일 상태 필터 (보관:미회수/보관:회수는 condition_code로 분리)
                 if 'status' in filters:
-                    conditions.append("c.dashboard_status = %s")
-                    params.append(filters['status'])
-                # 다중 상태 필터
+                    st = filters['status']
+                    if st == '보관:미회수':
+                        conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                    elif st == '보관:회수':
+                        conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                    else:
+                        conditions.append("c.dashboard_status = %s")
+                        params.append(st)
+                # 다중 상태 필터 (보관:미회수/보관:회수 특별 처리)
                 if 'statuses' in filters and filters['statuses']:
                     status_list = filters['statuses']
-                    placeholders = ', '.join(['%s'] * len(status_list))
-                    conditions.append(f"c.dashboard_status IN ({placeholders})")
-                    params.extend(status_list)
-                # 단일 위치 필터
+                    normal_statuses = []
+                    has_bogwan_mihoesu = False
+                    has_bogwan_hoesu = False
+                    for st in status_list:
+                        if st == '보관:미회수':
+                            has_bogwan_mihoesu = True
+                        elif st == '보관:회수':
+                            has_bogwan_hoesu = True
+                        else:
+                            normal_statuses.append(st)
+                    or_conditions = []
+                    if normal_statuses:
+                        placeholders = ', '.join(['%s'] * len(normal_statuses))
+                        or_conditions.append(f"c.dashboard_status IN ({placeholders})")
+                        params.extend(normal_statuses)
+                    if has_bogwan_mihoesu:
+                        or_conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                    if has_bogwan_hoesu:
+                        or_conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                    if or_conditions:
+                        conditions.append(f"({' OR '.join(or_conditions)})")
                 if 'location' in filters:
                     conditions.append("c.dashboard_location = %s")
                     params.append(filters['location'])
-                # 다중 위치 필터
                 if 'locations' in filters and filters['locations']:
                     loc_list = filters['locations']
                     placeholders = ', '.join(['%s'] * len(loc_list))
