@@ -9,7 +9,8 @@
     <p class="page-subtitle">
         용기종류별 현황
         <span class="ms-2 text-muted small">
-            (스냅샷 갱신: {{ last_snapshot_at|date:"Y-m-d H:i" }}{% if not last_snapshot_at %}미확인{% endif %})
+            (CDC 최신: {{ cdc_last_move_at|date:"Y-m-d H:i" }}{% if not cdc_last_move_at %}미확인{% endif %} /
+            스냅샷 갱신: {{ last_snapshot_at|date:"Y-m-d H:i" }}{% if not last_snapshot_at %}미확인{% endif %})
         </span>
     </p>
 </div>
