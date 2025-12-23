@@ -11,6 +11,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from datetime import datetime
+from django.utils import timezone
 from .models import CylinderMemo
 
 
@@ -212,6 +213,18 @@ def _parse_cylinders_list_request(request):
     }
 
 
+def _normalize_status_for_ui(raw_status: str) -> str:
+    """리스트/엑셀/QR 출력에서 동일한 상태 표기를 보장한다."""
+    s = (raw_status or "").strip()
+    if s == "분석":
+        return "분석중"
+    if s == "충전":
+        return "충전중"
+    if s in ("창입", "倉入", "倉入済"):
+        return "제품"
+    return s
+
+
 def cylinder_list(request):
     """용기번호 리스트"""
     parsed = _parse_cylinders_list_request(request)
@@ -261,13 +274,7 @@ def cylinder_list(request):
     # - DB에는 '분석'이 남아있을 수 있으나 UI에서는 '분석중'으로 보이게 한다.
     for c in cylinders_list:
         try:
-            s = (c.get('status', '') or '').strip()
-            if s == '분석':
-                c['status'] = '분석중'
-            elif s == '충전':
-                c['status'] = '충전중'
-            elif s in ('창입', '倉入', '倉入済'):
-                c['status'] = '제품'
+            c["status"] = _normalize_status_for_ui(c.get("status", ""))
         except Exception:
             pass
     
@@ -731,6 +738,12 @@ def cylinder_export_excel(request):
     days_int = parsed["days_int"]
     sort_by = parsed["sort_by"]
     sort_order = parsed["sort_order"]
+    gas_name = parsed["gas_name"]
+    status = parsed["status"]
+    location = parsed["location"]
+    valve_spec = parsed["valve_spec"]
+    cylinder_spec = parsed["cylinder_spec"]
+    days = parsed["days"]
     
     # 전체 데이터 조회 (엑셀용 - 최대 10,000건 제한)
     cylinders = CylinderRepository.get_cylinder_list(
@@ -741,6 +754,13 @@ def cylinder_export_excel(request):
         sort_order=sort_order,
         search_query=search_query
     )
+
+    # 상태 표시 정규화 (리스트와 동일)
+    for c in cylinders:
+        try:
+            c["status"] = _normalize_status_for_ui(c.get("status", ""))
+        except Exception:
+            pass
     
     # 엑셀 워크북 생성
     wb = Workbook()
@@ -823,7 +843,7 @@ def cylinder_export_excel(request):
     # 필터 정보 시트 추가
     ws_info = wb.create_sheet(title="필터정보")
     ws_info['A1'] = "다운로드 일시"
-    ws_info['B1'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ws_info['B1'] = timezone.localtime(timezone.now()).strftime("%Y-%m-%d %H:%M:%S")
     ws_info['A2'] = "총 건수"
     ws_info['B2'] = len(cylinders)
     ws_info['A3'] = "적용된 필터"
@@ -850,8 +870,9 @@ def cylinder_export_excel(request):
     )
     
     # 파일명 생성 (날짜 포함) - RFC 5987 형식으로 인코딩
-    filename = f"용기리스트_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    filename_ascii = f"cylinders_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    _now_str = timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")
+    filename = f"용기리스트_{_now_str}.xlsx"
+    filename_ascii = f"cylinders_{_now_str}.xlsx"
     filename_encoded = quote(filename)
     response['Content-Disposition'] = f"attachment; filename=\"{filename_ascii}\"; filename*=UTF-8''{filename_encoded}"
     
