@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load timezone_tags %}
 {% load humanize %}
 
 {% block title %}EndUser 마스터 목록 - CYNOW{% endblock %}
@@ -52,7 +53,7 @@
                             <span class="badge bg-secondary">비활성</span>
                             {% endif %}
                         </td>
-                        <td>{{ enduser.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ enduser.updated_at|kst|date:"Y-m-d H:i" }}</td>
                         <td>
                             <div class="d-flex gap-1">
                                 <a href="{% url 'core:enduser_master_edit' enduser.id %}" class="btn btn-sm btn-outline-primary">

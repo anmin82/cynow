@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load timezone_tags %}
 
 {% block title %}{{ cylinder.cylinder_no }} - CYNOW{% endblock %}
 
@@ -288,7 +289,7 @@
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <strong class="text-primary">{{ memo.author_name }}</strong>
-                                <small class="text-muted ms-2">{{ memo.created_at|date:"Y-m-d H:i" }}</small>
+                                <small class="text-muted ms-2">{{ memo.created_at|kst|date:"Y-m-d H:i" }}</small>
                                 {% if memo.updated_at != memo.created_at %}
                                 <small class="text-warning ms-1">(수정됨)</small>
                                 {% endif %}
@@ -354,7 +355,7 @@
                                 <div class="d-flex justify-content-between">
                                     <div>
                                         <small class="text-info">↳ {{ reply.author_name }}</small>
-                                        <small class="text-muted ms-2">{{ reply.created_at|date:"Y-m-d H:i" }}</small>
+                                        <small class="text-muted ms-2">{{ reply.created_at|kst|date:"Y-m-d H:i" }}</small>
                                     </div>
                                 </div>
                                 <p class="mb-0 mt-1 small">{{ reply.content }}</p>

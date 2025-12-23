@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load history_tags %}
+{% load timezone_tags %}
 {% block title %}입출하 조회 - CYNOW{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-start mb-4">
@@ -134,7 +135,7 @@
                 <tbody>
                     {% for h in histories %}
                     <tr>
-                        <td class="font-monospace">{{ h.move_date|date:"Y-m-d H:i" }}</td>
+                        <td class="font-monospace">{{ h.move_date|kst|date:"Y-m-d H:i" }}</td>
                         <td class="font-monospace">{{ h.cylinder_no }}</td>
                         <td>{{ h.gas_name }} / {{ h.valve_spec }} / {{ h.capacity }} / {{ h.enduser }}</td>
                         <td><span class="badge bg-dark">{{ move_code_names|dict_get:h.move_code|default:h.move_code }}</span></td>

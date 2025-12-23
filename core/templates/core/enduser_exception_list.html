@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load timezone_tags %}
 {% load humanize %}
 
 {% block title %}EndUser 예외 목록 - CYNOW{% endblock %}
@@ -83,7 +84,7 @@
                             <span class="badge bg-secondary">비활성</span>
                             {% endif %}
                         </td>
-                        <td>{{ exception.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ exception.updated_at|kst|date:"Y-m-d H:i" }}</td>
                         <td>
                             <form method="post" action="{% url 'core:enduser_exception_toggle' exception.id %}" class="d-inline">
                                 {% csrf_token %}
