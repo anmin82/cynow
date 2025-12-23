@@ -51,7 +51,15 @@ class CylinderRepository:
                     c.dashboard_status as status,
                     RTRIM(c.dashboard_enduser) as enduser,
                     COUNT(*) as qty,
-                    SUM(CASE WHEN c.is_available THEN 1 ELSE 0 END) as available_qty,
+                    -- 가용 수량은 과거 데이터/동기화 지연으로 is_available이 FALSE/NULL이어도
+                    -- dashboard_status가 '보관'(또는 보관:미회수/회수)인 경우를 가용으로 간주한다.
+                    SUM(
+                        CASE
+                            WHEN c.is_available IS TRUE THEN 1
+                            WHEN c.dashboard_status IN ('보관', '보관:미회수', '보관:회수') THEN 1
+                            ELSE 0
+                        END
+                    ) as available_qty,
                     RTRIM(c.dashboard_valve_spec_name) as valve_spec_raw
                 FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 

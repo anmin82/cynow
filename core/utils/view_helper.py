@@ -249,9 +249,20 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
         
         cylinder_types[group_key]['total_qty'] += qty
         
-        # 가용수량 계산 (보관:미회수, 보관:회수만)
-        if status in ('보관:미회수', '보관:회수'):
-            cylinder_types[group_key]['available_qty'] += qty
+        # 가용수량 계산
+        # - Repository가 이미 available_qty를 계산해 내려준다(권장).
+        # - 과거/레거시 데이터에서는 status 문자열만으로 가용을 판단할 수도 있으므로 fallback 유지.
+        row_available = row.get('available_qty', None)
+        if row_available is not None:
+            try:
+                cylinder_types[group_key]['available_qty'] += int(row_available or 0)
+            except Exception:
+                # 예외 시 fallback 로직으로 처리
+                pass
+        else:
+            # fallback: 상태 문자열 기반
+            if status in ('보관', '보관:미회수', '보관:회수'):
+                cylinder_types[group_key]['available_qty'] += qty
     
     # 가용 수량이 0이어도 카드는 표시 (필터링 제거)
     # 고아 데이터는 get_inventory_summary에서 이미 제외됨
