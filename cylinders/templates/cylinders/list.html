@@ -127,6 +127,9 @@
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span>용기 리스트 <span class="badge bg-primary">{{ total_count|intcomma }}건</span></span>
         <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#memoManageModal">
+                <i class="bi bi-chat-left-text"></i> 메모 관리
+            </button>
             <!-- 정렬 드롭다운 -->
             <div class="dropdown">
                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
@@ -312,6 +315,45 @@
     {% endif %}
 </div>
 
+<!-- 메모 관리 모달 -->
+<div class="modal fade" id="memoManageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">메모된 용기 관리</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group input-group-sm mb-2">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" class="form-control" id="memoSearchInput" placeholder="용기번호로 검색">
+          <button class="btn btn-outline-secondary" type="button" id="memoSearchBtn">검색</button>
+        </div>
+        <div class="small text-muted mb-2" id="memoManageHint">최근 메모 순으로 표시됩니다. 수정/삭제는 상세 화면에서 암호로 진행합니다.</div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0" style="font-size:12px;">
+            <thead>
+              <tr>
+                <th>용기번호</th>
+                <th class="text-end">메모수</th>
+                <th>최근</th>
+                <th>미리보기</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="memoManageTbody">
+              <tr><td colspan="5" class="text-center text-muted py-4">불러오는 중...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 현재 필터/정렬 상태 (JavaScript용) -->
 <script>
 const currentFilters = {
@@ -366,6 +408,62 @@ const currentFilters = {
             modeHint.textContent = '필터 모드: 검색 입력은 비활성화됩니다. 검색을 사용하려면 필터를 초기화하세요.';
         }
     }
+})();
+</script>
+
+<script>
+(function(){
+  const modalEl = document.getElementById('memoManageModal');
+  const tbody = document.getElementById('memoManageTbody');
+  const qInput = document.getElementById('memoSearchInput');
+  const qBtn = document.getElementById('memoSearchBtn');
+
+  async function loadMemoSummary(q) {
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">불러오는 중...</td></tr>';
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    params.set('limit', '200');
+    const res = await fetch('{% url "cylinders:memoed_cylinders_summary" %}?' + params.toString(), { credentials: 'same-origin' });
+    const data = await res.json();
+    if (!data || !data.success) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">조회 실패</td></tr>';
+      return;
+    }
+    if (!data.rows || data.rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">메모된 용기가 없습니다.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.rows.map(r => `
+      <tr>
+        <td class="font-monospace"><strong>${r.cylinder_no}</strong></td>
+        <td class="text-end">${r.memo_count}</td>
+        <td class="text-muted">${r.last_at || ''}</td>
+        <td class="text-muted">${(r.preview || '').replaceAll('<','&lt;').replaceAll('>','&gt;')}</td>
+        <td class="text-end">
+          <a class="btn btn-sm btn-outline-primary" href="${r.detail_url}">상세</a>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  if (modalEl) {
+    modalEl.addEventListener('shown.bs.modal', () => {
+      if (qInput) qInput.focus();
+      loadMemoSummary(qInput ? qInput.value.trim() : '');
+    });
+  }
+  if (qBtn) {
+    qBtn.addEventListener('click', () => loadMemoSummary(qInput ? qInput.value.trim() : ''));
+  }
+  if (qInput) {
+    qInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loadMemoSummary(qInput.value.trim());
+      }
+    });
+  }
 })();
 </script>
 

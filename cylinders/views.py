@@ -407,6 +407,61 @@ def cylinder_list(request):
     return render(request, 'cylinders/list.html', context)
 
 
+def memoed_cylinders_summary(request):
+    """
+    메모된 용기 목록 요약 API (모달용)
+    - 목적: cylinders 리스트에서 "메모 관리" 모달을 띄우기 위한 데이터 제공
+    - 비밀번호/수정/삭제는 개별 상세 페이지에서 처리
+    """
+    q = (request.GET.get("q") or "").strip()
+    limit = request.GET.get("limit", "200")
+    try:
+        limit_int = max(1, min(int(limit), 500))
+    except Exception:
+        limit_int = 200
+
+    qs = CylinderMemo.objects.filter(is_active=True, parent__isnull=True)
+    if q:
+        qs = qs.filter(cylinder_no__icontains=q)
+
+    # 용기별 집계: 메모 수, 최신 작성일, 최신 내용 일부
+    from django.db.models import Count, Max
+
+    agg = (
+        qs.values("cylinder_no")
+        .annotate(memo_count=Count("id"), last_at=Max("created_at"))
+        .order_by("-last_at")[:limit_int]
+    )
+
+    cylinder_nos = [r["cylinder_no"] for r in agg if r.get("cylinder_no")]
+    # 최신 메모 내용 프리뷰 (용기별 1개)
+    latest_map = {}
+    if cylinder_nos:
+        latest_qs = (
+            CylinderMemo.objects.filter(is_active=True, parent__isnull=True, cylinder_no__in=cylinder_nos)
+            .order_by("cylinder_no", "-created_at")
+        )
+        # Python에서 그룹별 first
+        for m in latest_qs:
+            if m.cylinder_no not in latest_map:
+                latest_map[m.cylinder_no] = (m.content or "")[:60]
+
+    rows = []
+    for r in agg:
+        cno = r.get("cylinder_no") or ""
+        rows.append(
+            {
+                "cylinder_no": cno,
+                "memo_count": int(r.get("memo_count") or 0),
+                "last_at": (r.get("last_at").strftime("%Y-%m-%d %H:%M") if r.get("last_at") else ""),
+                "preview": latest_map.get(cno, ""),
+                "detail_url": f"/cynow/cylinders/{cno}/",
+            }
+        )
+
+    return JsonResponse({"success": True, "count": len(rows), "rows": rows})
+
+
 def cylinder_detail(request, cylinder_no):
     """용기 상세보기"""
     # URL에서 받은 용기번호의 앞뒤 공백 제거

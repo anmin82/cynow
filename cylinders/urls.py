@@ -5,6 +5,7 @@ app_name = 'cylinders'
 
 urlpatterns = [
     path('', views.cylinder_list, name='list'),
+    path('memos/summary/', views.memoed_cylinders_summary, name='memoed_cylinders_summary'),
     path('search/', views.smart_search, name='smart_search'),
     path('search/autocomplete/', views.search_autocomplete, name='search_autocomplete'),
     path('scenario/<str:scenario_key>/', views.apply_scenario, name='apply_scenario'),
