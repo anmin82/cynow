@@ -91,7 +91,20 @@ class CylinderRepository:
                     conditions.append("c.dashboard_gas_name = %s")
                     params.append(filters['gas_name'])
                 if 'status' in filters:
-                    conditions.append("c.dashboard_status = %s")
+                    # status는 SELECT에서 CASE로 정규화된 alias이므로 같은 로직으로 필터한다.
+                    conditions.append("""
+                        (
+                            CASE
+                                WHEN c.dashboard_status IN ('보관:미회수', '보관:회수') THEN c.dashboard_status
+                                WHEN c.dashboard_status = '보관' THEN
+                                    CASE
+                                        WHEN c.condition_code = '102' THEN '보관:회수'
+                                        ELSE '보관:미회수'
+                                    END
+                                ELSE c.dashboard_status
+                            END
+                        ) = %s
+                    """)
                     params.append(filters['status'])
                 if 'cylinder_type_key' in filters:
                     conditions.append("c.cylinder_type_key = %s")
@@ -125,7 +138,7 @@ class CylinderRepository:
                     END,
                     RTRIM(c.dashboard_enduser),
                     RTRIM(c.dashboard_valve_spec_name)
-                ORDER BY c.dashboard_gas_name, RTRIM(c.dashboard_enduser), c.dashboard_status
+                ORDER BY c.dashboard_gas_name, RTRIM(c.dashboard_enduser), status
             """
             
             cursor.execute(query, params)
