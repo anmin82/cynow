@@ -102,7 +102,10 @@
                     {# 카드 하단 배지: 분석중/분석완료, 충전중/충전완료를 분리해서 표시 #}
                     {% for status, qty in type.statuses_card.items %}
                     {% if qty > 0 %}
-                    <span class="status-item status-{{ status }}">{{ status }} <strong>{{ qty }}</strong></span>
+                    {# 콜론(:) 등 특수문자 때문에 CSS 클래스가 깨지지 않도록 스타일 클래스는 정규화한다. #}
+                    <span class="status-item status-{% if status|slice:":2" == "보관" %}보관{% else %}{{ status }}{% endif %}">
+                        {{ status }} <strong>{{ qty }}</strong>
+                    </span>
                     {% endif %}
                     {% endfor %}
                 </div>
