@@ -220,6 +220,11 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
             # 레거시 '충전'은 진행 상태로 취급하여 '충전중'으로 표시한다.
             '충전': '충전중',
             '정비': '정비대상',
+            # FCMS/DB 동기화 함수에서 500(倉入)이 '창입'으로 기록되는 경우가 있어
+            # 화면/집계 표준 명칭인 '제품'으로 통일한다.
+            '창입': '제품',
+            '倉入': '제품',
+            '倉入済': '제품',
         }
         status = legacy_status_map.get(status, status)
         qty = row.get('qty', 0)

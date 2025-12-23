@@ -105,12 +105,12 @@ def _parse_cylinders_list_request(request):
     """
     # 검색어 파라미터
     search_query = request.GET.get('search', '').strip()
-
+    
     # 다중 선택 필터 파라미터
     selected_gases = request.GET.getlist('gases')
     selected_locations = request.GET.getlist('locations')
     selected_statuses = request.GET.getlist('statuses')
-
+    
     # 단일 선택(하위 호환)
     gas_name = request.GET.get('gas_name', '')
     status = request.GET.get('status', '')
@@ -121,17 +121,17 @@ def _parse_cylinders_list_request(request):
     cylinder_type_key = request.GET.get('cylinder_type_key', '')
     cylinder_type_keys_param = request.GET.get('cylinder_type_keys', '').strip()
     days = request.GET.get('days', '')
-
+    
     sort_by = request.GET.get('sort', 'cylinder_no')
     sort_order = request.GET.get('order', 'asc')
-
+    
     if gas_name and gas_name not in selected_gases:
         selected_gases.append(gas_name)
     if location and location not in selected_locations:
         selected_locations.append(location)
     if status and status not in selected_statuses:
         selected_statuses.append(status)
-
+    
     # 상태 확장/레거시 호환
     if selected_statuses:
         expanded = []
@@ -147,6 +147,9 @@ def _parse_cylinders_list_request(request):
                 expanded.append('분석')
             elif ss == '충전중':
                 expanded.append('충전')
+            elif ss == '제품':
+                # DB/동기화 함수에서 '창입'으로 기록된 케이스도 제품으로 취급
+                expanded.append('창입')
             elif ss == '정비대상':
                 expanded.append('정비')
         seen = set()
@@ -180,7 +183,7 @@ def _parse_cylinders_list_request(request):
         cylinder_type_keys = [k.strip() for k in cylinder_type_keys_param.split(',') if k.strip()]
         if cylinder_type_keys:
             filters['cylinder_type_keys'] = cylinder_type_keys
-
+    
     days_int = None
     if days:
         try:
@@ -263,6 +266,8 @@ def cylinder_list(request):
                 c['status'] = '분석중'
             elif s == '충전':
                 c['status'] = '충전중'
+            elif s in ('창입', '倉入', '倉入済'):
+                c['status'] = '제품'
         except Exception:
             pass
     
@@ -719,7 +724,7 @@ def memo_delete(request, cylinder_no, memo_id):
 def cylinder_export_excel(request):
     """용기 리스트 엑셀 다운로드"""
     from urllib.parse import quote
-
+    
     parsed = _parse_cylinders_list_request(request)
     search_query = parsed["search_query"]
     filters = parsed["filters"]
