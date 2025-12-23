@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
 {% load history_tags %}
 
-{% block title %}상태 이력 - CYNOW{% endblock %}
+{% block title %}상태 조회 - CYNOW{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-start mb-4">
     <div>
-        <h1 class="page-title">상태 이력</h1>
-        <p class="page-subtitle">기간별 이동/출하/충전/정비 이력 조회</p>
+        <h1 class="page-title">상태 조회</h1>
+        <p class="page-subtitle">기간별 이동/출하/충전/정비 조회</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{% url 'history:history_movement' %}" class="btn btn-outline-secondary btn-sm">입출하 이력</a>
+        <a href="{% url 'history:history_movement' %}" class="btn btn-outline-secondary btn-sm">입출하 조회</a>
         <a href="{% url 'history:history_charge' %}" class="btn btn-outline-secondary btn-sm">LOT조회</a>
         <a href="{% url 'history:history_clf3' %}" class="btn btn-outline-secondary btn-sm">CLF3</a>
         <a href="{% url 'history:history_trend' %}" class="btn btn-outline-secondary btn-sm">수요 추이</a>
@@ -139,10 +139,10 @@
     </div>
 </div>
 
-<!-- 이력 리스트 -->
+<!-- 조회 리스트 -->
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <span>이력 데이터</span>
+        <span>조회 데이터</span>
         <span class="badge bg-primary">{{ histories|length }}건</span>
     </div>
     <div class="card-body p-0">
