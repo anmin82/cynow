@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+from django.db import connection
 from core.repositories.cylinder_repository import CylinderRepository
 from core.utils.view_helper import extract_valve_type, group_cylinder_types
 from core.models import HiddenCylinderType
@@ -48,6 +49,16 @@ def dashboard(request):
     
     # 가스명 기준 정렬
     sorted_types = sorted(filtered_types, key=lambda x: (x['gas_name'], x.get('capacity', '') or ''))
+
+    # 스냅샷 최신 갱신 시각 (실시간 미갱신 원인 확인용)
+    last_snapshot_at = None
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT MAX(snapshot_updated_at) FROM cy_cylinder_current")
+            row = cursor.fetchone()
+            last_snapshot_at = row[0] if row else None
+    except Exception:
+        last_snapshot_at = None
     
     context = {
         'cylinder_types': sorted_types,
@@ -55,6 +66,7 @@ def dashboard(request):
         'selected_gas': gas_filter,
         'show_hidden': show_hidden,
         'hidden_count': hidden_count,
+        'last_snapshot_at': last_snapshot_at,
     }
     return render(request, 'dashboard/dashboard.html', context)
 

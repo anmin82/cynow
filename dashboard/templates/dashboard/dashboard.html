@@ -6,7 +6,12 @@
 {% block content %}
 <div class="mb-4">
     <h1 class="page-title">대시보드</h1>
-    <p class="page-subtitle">용기종류별 현황</p>
+    <p class="page-subtitle">
+        용기종류별 현황
+        <span class="ms-2 text-muted small">
+            (스냅샷 갱신: {{ last_snapshot_at|date:"Y-m-d H:i" }}{% if not last_snapshot_at %}미확인{% endif %})
+        </span>
+    </p>
 </div>
 
 <!-- 가스명 필터 -->
