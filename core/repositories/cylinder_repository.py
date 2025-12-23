@@ -48,16 +48,30 @@ class CylinderRepository:
                         ''
                     ) as valve_spec,
                     RTRIM(c.dashboard_cylinder_spec_name) as cylinder_spec,
-                    c.dashboard_status as status,
+                    -- 보관은 보관:미회수/보관:회수로만 분리한다.
+                    -- 레거시 데이터에 dashboard_status='보관'이 남아있으면 condition_code로 분리한다.
+                    CASE
+                        WHEN c.dashboard_status IN ('보관:미회수', '보관:회수') THEN c.dashboard_status
+                        WHEN c.dashboard_status = '보관' THEN
+                            CASE
+                                WHEN c.condition_code = '102' THEN '보관:회수'
+                                ELSE '보관:미회수'
+                            END
+                        ELSE c.dashboard_status
+                    END as status,
                     RTRIM(c.dashboard_enduser) as enduser,
                     COUNT(*) as qty,
-                    -- 가용 수량은 "보관(미회수/회수 포함)" 상태를 최우선으로 본다.
-                    -- 과거 데이터에서 is_available 플래그가 stale(예전 값)일 수 있어,
-                    -- status가 비어있는 경우에만 fallback으로 is_available을 허용한다.
+                    -- 가용(표시)은 보관:미회수 + 보관:회수의 합이다.
                     SUM(
                         CASE
-                            WHEN c.dashboard_status IN ('보관', '보관:미회수', '보관:회수') THEN 1
-                            WHEN c.dashboard_status IS NULL AND c.is_available IS TRUE THEN 1
+                            WHEN (
+                                CASE
+                                    WHEN c.dashboard_status IN ('보관:미회수', '보관:회수') THEN c.dashboard_status
+                                    WHEN c.dashboard_status = '보관' THEN
+                                        CASE WHEN c.condition_code = '102' THEN '보관:회수' ELSE '보관:미회수' END
+                                    ELSE c.dashboard_status
+                                END
+                            ) IN ('보관:미회수', '보관:회수') THEN 1
                             ELSE 0
                         END
                     ) as available_qty,
@@ -100,7 +114,15 @@ class CylinderRepository:
                         ''
                     ),
                     RTRIM(c.dashboard_cylinder_spec_name),
-                    c.dashboard_status,
+                    CASE
+                        WHEN c.dashboard_status IN ('보관:미회수', '보관:회수') THEN c.dashboard_status
+                        WHEN c.dashboard_status = '보관' THEN
+                            CASE
+                                WHEN c.condition_code = '102' THEN '보관:회수'
+                                ELSE '보관:미회수'
+                            END
+                        ELSE c.dashboard_status
+                    END,
                     RTRIM(c.dashboard_enduser),
                     RTRIM(c.dashboard_valve_spec_name)
                 ORDER BY c.dashboard_gas_name, RTRIM(c.dashboard_enduser), c.dashboard_status

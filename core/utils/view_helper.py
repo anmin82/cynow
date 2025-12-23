@@ -284,8 +284,8 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
             return sum(int(st.get(key, 0) or 0) for key in keys)
 
         v['statuses_card'] = {
-            # 일부 데이터는 dashboard_status가 '보관'(통합)으로 들어올 수 있어 함께 합산한다.
-            '보관': _sum('보관', '보관:미회수', '보관:회수'),
+            # 보관은 상태가 아니라 "가용" 카테고리(미회수+회수 합)로만 표시한다.
+            '보관': _sum('보관:미회수', '보관:회수'),
             '충전중': _sum('충전중'),
             '충전완료': _sum('충전완료'),
             '분석중': _sum('분석중'),
