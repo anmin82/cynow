@@ -51,12 +51,13 @@ class CylinderRepository:
                     c.dashboard_status as status,
                     RTRIM(c.dashboard_enduser) as enduser,
                     COUNT(*) as qty,
-                    -- 가용 수량은 과거 데이터/동기화 지연으로 is_available이 FALSE/NULL이어도
-                    -- dashboard_status가 '보관'(또는 보관:미회수/회수)인 경우를 가용으로 간주한다.
+                    -- 가용 수량은 "보관(미회수/회수 포함)" 상태를 최우선으로 본다.
+                    -- 과거 데이터에서 is_available 플래그가 stale(예전 값)일 수 있어,
+                    -- status가 비어있는 경우에만 fallback으로 is_available을 허용한다.
                     SUM(
                         CASE
-                            WHEN c.is_available IS TRUE THEN 1
                             WHEN c.dashboard_status IN ('보관', '보관:미회수', '보관:회수') THEN 1
+                            WHEN c.dashboard_status IS NULL AND c.is_available IS TRUE THEN 1
                             ELSE 0
                         END
                     ) as available_qty,
