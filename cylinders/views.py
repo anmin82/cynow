@@ -8,8 +8,6 @@ from core.repositories.cylinder_repository import CylinderRepository
 from core.utils.view_helper import parse_cylinder_spec, parse_valve_spec, parse_usage_place
 from core.utils.translation import translate_text
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
-from openpyxl.utils import get_column_letter
 from datetime import datetime
 from django.utils import timezone
 from .models import CylinderMemo
@@ -729,8 +727,11 @@ def memo_delete(request, cylinder_no, memo_id):
 
 
 def cylinder_export_excel(request):
-    """용기 리스트 엑셀 다운로드"""
+    """용기 리스트 엑셀 다운로드 - A4 인쇄 최적화"""
     from urllib.parse import quote
+    from core.utils.excel_style import (
+        apply_header_style, apply_data_style, setup_print_area, style_info_sheet
+    )
     
     parsed = _parse_cylinders_list_request(request)
     search_query = parsed["search_query"]
@@ -767,40 +768,23 @@ def cylinder_export_excel(request):
     ws = wb.active
     ws.title = "용기리스트"
     
-    # 스타일 정의
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_alignment = Alignment(horizontal="center", vertical="center")
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
-    
-    # 헤더 정의
+    # 헤더 정의 (헤더명, 너비) - A4 가로 인쇄 기준 최적화
     headers = [
-        ('용기번호', 15),
-        ('가스명', 20),
-        ('밸브규격', 15),
-        ('용기규격', 15),
-        ('상태', 10),
-        ('위치', 20),
-        ('제조일', 12),
-        ('내압시험일', 12),
-        ('검사주기', 10),
-        ('내압만료일', 12),
-        ('FCMS수정필요', 12),
+        ('용기번호', 13),
+        ('가스명', 14),
+        ('밸브규격', 13),
+        ('용기규격', 13),
+        ('상태', 9),
+        ('위치', 16),
+        ('제조일', 11),
+        ('내압시험일', 11),
+        ('검사주기', 8),
+        ('내압만료일', 11),
+        ('비고', 10),
     ]
     
-    # 헤더 작성
-    for col, (header, width) in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_alignment
-        cell.border = thin_border
-        ws.column_dimensions[get_column_letter(col)].width = width
+    # 헤더 스타일 적용
+    apply_header_style(ws, headers, row=1)
     
     # 데이터 작성
     for row_num, cylinder in enumerate(cylinders, 2):
@@ -811,9 +795,6 @@ def cylinder_export_excel(request):
         # 용기규격 파싱
         cylinder_parsed = parse_cylinder_spec(cylinder.get('cylinder_spec', '') or '')
         cylinder_display = f"{cylinder_parsed.get('format', '-')}/{cylinder_parsed.get('material', '-')}"
-        
-        # 사용처 파싱
-        usage_place = parse_usage_place(cylinder.get('usage_place', '') or '')
         
         # 날짜 포맷팅
         manufacture_date = cylinder.get('manufacture_date')
@@ -835,10 +816,20 @@ def cylinder_export_excel(request):
         ]
         
         for col, value in enumerate(row_data, 1):
-            cell = ws.cell(row=row_num, column=col, value=value)
-            cell.border = thin_border
-            if col == 5:  # 상태 컬럼 가운데 정렬
-                cell.alignment = Alignment(horizontal="center")
+            ws.cell(row=row_num, column=col, value=value)
+    
+    # 데이터 스타일 적용 (상태 컬럼 가운데 정렬, 날짜 컬럼 가운데 정렬)
+    if len(cylinders) > 0:
+        apply_data_style(
+            ws, 
+            start_row=2, 
+            end_row=len(cylinders) + 1, 
+            num_cols=len(headers),
+            center_cols=[5, 7, 8, 9, 10]  # 상태, 제조일, 내압시험일, 검사주기, 내압만료일
+        )
+    
+    # A4 인쇄 설정 (가로 방향, 용지 너비에 맞춤)
+    setup_print_area(ws, num_rows=len(cylinders) + 1, num_cols=len(headers), landscape=True)
     
     # 필터 정보 시트 추가
     ws_info = wb.create_sheet(title="필터정보")
@@ -863,6 +854,7 @@ def cylinder_export_excel(request):
         filter_info.append(f"기간: 최근 {days}일")
     
     ws_info['B3'] = ", ".join(filter_info) if filter_info else "없음"
+    style_info_sheet(ws_info)
     
     # HTTP Response 생성
     response = HttpResponse(

@@ -364,9 +364,12 @@ def history_charge(request):
 
 
 def history_charge_export(request):
-    """용기별 LOT정보 조회 - 엑셀 다운로드"""
+    """용기별 LOT정보 조회 - 엑셀 다운로드 (A4 인쇄 최적화)"""
     from openpyxl import Workbook
-    from openpyxl.styles import Alignment, Font
+    from core.utils.excel_style import (
+        apply_header_style, apply_data_style, setup_print_area
+    )
+    from urllib.parse import quote
 
     start_date, end_date = _get_date_range(request, default_days=60)
     move_code_sets = HistoryRepository.get_move_code_sets()
@@ -404,42 +407,62 @@ def history_charge_export(request):
     ws = wb.active
     ws.title = "LOT조회"
 
+    # 헤더 정의 (헤더명, 너비) - A4 가로 인쇄 기준 최적화
     headers = [
-        "용기번호",
-        "가스명",
-        "용기종류",
-        "이동서번호",
-        "밸브종류",
-        "용기용량",
-        "충전중량(kg)",
-        "제조LOT",
-        "충전LOT",
+        ("용기번호", 13),
+        ("가스명", 10),
+        ("용기종류", 28),
+        ("이동서번호", 13),
+        ("밸브종류", 12),
+        ("용기용량", 9),
+        ("충전중량(kg)", 11),
+        ("제조LOT", 14),
+        ("충전LOT", 14),
     ]
-    ws.append(headers)
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
+    
+    # 헤더 스타일 적용
+    apply_header_style(ws, headers, row=1)
 
-    for r in rows:
-        ws.append(
-            [
-                r.get("cylinder_no") or "",
-                r.get("gas_name") or "",
-                r.get("cylinder_type_label") or "",
-                r.get("move_report_no") or "",
-                r.get("valve_type") or "",
-                r.get("capacity") or "",
-                r.get("net_weight") or "",
-                r.get("manufacture_lot") or "",
-                r.get("filling_lot") or "",
-            ]
+    # 데이터 작성
+    for row_num, r in enumerate(rows, 2):
+        row_data = [
+            r.get("cylinder_no") or "",
+            r.get("gas_name") or "",
+            r.get("cylinder_type_label") or "",
+            r.get("move_report_no") or "",
+            r.get("valve_type") or "",
+            r.get("capacity") or "",
+            r.get("net_weight") or "",
+            r.get("manufacture_lot") or "",
+            r.get("filling_lot") or "",
+        ]
+        for col, value in enumerate(row_data, 1):
+            ws.cell(row=row_num, column=col, value=value)
+
+    # 데이터 스타일 적용
+    if len(rows) > 0:
+        apply_data_style(
+            ws, 
+            start_row=2, 
+            end_row=len(rows) + 1, 
+            num_cols=len(headers),
+            center_cols=[6],   # 용기용량
+            right_cols=[7]     # 충전중량
         )
+    
+    # A4 인쇄 설정 (가로 방향)
+    setup_print_area(ws, num_rows=len(rows) + 1, num_cols=len(headers), landscape=True)
 
-    filename = f"cynow_charge_lot_{start_date}_{end_date}.xlsx"
+    # 파일명 (한글 인코딩)
+    _now_str = timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")
+    filename = f"LOT조회_{start_date}_{end_date}_{_now_str}.xlsx"
+    filename_ascii = f"lot_inquiry_{start_date}_{end_date}.xlsx"
+    filename_encoded = quote(filename)
+    
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response["Content-Disposition"] = f'attachment; filename=\"{filename}\"'
+    response["Content-Disposition"] = f"attachment; filename=\"{filename_ascii}\"; filename*=UTF-8''{filename_encoded}"
     wb.save(response)
     return response
 
@@ -768,9 +791,12 @@ def manual_snapshot(request):
 
 
 def export_excel(request):
-    """상태 이력 엑셀 다운로드"""
+    """상태 이력 엑셀 다운로드 (A4 인쇄 최적화)"""
     from openpyxl import Workbook
-    from openpyxl.styles import Alignment, Font
+    from core.utils.excel_style import (
+        apply_header_style, apply_data_style, setup_print_area
+    )
+    from urllib.parse import quote
 
     # 기간
     start_date_param = request.GET.get("start_date")
@@ -820,62 +846,87 @@ def export_excel(request):
     ws = wb.active
     ws.title = "상태이력"
 
+    # 헤더 정의 (헤더명, 너비) - A4 가로 인쇄 기준 최적화
     headers = [
-        "이동일시(KST)",
-        "용기번호",
-        "가스",
-        "용량",
-        "밸브",
-        "스펙",
-        "이동코드",
-        "상태코드",
-        "표준상태",
-        "위치",
-        "담당자",
-        "이동서",
-        "제조LOT",
-        "충전LOT",
-        "Gross(kg)",
-        "Net(kg)",
-        "Tare(kg)",
-        "비고",
+        ("이동일시", 15),
+        ("용기번호", 12),
+        ("가스", 8),
+        ("용량", 6),
+        ("밸브", 10),
+        ("스펙", 8),
+        ("이동", 5),
+        ("상태", 5),
+        ("표준상태", 8),
+        ("위치", 5),
+        ("담당자", 10),
+        ("이동서", 11),
+        ("제조LOT", 12),
+        ("충전LOT", 12),
+        ("Gross", 7),
+        ("Net", 6),
+        ("Tare", 6),
+        ("비고", 12),
     ]
-    ws.append(headers)
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal="center")
+    
+    # 헤더 스타일 적용
+    apply_header_style(ws, headers, row=1)
 
-    for row in histories:
-        ws.append(
-            [
-                row.get("move_date").strftime("%Y-%m-%d %H:%M:%S")
-                if row.get("move_date")
-                else "",
-                row.get("cylinder_no") or "",
-                row.get("gas_name") or "",
-                row.get("capacity") or "",
-                row.get("valve_spec") or "",
-                row.get("cylinder_spec") or "",
-                row.get("move_code") or "",
-                row.get("condition_code") or "",
-                row.get("standard_status") or "",
-                row.get("location_code") or "",
-                row.get("move_staff_name") or "",
-                row.get("move_report_no") or "",
-                row.get("manufacture_lot") or "",
-                row.get("filling_lot") or "",
-                row.get("gross_weight") or "",
-                row.get("net_weight") or "",
-                row.get("tare_weight") or "",
-                row.get("remarks") or "",
-            ]
+    # 데이터 작성
+    for row_num, row in enumerate(histories, 2):
+        # 날짜를 KST로 변환
+        move_date = row.get("move_date")
+        if move_date:
+            move_date_kst = timezone.localtime(move_date) if timezone.is_aware(move_date) else move_date
+            move_date_str = move_date_kst.strftime("%Y-%m-%d %H:%M")
+        else:
+            move_date_str = ""
+        
+        row_data = [
+            move_date_str,
+            row.get("cylinder_no") or "",
+            row.get("gas_name") or "",
+            row.get("capacity") or "",
+            row.get("valve_spec") or "",
+            row.get("cylinder_spec") or "",
+            row.get("move_code") or "",
+            row.get("condition_code") or "",
+            row.get("standard_status") or "",
+            row.get("location_code") or "",
+            row.get("move_staff_name") or "",
+            row.get("move_report_no") or "",
+            row.get("manufacture_lot") or "",
+            row.get("filling_lot") or "",
+            row.get("gross_weight") or "",
+            row.get("net_weight") or "",
+            row.get("tare_weight") or "",
+            row.get("remarks") or "",
+        ]
+        for col, value in enumerate(row_data, 1):
+            ws.cell(row=row_num, column=col, value=value)
+
+    # 데이터 스타일 적용
+    if len(histories) > 0:
+        apply_data_style(
+            ws, 
+            start_row=2, 
+            end_row=len(histories) + 1, 
+            num_cols=len(headers),
+            center_cols=[7, 8, 9, 10],  # 이동코드, 상태코드, 표준상태, 위치
+            right_cols=[15, 16, 17]      # Gross, Net, Tare
         )
+    
+    # A4 인쇄 설정 (가로 방향)
+    setup_print_area(ws, num_rows=len(histories) + 1, num_cols=len(headers), landscape=True)
 
+    # 파일명 (한글 인코딩)
+    _now_str = timezone.localtime(timezone.now()).strftime("%Y%m%d_%H%M%S")
+    filename = f"상태이력_{start_date}_{end_date}_{_now_str}.xlsx"
+    filename_ascii = f"status_history_{start_date}_{end_date}.xlsx"
+    filename_encoded = quote(filename)
+    
     response = HttpResponse(
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response[
-        "Content-Disposition"
-    ] = f'attachment; filename="cynow_status_history_{start_date}_{end_date}.xlsx"'
+    response["Content-Disposition"] = f"attachment; filename=\"{filename_ascii}\"; filename*=UTF-8''{filename_encoded}"
     wb.save(response)
     return response
