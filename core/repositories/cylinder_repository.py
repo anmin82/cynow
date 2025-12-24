@@ -433,7 +433,7 @@ class CylinderRepository:
                     elif st == '보관:회수':
                         conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
                     else:
-                    conditions.append("c.dashboard_status = %s")
+                        conditions.append("c.dashboard_status = %s")
                         params.append(st)
                 # 다중 상태 필터 (보관:미회수/보관:회수 특별 처리)
                 if 'statuses' in filters and filters['statuses']:
