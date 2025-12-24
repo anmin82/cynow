@@ -772,6 +772,7 @@ def cylinder_export_excel(request):
     headers = [
         ('용기번호', 13),
         ('가스명', 14),
+        ('용기중량', 10),
         ('밸브규격', 13),
         ('용기규격', 13),
         ('상태', 9),
@@ -801,9 +802,14 @@ def cylinder_export_excel(request):
         pressure_test_date = cylinder.get('pressure_test_date')
         pressure_expire_date = cylinder.get('pressure_expire_date')
         
+        # 용기중량
+        cylinder_weight = cylinder.get('cylinder_weight')
+        weight_display = str(cylinder_weight) if cylinder_weight is not None else '-'
+        
         row_data = [
             cylinder.get('cylinder_no', ''),
             translate_text('gas_name', cylinder.get('gas_name', '')),
+            weight_display,
             valve_display,
             cylinder_display,
             cylinder.get('status', ''),
@@ -825,7 +831,7 @@ def cylinder_export_excel(request):
             start_row=2, 
             end_row=len(cylinders) + 1, 
             num_cols=len(headers),
-            center_cols=[5, 7, 8, 9, 10]  # 상태, 제조일, 내압시험일, 검사주기, 내압만료일
+            center_cols=[3, 6, 8, 9, 10, 11]  # 용기중량, 상태, 제조일, 내압시험일, 검사주기, 내압만료일
         )
     
     # A4 인쇄 설정 (가로 방향, 용지 너비에 맞춤)
