@@ -49,9 +49,20 @@ class Command(BaseCommand):
             snapshot_count = cursor.fetchone()[0]
             self.stdout.write(f"  스냅샷 용기 수: {snapshot_count}개\n")
             
-            cursor.execute("SELECT COUNT(DISTINCT cylinder_no_trimmed) FROM cy_cylinder_current")
+            cursor.execute("SELECT COUNT(DISTINCT cylinder_no) FROM cy_cylinder_current")
             unique_count = cursor.fetchone()[0]
             self.stdout.write(f"  고유 용기번호 수: {unique_count}개\n")
+            
+            # 상태별 집계
+            cursor.execute("""
+                SELECT dashboard_status, COUNT(*) 
+                FROM cy_cylinder_current 
+                GROUP BY dashboard_status 
+                ORDER BY COUNT(*) DESC
+            """)
+            self.stdout.write("\n=== 상태별 용기 수 ===\n")
+            for row in cursor.fetchall():
+                self.stdout.write(f"  {row[0] or '(없음)'}: {row[1]}개\n")
             
             # 5. CF4 YC 확인
             self.stdout.write("\n=== CF4 YC 440L 용기 확인 ===\n")

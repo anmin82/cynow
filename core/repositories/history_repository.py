@@ -764,9 +764,9 @@ class HistoryRepository:
                     ],
                 )
             else:
-                cursor.execute(
-                    """
-                    WITH last_snap AS (
+            cursor.execute(
+                """
+                WITH last_snap AS (
                     SELECT
                         date_trunc(%s, snapshot_datetime) AS bucket,
                         MAX(snapshot_datetime) AS last_dt
@@ -791,23 +791,23 @@ class HistoryRepository:
                    AND s.cylinder_type_key = %s
                    AND s.snapshot_type = %s
                 GROUP BY l.bucket
-                    ORDER BY l.bucket ASC
-                    """,
-                    [
-                        period,
-                        cylinder_type_key,
-                        start_dt,
-                        end_dt_exclusive,
-                        snapshot_type,
-                        available_statuses,
-                        process_statuses,
-                        product_statuses,
-                        ship_statuses,
-                        unavailable_statuses,
-                        cylinder_type_key,
-                        snapshot_type,
-                    ],
-                )
+                ORDER BY l.bucket ASC
+                """,
+                [
+                    period,
+                    cylinder_type_key,
+                    start_dt,
+                    end_dt_exclusive,
+                    snapshot_type,
+                    available_statuses,
+                    process_statuses,
+                    product_statuses,
+                    ship_statuses,
+                    unavailable_statuses,
+                    cylinder_type_key,
+                    snapshot_type,
+                ],
+            )
 
             cols = [c[0] for c in cursor.description]
             rows = cursor.fetchall()
