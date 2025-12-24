@@ -1,27 +1,35 @@
 # 🔧 CDC 제품코드 테이블 추가 가이드
 
-## 📋 개요
+## 📋 현재 환경
 
-FCMS Oracle에서 제품코드 관련 테이블을 CDC로 PostgreSQL에 동기화합니다.
+| 구성요소 | 정보 |
+|---------|------|
+| Kafka Connect | `http://localhost:8083` (container: `debezium-oracle-connect`) |
+| Source Connector | `oracle-fcms-cylcy-main-v4` |
+| Topic Prefix | `fcms` → `fcms.FCMS.테이블명` |
+| Oracle | `10.78.30.18:1521`, DB: `FCMSDB`, Schema: `FCMS` |
+| PostgreSQL Sink | `jdbc:postgresql://10.78.30.98:5434/cycy_db` |
 
-### 추가할 테이블
+---
 
-| 테이블명 | 설명 | PK |
-|---------|------|-----|
-| `MA_SELECTION_PATTERNS` | 제품코드 마스터 | `SELECTION_PATTERN_CODE` |
-| `MA_SELECTION_PATTERN_DETAILS` | 용기/밸브 스펙 상세 | `SELECTION_PATTERN_CODE` + `SEQ_NO` |
+## 📊 추가할 테이블
+
+| Oracle 테이블 | Kafka Topic | PostgreSQL 테이블 |
+|--------------|-------------|-------------------|
+| `FCMS.MA_SELECTION_PATTERNS` | `fcms.FCMS.MA_SELECTION_PATTERNS` | `fcms_cdc.ma_selection_patterns` |
+| `FCMS.MA_SELECTION_PATTERN_DETAILS` | `fcms.FCMS.MA_SELECTION_PATTERN_DETAILS` | `fcms_cdc.ma_selection_pattern_details` |
 
 ### 주요 컬럼
 
-**MA_SELECTION_PATTERNS**
+**MA_SELECTION_PATTERNS** (제품코드 마스터)
 ```
-SELECTION_PATTERN_CODE  -- PK, 제품 패턴 코드
+SELECTION_PATTERN_CODE  -- PK
 TRADE_CONDITION_NO      -- 제품코드 (KF001, KF013 등)
 PRIMARY_STORE_USER_CODE -- 고객코드 (KDKK)
 CUSTOMER_USER_CODE      -- 엔드유저코드
 ```
 
-**MA_SELECTION_PATTERN_DETAILS**
+**MA_SELECTION_PATTERN_DETAILS** (용기/밸브 스펙)
 ```
 SELECTION_PATTERN_CODE  -- FK
 SEQ_NO                  -- 순번
@@ -31,112 +39,219 @@ VALVE_SPEC_CODE         -- 밸브스펙 코드
 
 ---
 
-## 🚀 서버 작업 순서
+## 🚀 작업 순서
 
-### 1단계: 현재 Debezium 설정 확인
+### Step 1: Source Connector 업데이트
 
-```bash
-# Kafka Connect에서 현재 커넥터 설정 확인
-curl -s http://localhost:8083/connectors/oracle-fcms-cylcy-main/config | jq .
-```
-
-### 2단계: 테이블 목록 업데이트
-
-현재 설정에서 `table.include.list`를 찾아서 새 테이블 추가:
-
-```json
-{
-  "table.include.list": "FCMS.MA_CYLINDERS,FCMS.TR_LATEST_CYLINDER_STATUSES,FCMS.MA_ITEMS,FCMS.MA_CYLINDER_SPECS,FCMS.MA_VALVE_SPECS,FCMS.MA_SELECTION_PATTERNS,FCMS.MA_SELECTION_PATTERN_DETAILS"
-}
-```
-
-### 3단계: 커넥터 업데이트
-
-**방법 A: 커넥터 재생성 (권장)**
+현재 `table.include.list`에 제품코드 테이블 추가:
 
 ```bash
-# 1. 커넥터 삭제
-curl -X DELETE http://localhost:8083/connectors/oracle-fcms-cylcy-main
-
-# 2. 새 설정으로 커넥터 생성
-curl -X POST http://localhost:8083/connectors \
-  -H "Content-Type: application/json" \
-  -d @connector-config-updated.json
+# 현재 설정 확인
+curl -s http://localhost:8083/connectors/oracle-fcms-cylcy-main-v4/config | jq '.["table.include.list"]'
 ```
 
-**방법 B: 설정만 업데이트**
+**새 table.include.list 값:**
+```
+FCMS.MA_CYLINDERS,FCMS.MA_CYLINDER_SPECS,FCMS.MA_ITEMS,FCMS.MA_PARAMETERS,FCMS.MA_VALVE_SPECS,FCMS.TR_CYLINDER_STATUS_HISTORIES,FCMS.TR_LATEST_CYLINDER_STATUSES,FCMS.TR_MOVE_REPORTS,FCMS.TR_MOVE_REPORT_DETAILS,FCMS.TR_ORDERS,FCMS.TR_ORDER_INFORMATIONS,FCMS.MA_SELECTION_PATTERNS,FCMS.MA_SELECTION_PATTERN_DETAILS
+```
 
+**커넥터 업데이트 명령:**
 ```bash
-curl -X PUT http://localhost:8083/connectors/oracle-fcms-cylcy-main/config \
+curl -X PUT http://localhost:8083/connectors/oracle-fcms-cylcy-main-v4/config \
   -H "Content-Type: application/json" \
   -d '{
-    ... 기존 설정 ...,
-    "table.include.list": "FCMS.MA_CYLINDERS,...,FCMS.MA_SELECTION_PATTERNS,FCMS.MA_SELECTION_PATTERN_DETAILS"
+    "connector.class": "io.debezium.connector.oracle.OracleConnector",
+    "name": "oracle-fcms-cylcy-main-v4",
+    "database.hostname": "10.78.30.18",
+    "database.port": "1521",
+    "database.dbname": "FCMSDB",
+    "database.user": "FCMS",
+    "database.password": "FCMS",
+    "database.connection.adapter": "logminer",
+    "log.mining.dictionary": "online_catalog",
+    "log.mining.start.scn": "260664866",
+    "log.mining.continuous.mine": "false",
+    "schema.include.list": "FCMS",
+    "table.include.list": "FCMS.MA_CYLINDERS,FCMS.MA_CYLINDER_SPECS,FCMS.MA_ITEMS,FCMS.MA_PARAMETERS,FCMS.MA_VALVE_SPECS,FCMS.TR_CYLINDER_STATUS_HISTORIES,FCMS.TR_LATEST_CYLINDER_STATUSES,FCMS.TR_MOVE_REPORTS,FCMS.TR_MOVE_REPORT_DETAILS,FCMS.TR_ORDERS,FCMS.TR_ORDER_INFORMATIONS,FCMS.MA_SELECTION_PATTERNS,FCMS.MA_SELECTION_PATTERN_DETAILS",
+    "include.schema.changes": "false",
+    "snapshot.mode": "when_needed",
+    "topic.prefix": "fcms",
+    "schema.history.internal.kafka.bootstrap.servers": "kafka:29092",
+    "schema.history.internal.kafka.topic": "dbhistory.oracle.cylcy.main"
   }'
 ```
 
-### 4단계: 동기화 확인
+### Step 2: Source Connector 상태 확인
 
 ```bash
-# PostgreSQL에서 테이블 확인
-psql -U cynow -d cynow_db -c "SELECT COUNT(*) FROM fcms_cdc.ma_selection_patterns;"
-psql -U cynow -d cynow_db -c "SELECT COUNT(*) FROM fcms_cdc.ma_selection_pattern_details;"
+curl -s http://localhost:8083/connectors/oracle-fcms-cylcy-main-v4/status | jq
+```
+
+**정상 응답:**
+```json
+{
+  "name": "oracle-fcms-cylcy-main-v4",
+  "connector": { "state": "RUNNING", "worker_id": "..." },
+  "tasks": [{ "id": 0, "state": "RUNNING", "worker_id": "..." }]
+}
+```
+
+### Step 3: Kafka Topic 생성 확인
+
+새 테이블의 토픽이 생성되었는지 확인:
+```bash
+docker exec -it debezium-oracle-kafka bash -lc "kafka-topics --bootstrap-server localhost:9092 --list | grep -i selection"
+```
+
+**예상 출력:**
+```
+fcms.FCMS.MA_SELECTION_PATTERNS
+fcms.FCMS.MA_SELECTION_PATTERN_DETAILS
 ```
 
 ---
 
-## 📊 PostgreSQL VIEW 생성
+### Step 4: PostgreSQL 테이블 생성
 
-CDC 동기화 후 조회용 VIEW 생성:
+Sink 커넥터가 자동 생성하지 않으므로 수동 생성:
 
 ```sql
--- 제품코드 + 상세 정보 조인 VIEW
-CREATE OR REPLACE VIEW vw_product_codes AS
-SELECT 
-    sp."SELECTION_PATTERN_CODE" as selection_pattern_code,
-    sp."TRADE_CONDITION_NO" as trade_condition_no,
-    sp."PRIMARY_STORE_USER_CODE" as primary_store_user_code,
-    sp."CUSTOMER_USER_CODE" as customer_user_code,
-    spd."CYLINDER_SPEC_CODE" as cylinder_spec_code,
-    spd."VALVE_SPEC_CODE" as valve_spec_code,
-    -- 조인해서 이름 가져오기
-    cs."NAME" as cylinder_spec_name,
-    vs."NAME" as valve_spec_name,
-    i."DISPLAY_NAME" as gas_name,
-    c."CAPACITY" as capacity
-FROM "fcms_cdc"."ma_selection_patterns" sp
-LEFT JOIN "fcms_cdc"."ma_selection_pattern_details" spd 
-    ON sp."SELECTION_PATTERN_CODE" = spd."SELECTION_PATTERN_CODE"
-LEFT JOIN "fcms_cdc"."ma_cylinder_specs" cs 
-    ON spd."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
-LEFT JOIN "fcms_cdc"."ma_valve_specs" vs 
-    ON spd."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
--- 가스명, 용량은 추가 조인 필요 (ITEM_CODE 연결)
-LEFT JOIN "fcms_cdc"."ma_cylinders" c 
-    ON spd."CYLINDER_SPEC_CODE" = c."CYLINDER_SPEC_CODE"
-    AND spd."VALVE_SPEC_CODE" = c."VALVE_SPEC_CODE"
-LEFT JOIN "fcms_cdc"."ma_items" i 
-    ON c."ITEM_CODE" = i."ITEM_CODE";
+-- PostgreSQL에서 실행
+-- psql -U postgres -d cycy_db
+
+CREATE TABLE IF NOT EXISTS "fcms_cdc"."ma_selection_patterns" (
+    "SELECTION_PATTERN_CODE" VARCHAR(50) PRIMARY KEY,
+    "TRADE_CONDITION_NO" VARCHAR(50),
+    "PRIMARY_STORE_USER_CODE" VARCHAR(50),
+    "CUSTOMER_USER_CODE" VARCHAR(100),
+    "CUSTOMER_USER_NAME" VARCHAR(200),
+    "UPDATE_USER_CODE" VARCHAR(50),
+    "UPDATE_DATETIME" TIMESTAMP,
+    "ENTRY_USER_CODE" VARCHAR(50),
+    "ENTRY_DATETIME" TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "fcms_cdc"."ma_selection_pattern_details" (
+    "SELECTION_PATTERN_CODE" VARCHAR(50),
+    "SEQ_NO" INTEGER,
+    "CYLINDER_SPEC_CODE" VARCHAR(50),
+    "VALVE_SPEC_CODE" VARCHAR(50),
+    "ITEM_CODE" VARCHAR(50),
+    "CAPACITY" NUMERIC,
+    "UPDATE_USER_CODE" VARCHAR(50),
+    "UPDATE_DATETIME" TIMESTAMP,
+    PRIMARY KEY ("SELECTION_PATTERN_CODE", "SEQ_NO")
+);
+
+-- 인덱스 추가
+CREATE INDEX idx_ma_selection_patterns_trade ON "fcms_cdc"."ma_selection_patterns"("TRADE_CONDITION_NO");
+CREATE INDEX idx_ma_selection_pattern_details_specs ON "fcms_cdc"."ma_selection_pattern_details"("CYLINDER_SPEC_CODE", "VALVE_SPEC_CODE");
 ```
 
 ---
 
-## 🔄 CYNOW 동기화 명령어
+### Step 5: Sink Connector 생성
 
-CDC 테이블 추가 후 CYNOW에서 동기화:
+**MA_SELECTION_PATTERNS Sink:**
+```bash
+curl -X POST http://localhost:8083/connectors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "sink_dev_ma_selection_patterns",
+    "config": {
+      "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+      "topics": "fcms.FCMS.MA_SELECTION_PATTERNS",
+      "connection.url": "jdbc:postgresql://10.78.30.98:5434/cycy_db?stringtype=unspecified",
+      "connection.username": "postgres",
+      "connection.password": "postgres",
+      "insert.mode": "upsert",
+      "primary.key.mode": "record_key",
+      "delete.enabled": "true",
+      "auto.create": "false",
+      "auto.evolve": "false",
+      "schema.evolution": "none",
+      "quote.identifiers": "true",
+      "table.name.format": "\"fcms_cdc\".\"ma_selection_patterns\"",
+      "tasks.max": "1"
+    }
+  }'
+```
+
+**MA_SELECTION_PATTERN_DETAILS Sink:**
+```bash
+curl -X POST http://localhost:8083/connectors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "sink_dev_ma_selection_pattern_details",
+    "config": {
+      "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+      "topics": "fcms.FCMS.MA_SELECTION_PATTERN_DETAILS",
+      "connection.url": "jdbc:postgresql://10.78.30.98:5434/cycy_db?stringtype=unspecified",
+      "connection.username": "postgres",
+      "connection.password": "postgres",
+      "insert.mode": "upsert",
+      "primary.key.mode": "record_key",
+      "delete.enabled": "true",
+      "auto.create": "false",
+      "auto.evolve": "false",
+      "schema.evolution": "none",
+      "quote.identifiers": "true",
+      "table.name.format": "\"fcms_cdc\".\"ma_selection_pattern_details\"",
+      "tasks.max": "1"
+    }
+  }'
+```
+
+### Step 6: Sink Connector 상태 확인
 
 ```bash
-cd /opt/cynow/cynow
-source venv/bin/activate
-python manage.py sync_product_codes
+curl -s http://localhost:8083/connectors/sink_dev_ma_selection_patterns/status | jq
+curl -s http://localhost:8083/connectors/sink_dev_ma_selection_pattern_details/status | jq
 ```
 
 ---
 
-## ⚠️ 주의사항
+### Step 7: PostgreSQL 데이터 확인
 
-1. **Debezium 재시작 필요**: 테이블 추가 시 커넥터 재시작 필요
-2. **초기 스냅샷**: 새 테이블은 처음에 전체 스냅샷 수행 (시간 소요)
-3. **스키마 변경**: Oracle 테이블 스키마 변경 시 Debezium 스키마 레지스트리 업데이트 필요
-4. **백업 시간 회피**: 새벽 2시 Oracle 백업 시간에는 작업 피할 것
+```bash
+psql -U postgres -d cycy_db -c 'SELECT COUNT(*) FROM "fcms_cdc"."ma_selection_patterns";'
+psql -U postgres -d cycy_db -c 'SELECT "SELECTION_PATTERN_CODE", "TRADE_CONDITION_NO", "PRIMARY_STORE_USER_CODE" FROM "fcms_cdc"."ma_selection_patterns" LIMIT 5;'
+```
 
+---
+
+## 🔍 문제 해결
+
+### Topic이 생성되지 않는 경우
+
+새 테이블 추가 후 snapshot이 필요할 수 있음:
+```bash
+# Source 커넥터 재시작
+curl -X POST http://localhost:8083/connectors/oracle-fcms-cylcy-main-v4/restart
+```
+
+### Sink가 FAILED 상태인 경우
+
+```bash
+# 오류 메시지 확인
+curl -s http://localhost:8083/connectors/sink_dev_ma_selection_patterns/status | jq '.tasks[0].trace'
+
+# Task 재시작
+curl -X POST http://localhost:8083/connectors/sink_dev_ma_selection_patterns/tasks/0/restart
+```
+
+### PostgreSQL 테이블 구조 불일치
+
+Oracle 컬럼과 PostgreSQL 컬럼명이 정확히 일치해야 함 (대소문자 포함)
+
+---
+
+## ✅ 완료 체크리스트
+
+- [ ] Source Connector `table.include.list` 업데이트
+- [ ] Source Connector RUNNING 확인
+- [ ] Kafka Topic 생성 확인 (`fcms.FCMS.MA_SELECTION_*`)
+- [ ] PostgreSQL 테이블 생성
+- [ ] Sink Connector 2개 생성
+- [ ] Sink Connector RUNNING 확인
+- [ ] PostgreSQL 데이터 동기화 확인
