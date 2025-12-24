@@ -12,7 +12,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span>월별 투입 계획 매트릭스</span>
+        {% if user.is_authenticated %}
         <small class="text-muted">셀을 클릭하여 수량 입력 (자동 저장)</small>
+        {% else %}
+        <small class="text-muted text-warning"><i class="bi bi-lock me-1"></i>수정하려면 로그인이 필요합니다</small>
+        {% endif %}
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -40,9 +44,9 @@
                         {% for month in months %}
                         {% with month_key=month|date:"Y-m" %}
                         {% with month_data=row.months|get_item:month_key %}
-                        <td class="text-center qty-cell" 
+                        <td class="text-center qty-cell{% if not user.is_authenticated %} readonly{% endif %}" 
                             data-month="{{ month_key }}"
-                            onclick="editCell(this, '{{ row.key }}', '{{ month_key }}')">
+                            {% if user.is_authenticated %}onclick="editCell(this, '{{ row.key }}', '{{ month_key }}')"{% endif %}>
                             <div class="scheduled-values">
                                 {% if month_data.add_purchase_qty %}<span class="sched-val purchase" title="구매">+{{ month_data.add_purchase_qty }}</span>{% endif %}
                                 {% if month_data.add_refurb_qty %}<span class="sched-val refurb" title="재생">R{{ month_data.add_refurb_qty }}</span>{% endif %}
@@ -268,7 +272,10 @@ thead .sticky-col {
     min-width: 90px;
     vertical-align: middle;
 }
-.qty-cell:hover {
+.qty-cell.readonly {
+    cursor: default;
+}
+.qty-cell:not(.readonly):hover {
     background: rgba(0, 122, 255, 0.08);
 }
 .qty-cell.has-value {

@@ -49,10 +49,8 @@ def get_months_list(count=6):
     return months
 
 
-@login_required
-@permission_required('cynow.can_edit_plan', raise_exception=True)
 def forecast(request):
-    """출하 계획 - 매트릭스 입력"""
+    """출하 계획 - 매트릭스 조회 (누구나 접근 가능, 수정은 로그인 필요)"""
     cylinder_types = get_cylinder_type_list()
     months = get_months_list(6)
     
@@ -134,10 +132,8 @@ def forecast_save(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
-@login_required
-@permission_required('cynow.can_edit_plan', raise_exception=True)
 def scheduled(request):
-    """투입 계획 - 매트릭스 입력"""
+    """투입 계획 - 매트릭스 조회 (누구나 접근 가능, 수정은 로그인 필요)"""
     cylinder_types = get_cylinder_type_list()
     months = get_months_list(6)
     

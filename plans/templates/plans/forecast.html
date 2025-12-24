@@ -12,7 +12,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span>월별 출하 계획 매트릭스</span>
+        {% if user.is_authenticated %}
         <small class="text-muted">셀을 클릭하여 수량 입력 (자동 저장)</small>
+        {% else %}
+        <small class="text-muted text-warning"><i class="bi bi-lock me-1"></i>수정하려면 로그인이 필요합니다</small>
+        {% endif %}
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -39,9 +43,9 @@
                         </td>
                         {% for month in months %}
                         {% with month_key=month|date:"Y-m" %}
-                        <td class="text-center qty-cell" 
+                        <td class="text-center qty-cell{% if not user.is_authenticated %} readonly{% endif %}" 
                             data-month="{{ month_key }}"
-                            onclick="editCell(this, '{{ row.key }}', '{{ month_key }}')">
+                            {% if user.is_authenticated %}onclick="editCell(this, '{{ row.key }}', '{{ month_key }}')"{% endif %}>
                             <span class="qty-value">{{ row.months|get_item:month_key|default:"" }}</span>
                         </td>
                         {% endwith %}
@@ -203,7 +207,10 @@ thead .sticky-col {
     transition: background 0.15s;
     min-width: 70px;
 }
-.qty-cell:hover {
+.qty-cell.readonly {
+    cursor: default;
+}
+.qty-cell:not(.readonly):hover {
     background: rgba(0, 122, 255, 0.08);
 }
 .qty-cell.has-value {
