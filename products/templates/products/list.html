@@ -161,8 +161,15 @@
                             <td class="text-end">
                                 {% with price=product.current_price_per_kg %}
                                     {% if price %}
+                                        {% if product.default_currency == 'JPY' %}
+                                            <span class="badge bg-danger me-1">¥</span>
+                                        {% elif product.default_currency == 'CNY' %}
+                                            <span class="badge bg-warning text-dark me-1">¥</span>
+                                        {% else %}
+                                            <span class="badge bg-primary me-1">₩</span>
+                                        {% endif %}
                                         <strong>{{ price|floatformat:0 }}</strong>
-                                        <small class="text-muted">원/kg</small>
+                                        <small class="text-muted">/kg</small>
                                     {% else %}
                                         <span class="text-muted">-</span>
                                     {% endif %}

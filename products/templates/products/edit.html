@@ -77,14 +77,25 @@
                                     <small class="text-muted">시뮬레이션 등에서 사용할 용기종류</small>
                                 </div>
                                 
-                                <div class="col-12">
-                                    <label class="form-label">메모</label>
-                                    <textarea name="note" class="form-control" rows="2"
-                                              placeholder="내부 메모">{{ product.note|default:'' }}</textarea>
+                                <div class="col-md-6">
+                                    <label class="form-label">기본 통화</label>
+                                    <select name="default_currency" class="form-select">
+                                        <option value="KRW" {% if product.default_currency == 'KRW' %}selected{% endif %}>
+                                            원 (₩) - KRW
+                                        </option>
+                                        <option value="JPY" {% if product.default_currency == 'JPY' %}selected{% endif %}>
+                                            엔 (¥) - JPY
+                                        </option>
+                                        <option value="CNY" {% if product.default_currency == 'CNY' %}selected{% endif %}>
+                                            위안 (¥) - CNY
+                                        </option>
+                                    </select>
+                                    <small class="text-muted">이 제품의 거래 통화</small>
                                 </div>
                                 
-                                <div class="col-12">
-                                    <div class="form-check">
+                                <div class="col-md-6">
+                                    <label class="form-label">상태</label>
+                                    <div class="form-check mt-2">
                                         <input type="checkbox" name="is_active" value="1" 
                                                class="form-check-input" id="isActive"
                                                {% if product.is_active %}checked{% endif %}>
@@ -92,6 +103,12 @@
                                             활성화 (목록에 표시)
                                         </label>
                                     </div>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">메모</label>
+                                    <textarea name="note" class="form-control" rows="2"
+                                              placeholder="내부 메모">{{ product.note|default:'' }}</textarea>
                                 </div>
                             </div>
                         </div>

@@ -122,6 +122,21 @@ class ProductCode(models.Model):
         verbose_name='활성화',
         help_text='비활성화된 제품코드는 목록에서 숨김'
     )
+    
+    # 통화 설정
+    CURRENCY_CHOICES = [
+        ('KRW', '원 (₩)'),
+        ('JPY', '엔 (¥)'),
+        ('CNY', '위안 (¥)'),
+    ]
+    default_currency = models.CharField(
+        max_length=10,
+        choices=CURRENCY_CHOICES,
+        default='KRW',
+        verbose_name='기본 통화',
+        help_text='이 제품코드의 거래 통화'
+    )
+    
     note = models.TextField(
         blank=True, 
         null=True,
@@ -190,8 +205,14 @@ class ProductPriceHistory(models.Model):
         verbose_name='kg당 단가',
         help_text='원/kg'
     )
+    CURRENCY_CHOICES = [
+        ('KRW', '원 (₩)'),
+        ('JPY', '엔 (¥)'),
+        ('CNY', '위안 (¥)'),
+    ]
     currency = models.CharField(
         max_length=10, 
+        choices=CURRENCY_CHOICES,
         default='KRW',
         verbose_name='통화'
     )

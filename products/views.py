@@ -98,6 +98,7 @@ def product_edit(request, pk):
     if request.method == 'POST':
         product.cylinder_type_key = request.POST.get('cylinder_type_key', '').strip() or None
         product.display_name = request.POST.get('display_name', '').strip() or None
+        product.default_currency = request.POST.get('default_currency', 'KRW')
         product.is_active = request.POST.get('is_active') == '1'
         product.note = request.POST.get('note', '').strip() or None
         product.save()
@@ -128,22 +129,32 @@ def price_add(request, pk):
     try:
         effective_date = request.POST.get('effective_date')
         price_per_kg = request.POST.get('price_per_kg')
+        currency = request.POST.get('currency', 'KRW')
         note = request.POST.get('note', '').strip()
         
         if not effective_date or not price_per_kg:
             return JsonResponse({'success': False, 'error': '필수 항목을 입력하세요'})
         
+        # 통화 유효성 검사
+        if currency not in ['KRW', 'JPY', 'CNY']:
+            currency = 'KRW'
+        
         price = ProductPriceHistory.objects.create(
             product_code=product,
             effective_date=date.fromisoformat(effective_date),
             price_per_kg=Decimal(price_per_kg),
+            currency=currency,
             note=note or None,
             created_by=request.user
         )
         
+        # 통화별 메시지
+        currency_units = {'KRW': '원', 'JPY': '円', 'CNY': '元'}
+        unit = currency_units.get(currency, '원')
+        
         return JsonResponse({
             'success': True,
-            'message': f'{effective_date}부터 {price_per_kg}원/kg 적용'
+            'message': f'{effective_date}부터 {price_per_kg}{unit}/kg 적용'
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
