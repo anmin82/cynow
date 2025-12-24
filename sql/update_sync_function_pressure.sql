@@ -100,15 +100,19 @@ BEGIN
         END IF;
     END IF;
     
-    -- 상태 코드 → 상태명 변환
+    -- 상태 코드 → 상태명 변환 (status_mapper.py와 동일한 매핑)
     v_status := CASE 
-        WHEN v_condition_code IN ('100', '102') THEN '보관'
-        WHEN v_condition_code IN ('210', '220') THEN '충전'
-        WHEN v_condition_code = '420' THEN '분석'
-        WHEN v_condition_code = '500' THEN '창입'
+        WHEN v_condition_code = '00' THEN '보관:미회수'
+        WHEN v_condition_code = '100' THEN '보관:미회수'
+        WHEN v_condition_code = '102' THEN '보관:회수'
+        WHEN v_condition_code = '210' THEN '충전중'
+        WHEN v_condition_code = '220' THEN '충전완료'
+        WHEN v_condition_code = '410' THEN '분석중'
+        WHEN v_condition_code = '420' THEN '분석완료'
+        WHEN v_condition_code = '500' THEN '제품'
         WHEN v_condition_code = '600' THEN '출하'
         WHEN v_condition_code = '190' THEN '이상'
-        WHEN v_condition_code IN ('950', '952') THEN '정비'
+        WHEN v_condition_code IN ('950', '952') THEN '정비대상'
         WHEN v_condition_code = '990' THEN '폐기'
         ELSE '기타'
     END;
