@@ -13,7 +13,7 @@ from dashboard.views import extract_valve_type
 
 
 def get_cylinder_type_list():
-    """용기종류 목록 조회 (대시보드와 동일한 그룹화)"""
+    """용기종류 목록 조회 (대시보드와 동일한 그룹화 + 엔드유저별 구분)"""
     all_inventory = CylinderRepository.get_inventory_summary()
     cylinder_type_options = {}
     
@@ -27,20 +27,27 @@ def get_cylinder_type_list():
         valve_spec = row.get('valve_spec', '')
         valve_type = extract_valve_type(valve_spec)
         cylinder_spec = row.get('cylinder_spec', '')
-        usage_place = row.get('usage_place') or ''
+        enduser = row.get('enduser') or ''
         
-        if cylinder_type_key not in cylinder_type_options:
-            cylinder_type_options[cylinder_type_key] = {
+        # 엔드유저별로 구분된 키 생성
+        group_key = f"{cylinder_type_key}|{enduser}"
+        
+        if group_key not in cylinder_type_options:
+            # display_name에 엔드유저 포함
+            base_name = f"{gas_name} / {capacity}L / {valve_type}" if capacity else f"{gas_name} / {valve_type}"
+            display_name = f"{base_name} [{enduser}]" if enduser else base_name
+            
+            cylinder_type_options[group_key] = {
                 'cylinder_type_key': cylinder_type_key,
                 'gas_name': gas_name,
                 'capacity': capacity,
                 'valve_type': valve_type,
                 'cylinder_spec': cylinder_spec,
-                'usage_place': usage_place,
-                'display_name': f"{gas_name} / {capacity}L / {valve_type}" if capacity else f"{gas_name} / {valve_type}",
+                'enduser': enduser,
+                'display_name': display_name,
             }
     
-    return sorted(cylinder_type_options.values(), key=lambda x: (x['gas_name'], x['capacity'] or ''))
+    return sorted(cylinder_type_options.values(), key=lambda x: (x['gas_name'], x['capacity'] or '', x['enduser'] or ''))
 
 
 def simulation_view(request):
