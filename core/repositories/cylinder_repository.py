@@ -210,8 +210,7 @@ class CylinderRepository:
                              THEN CONCAT('-', tcs."FILLING_LOT_BRANCH") 
                              ELSE '' 
                         END
-                    ) as filling_lot,
-                    mc."CYLINDER_WEIGHT" as cylinder_weight
+                    ) as filling_lot
                 FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
@@ -269,7 +268,7 @@ class CylinderRepository:
                     elif st == '보관:회수':
                         conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
                     else:
-                        conditions.append("c.dashboard_status = %s")
+                    conditions.append("c.dashboard_status = %s")
                         params.append(st)
                 # 다중 상태 필터 (보관:미회수/보관:회수 특별 처리)
                 if 'statuses' in filters and filters['statuses']:
@@ -433,7 +432,7 @@ class CylinderRepository:
                     elif st == '보관:회수':
                         conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
                     else:
-                        conditions.append("c.dashboard_status = %s")
+                    conditions.append("c.dashboard_status = %s")
                         params.append(st)
                 # 다중 상태 필터 (보관:미회수/보관:회수 특별 처리)
                 if 'statuses' in filters and filters['statuses']:
