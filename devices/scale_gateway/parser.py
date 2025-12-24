@@ -99,3 +99,14 @@ class ScaleDataParser:
 
 
 
+
+
+
+
+
+
+
+
+
+
+

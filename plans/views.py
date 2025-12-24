@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from .models import PlanForecastMonthly, PlanScheduledMonthly
+from .models import PlanForecastMonthly, PlanScheduledMonthly, PlanFillingMonthly
 from core.repositories.cylinder_repository import CylinderRepository
 from dashboard.views import extract_valve_type
 from datetime import date
@@ -214,6 +214,90 @@ def scheduled_save(request):
             obj.convert_gas_qty = qty_val
         
         obj.save()
+        
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+def filling(request):
+    """충전 계획 - 매트릭스 조회 (누구나 접근 가능, 수정은 로그인 필요)"""
+    cylinder_types = get_cylinder_type_list()
+    months = get_months_list(12)
+    
+    # 기존 계획 데이터 조회
+    existing_plans = {}
+    for plan in PlanFillingMonthly.objects.all():
+        key = f"{plan.gas_name}|{plan.capacity or ''}|{plan.valve_spec or ''}|{plan.cylinder_spec or ''}|{plan.usage_place or ''}"
+        month_key = plan.month.strftime('%Y-%m')
+        if key not in existing_plans:
+            existing_plans[key] = {}
+        existing_plans[key][month_key] = {
+            'planned_fill_qty': plan.planned_fill_qty or '',
+            'is_shutdown': plan.is_shutdown,
+            'note': plan.note or '',
+        }
+    
+    # 매트릭스 데이터 생성
+    matrix_data = []
+    for type_key, type_info in cylinder_types:
+        row = {
+            'key': type_key,
+            'info': type_info,
+            'months': {}
+        }
+        for month in months:
+            month_key = month.strftime('%Y-%m')
+            row['months'][month_key] = existing_plans.get(type_key, {}).get(month_key, {})
+        matrix_data.append(row)
+    
+    context = {
+        'matrix_data': matrix_data,
+        'months': months,
+    }
+    return render(request, 'plans/filling.html', context)
+
+
+@login_required
+@permission_required('cynow.can_edit_plan', raise_exception=True)
+@require_POST
+def filling_save(request):
+    """충전 계획 저장 (AJAX)"""
+    try:
+        data = json.loads(request.body)
+        type_key = data.get('type_key', '')
+        month_str = data.get('month', '')
+        qty = data.get('qty', '')
+        is_shutdown = data.get('is_shutdown', False)
+        note = data.get('note', '')
+        
+        # type_key 파싱
+        parts = type_key.split('|')
+        if len(parts) != 5:
+            return JsonResponse({'success': False, 'error': 'Invalid type_key'})
+        
+        gas_name, capacity, valve_type, cylinder_spec, usage_place = parts
+        month_date = date.fromisoformat(month_str + '-01')
+        
+        if qty == '' or qty is None:
+            qty_int = 0
+        else:
+            qty_int = int(qty)
+        
+        obj, created = PlanFillingMonthly.objects.update_or_create(
+            gas_name=gas_name,
+            capacity=capacity or None,
+            valve_spec=valve_type or None,
+            cylinder_spec=cylinder_spec or None,
+            usage_place=usage_place or None,
+            month=month_date,
+            defaults={
+                'planned_fill_qty': qty_int,
+                'is_shutdown': is_shutdown,
+                'note': note,
+                'created_by': request.user,
+            }
+        )
         
         return JsonResponse({'success': True})
     except Exception as e:

@@ -464,3 +464,14 @@ Get-Content C:\cynow\logs\debezium_smart_monitor_*.log -Wait
 **업데이트**: 지능형 복구 방식 적용
 
 
+
+
+
+
+
+
+
+
+
+
+

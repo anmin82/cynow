@@ -807,3 +807,14 @@ psql -U postgres -d cycy_db -c "SELECT COUNT(*), MAX(__source_ts_ms) FROM fcms_c
 **검토자**: [담당 PM, DBA]
 
 
+
+
+
+
+
+
+
+
+
+
+

@@ -91,3 +91,45 @@ class PlanScheduledMonthly(models.Model):
     
     def __str__(self):
         return f"{self.month} - {self.gas_name}"
+
+
+class PlanFillingMonthly(models.Model):
+    """충전 계획 (FILLING) - 공용기를 제품으로 만드는 계획"""
+    month = models.DateField(help_text="YYYY-MM-01 형식")
+    cylinder_type_key = models.CharField(max_length=32, db_index=True)
+    
+    # Denormalized fields
+    gas_name = models.CharField(max_length=100, db_index=True)
+    capacity = models.CharField(max_length=50, null=True, blank=True)
+    valve_spec = models.CharField(max_length=200, null=True, blank=True)
+    cylinder_spec = models.CharField(max_length=200, null=True, blank=True)
+    usage_place = models.CharField(max_length=100, null=True, blank=True)
+    
+    planned_fill_qty = models.IntegerField(
+        validators=[MinValueValidator(0)],
+        default=0,
+        help_text="월 충전 계획 수량"
+    )
+    is_shutdown = models.BooleanField(
+        default=False,
+        help_text="오버홀/셧다운 여부 (True면 충전 불가)"
+    )
+    note = models.TextField(blank=True, null=True, help_text="예: 4월 전체 오버홀")
+    
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'plan_filling_monthly'
+        unique_together = [['month', 'cylinder_type_key']]
+        indexes = [
+            models.Index(fields=['month', 'cylinder_type_key']),
+            models.Index(fields=['gas_name', 'capacity']),
+        ]
+        verbose_name = '충전 계획'
+        verbose_name_plural = '충전 계획'
+    
+    def __str__(self):
+        shutdown = " [오버홀]" if self.is_shutdown else ""
+        return f"{self.month} - {self.gas_name} ({self.planned_fill_qty}병){shutdown}"

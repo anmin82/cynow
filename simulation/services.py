@@ -5,7 +5,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from django.db import connection
 from typing import Dict, List, Optional
-from plans.models import PlanForecastMonthly, PlanScheduledMonthly
+from plans.models import PlanForecastMonthly, PlanScheduledMonthly, PlanFillingMonthly
 
 
 class SimulationService:
@@ -111,11 +111,13 @@ class SimulationService:
     @staticmethod
     def get_plans(cylinder_type_key: str, months: int = 12) -> Dict:
         """
-        출하계획 및 투입계획 조회
+        출하계획, 충전계획, 투입계획 조회
         
         Returns:
             {
-                'forecast': {'2025-01': 50, '2025-02': 60, ...},
+                'forecast': {'2025-01': 50, '2025-02': 60, ...},  # 출하계획
+                'filling': {'2025-01': 100, ...},  # 충전계획
+                'filling_shutdown': {'2025-04': True, ...},  # 오버홀 여부
                 'purchase': {'2025-01': 10, ...},
                 'repair': {'2025-01': 5, ...},
             }
@@ -132,6 +134,12 @@ class SimulationService:
             month__lt=start_month + relativedelta(months=months)
         ).values('month', 'planned_ship_qty')
         
+        filling_plans = PlanFillingMonthly.objects.filter(
+            cylinder_type_key=cylinder_type_key,
+            month__gte=start_month,
+            month__lt=start_month + relativedelta(months=months)
+        ).values('month', 'planned_fill_qty', 'is_shutdown')
+        
         scheduled_plans = PlanScheduledMonthly.objects.filter(
             cylinder_type_key=cylinder_type_key,
             month__gte=start_month,
@@ -141,6 +149,8 @@ class SimulationService:
         
         result = {
             'forecast': {},
+            'filling': {},
+            'filling_shutdown': {},
             'purchase': {},
             'repair': {},
             'recover': {},
@@ -150,6 +160,11 @@ class SimulationService:
         for plan in forecast_plans:
             month_key = plan['month'].strftime('%Y-%m')
             result['forecast'][month_key] = plan['planned_ship_qty'] or 0
+        
+        for plan in filling_plans:
+            month_key = plan['month'].strftime('%Y-%m')
+            result['filling'][month_key] = plan['planned_fill_qty'] or 0
+            result['filling_shutdown'][month_key] = plan['is_shutdown']
         
         for plan in scheduled_plans:
             month_key = plan['month'].strftime('%Y-%m')
@@ -239,6 +254,8 @@ class SimulationService:
         for i, month_key in enumerate(month_list):
             # 이번 달 변동
             ship_out = plans['forecast'].get(month_key, 0)
+            fill_plan = plans['filling'].get(month_key, 0)
+            is_shutdown = plans['filling_shutdown'].get(month_key, False)
             purchase_in = int(plans['purchase'].get(month_key, 0) * purchase_multiplier)
             repair_in = int(plans['repair'].get(month_key, 0) * repair_multiplier)
             expire_out = expiring.get(month_key, 0)
@@ -260,8 +277,29 @@ class SimulationService:
                 recover_in = int(past_ship * recovery_rate)
             
             # 재고 변동 적용
-            # 출하: 가용 → 엔드유저
-            actual_ship = min(ship_out, available)
+            
+            # 충전 역량 제한: 오버홀이면 충전 불가, 아니면 충전계획만큼 출하 가능
+            # 충전계획이 있으면 그 수량만큼만 출하 가능 (충전 → 제품 → 출하)
+            if is_shutdown:
+                # 오버홀 기간: 충전 불가 = 출하 불가 (기존 재고에서만 출하)
+                actual_fill = 0
+            elif fill_plan > 0:
+                # 충전계획이 있으면 공용기에서 충전해서 출하
+                actual_fill = min(fill_plan, empty_cyl) if 'empty_cyl' in locals() else fill_plan
+            else:
+                # 충전계획이 없으면 제한 없음 (기존 로직)
+                actual_fill = ship_out
+            
+            # 출하: 가용 → 엔드유저 (충전 역량 고려)
+            max_ship = min(ship_out, available)
+            if fill_plan > 0 and not is_shutdown:
+                # 충전계획이 있으면 충전 수량 이내로만 출하
+                max_ship = min(max_ship, fill_plan)
+            elif is_shutdown:
+                # 오버홀이면 출하 불가 (이미 충전된 제품 재고만 출하 가능)
+                max_ship = 0  # 간소화: 오버홀 기간에는 출하 0으로 가정
+            
+            actual_ship = max_ship
             available -= actual_ship
             at_enduser += actual_ship
             
@@ -302,6 +340,8 @@ class SimulationService:
                 'in_repair': in_repair,
                 'expired': expired,
                 'ship': -actual_ship,
+                'fill': fill_plan,
+                'is_shutdown': is_shutdown,
                 'recover': actual_recover,
                 'purchase': purchase_in,
                 'repair': actual_repair,

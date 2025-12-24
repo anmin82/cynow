@@ -219,6 +219,7 @@
                                 <tr>
                                     <th>월</th>
                                     <th class="text-end">가용</th>
+                                    <th class="text-end" style="color:#5856D6;">충전</th>
                                     <th class="text-end text-danger">출하</th>
                                     <th class="text-end text-success">회수</th>
                                     <th class="text-end text-primary">구매</th>
@@ -229,7 +230,7 @@
                             </thead>
                             <tbody id="detailsBody">
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted py-4">
+                                    <td colspan="9" class="text-center text-muted py-4">
                                         시뮬레이션 결과가 여기에 표시됩니다
                                     </td>
                                 </tr>
@@ -459,10 +460,14 @@ function renderTable(details) {
     
     let html = '';
     for (const row of details) {
+        const fillDisplay = row.is_shutdown 
+            ? '<span class="badge bg-warning text-dark">🔧 오버홀</span>' 
+            : (row.fill ? row.fill : '-');
         html += `
-            <tr>
+            <tr class="${row.is_shutdown ? 'table-warning' : ''}">
                 <td><strong>${row.month}</strong></td>
                 <td class="text-end">${row.available.toLocaleString()}</td>
+                <td class="text-end" style="color:#5856D6;">${fillDisplay}</td>
                 <td class="text-end text-danger">${row.ship}</td>
                 <td class="text-end text-success">+${row.recover}</td>
                 <td class="text-end text-primary">+${row.purchase}</td>

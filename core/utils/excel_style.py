@@ -170,3 +170,4 @@ def style_info_sheet(ws):
     ws.column_dimensions['A'].width = 15
     ws.column_dimensions['B'].width = 50
 
+

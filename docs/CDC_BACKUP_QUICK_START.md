@@ -415,3 +415,14 @@ Get-ScheduledTask | Where-Object { $_.TaskName -like "CYNOW*" } | Format-Table T
 ✅ **이제 새벽 2시 Oracle 백업 시간에도 CDC가 안전합니다!** 🎉
 
 
+
+
+
+
+
+
+
+
+
+
+
