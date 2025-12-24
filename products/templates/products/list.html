@@ -142,13 +142,13 @@
                             <td>
                                 <div>
                                     {% if product.gas_name %}
-                                        <span class="badge bg-primary">{{ product.gas_name }}</span>
+                                        <span class="badge text-bg-primary">{{ product.gas_name }}</span>
                                     {% endif %}
                                     {% if product.capacity %}
-                                        <span class="badge bg-secondary">{{ product.capacity }}kg</span>
+                                        <span class="badge text-bg-secondary">{{ product.capacity }}kg</span>
                                     {% endif %}
                                     {% if product.valve_spec_name %}
-                                        <span class="badge bg-outline-secondary border">{{ product.valve_spec_name }}</span>
+                                        <span class="badge text-bg-light border text-dark">{{ product.valve_spec_name }}</span>
                                     {% endif %}
                                 </div>
                                 {% if product.display_name %}
