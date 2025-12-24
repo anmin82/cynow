@@ -106,10 +106,9 @@ def product_edit(request, pk):
         return redirect('products:detail', pk=pk)
     
     # 용기종류 목록 (매핑용)
-    from core.repositories.inventory_repository import InventoryRepository
+    from plans.views import get_cylinder_type_list
     try:
-        repo = InventoryRepository()
-        cylinder_types = repo.get_cylinder_type_list()
+        cylinder_types = get_cylinder_type_list()
     except:
         cylinder_types = []
     
