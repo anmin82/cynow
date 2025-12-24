@@ -13,15 +13,14 @@
     <p class="page-subtitle">CYLINDER LIFECYCLE • 출하/회수/투입 시나리오 예측</p>
 </div>
 
-<div class="row g-4">
-    <!-- 좌측: 설정 패널 -->
-    <div class="col-lg-4">
-        <!-- 용기종류 선택 -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <i class="bi bi-box-seam me-2"></i>용기종류 선택
+<!-- 용기종류 선택 (항상 표시) -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <label class="form-label mb-0 fw-bold"><i class="bi bi-box-seam me-2"></i>용기종류</label>
             </div>
-            <div class="card-body">
+            <div class="col-md-4">
                 <select id="cylinderTypeSelect" class="form-select">
                     <option value="">-- 용기종류 선택 --</option>
                     {% for ct in cylinder_types %}
@@ -33,206 +32,201 @@
                     {% endfor %}
                 </select>
             </div>
-        </div>
-
-        <!-- 현재 재고 현황 -->
-        <div class="card mb-3" id="currentInventoryCard" style="display: none;">
-            <div class="card-header">
-                <i class="bi bi-pie-chart me-2"></i>현재 재고 현황
-            </div>
-            <div class="card-body">
-                <div class="row g-2 text-center">
-                    <div class="col-6">
-                        <div class="inventory-stat available">
-                            <div class="stat-value" id="currentAvailable">-</div>
-                            <div class="stat-label">가용재고</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="inventory-stat enduser">
-                            <div class="stat-value" id="currentEnduser">-</div>
-                            <div class="stat-label">엔드유저</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="inventory-stat repair">
-                            <div class="stat-value" id="currentRepair">-</div>
-                            <div class="stat-label">정비대기</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="inventory-stat expired">
-                            <div class="stat-value" id="currentExpired">-</div>
-                            <div class="stat-label">내압만료</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 회수 예측 설정 -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <i class="bi bi-arrow-return-left me-2"></i>회수 예측 설정
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="recoveryMethod" 
-                               id="methodFixedRate" value="fixed_rate" checked>
-                        <label class="form-check-label" for="methodFixedRate">
-                            고정 비율
-                        </label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="recoveryMethod" 
-                               id="methodHistorical" value="historical">
-                        <label class="form-check-label" for="methodHistorical">
-                            과거 실적 기반
-                        </label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="recoveryMethod" 
-                               id="methodManual" value="manual">
-                        <label class="form-check-label" for="methodManual">
-                            직접 입력
-                        </label>
-                    </div>
-                </div>
-
-                <!-- 고정 비율 설정 -->
-                <div id="fixedRateSettings">
-                    <div class="mb-3">
-                        <label class="form-label">회수율</label>
-                        <div class="d-flex align-items-center gap-2">
-                            <input type="range" class="form-range flex-grow-1" id="recoveryRateSlider" 
-                                   min="0" max="100" value="80">
-                            <span class="badge bg-primary" id="recoveryRateValue">80%</span>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">회수 리드타임</label>
-                        <select id="recoveryLeadMonths" class="form-select form-select-sm">
-                            <option value="1">1개월</option>
-                            <option value="2" selected>2개월</option>
-                            <option value="3">3개월</option>
-                            <option value="4">4개월</option>
-                            <option value="6">6개월</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- 직접 입력 (숨김) -->
-                <div id="manualSettings" style="display: none;">
-                    <p class="text-muted small">월별 회수량은 하단 테이블에서 직접 입력하세요.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- 투입 조절 -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <i class="bi bi-sliders me-2"></i>투입 조절
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label d-flex justify-content-between">
-                        <span>신규 구매 배수</span>
-                        <span class="text-primary fw-bold" id="purchaseMultValue">1.0x</span>
+            <div class="col-auto">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="simMode" id="modeBasic" checked>
+                    <label class="btn btn-outline-primary" for="modeBasic">
+                        <i class="bi bi-sliders me-1"></i>기본 모드
                     </label>
-                    <input type="range" class="form-range" id="purchaseMultiplier" 
-                           min="0" max="2" step="0.1" value="1">
-                    <div class="d-flex justify-content-between text-muted small">
-                        <span>0x</span>
-                        <span>계획대비</span>
-                        <span>2x</span>
-                    </div>
-                </div>
-                <div class="mb-0">
-                    <label class="form-label d-flex justify-content-between">
-                        <span>정비 투입 배수</span>
-                        <span class="text-primary fw-bold" id="repairMultValue">1.0x</span>
+                    <input type="radio" class="btn-check" name="simMode" id="modeMatrix">
+                    <label class="btn btn-outline-primary" for="modeMatrix">
+                        <i class="bi bi-table me-1"></i>매트릭스 모드
                     </label>
-                    <input type="range" class="form-range" id="repairMultiplier" 
-                           min="0" max="2" step="0.1" value="1">
-                    <div class="d-flex justify-content-between text-muted small">
-                        <span>0x</span>
-                        <span>계획대비</span>
-                        <span>2x</span>
-                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- 시뮬레이션 버튼 -->
-        <button class="btn btn-primary w-100 btn-lg" id="simulateBtn" disabled>
-            <i class="bi bi-play-fill me-2"></i>시뮬레이션 실행
-        </button>
     </div>
+</div>
 
-    <!-- 우측: 그래프 및 결과 -->
-    <div class="col-lg-8">
-        <!-- 그래프 카드 -->
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-graph-up me-2"></i>12개월 재고 예측</span>
-                <div class="btn-group btn-group-sm" role="group">
-                    <input type="radio" class="btn-check" name="chartType" id="chartArea" checked>
-                    <label class="btn btn-outline-secondary" for="chartArea">영역</label>
-                    <input type="radio" class="btn-check" name="chartType" id="chartLine">
-                    <label class="btn btn-outline-secondary" for="chartLine">선</label>
-                    <input type="radio" class="btn-check" name="chartType" id="chartBar">
-                    <label class="btn btn-outline-secondary" for="chartBar">막대</label>
+<!-- ==================== 기본 모드 ==================== -->
+<div id="basicModePanel">
+    <div class="row g-4">
+        <!-- 좌측: 설정 패널 -->
+        <div class="col-lg-4">
+            <!-- 현재 재고 현황 -->
+            <div class="card mb-3" id="currentInventoryCard" style="display: none;">
+                <div class="card-header">
+                    <i class="bi bi-pie-chart me-2"></i>현재 재고 현황
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="inventory-stat available">
+                                <div class="stat-value" id="currentAvailable">-</div>
+                                <div class="stat-label">가용재고</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="inventory-stat enduser">
+                                <div class="stat-value" id="currentEnduser">-</div>
+                                <div class="stat-label">엔드유저</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="inventory-stat repair">
+                                <div class="stat-value" id="currentRepair">-</div>
+                                <div class="stat-label">정비대기</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="inventory-stat expired">
+                                <div class="stat-value" id="currentExpired">-</div>
+                                <div class="stat-label">내압만료</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card-body">
-                <div id="simulationChart" style="min-height: 350px;"></div>
-                <div id="chartPlaceholder" class="text-center text-muted py-5">
-                    <i class="bi bi-bar-chart" style="font-size: 3rem;"></i>
-                    <p class="mt-3">용기종류를 선택하고 시뮬레이션을 실행하세요</p>
+
+            <!-- 회수 예측 설정 -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-arrow-return-left me-2"></i>회수 예측 설정
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="recoveryMethod" 
+                                   id="methodFixedRate" value="fixed_rate" checked>
+                            <label class="form-check-label" for="methodFixedRate">고정 비율</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="recoveryMethod" 
+                                   id="methodHistorical" value="historical">
+                            <label class="form-check-label" for="methodHistorical">과거 실적 기반</label>
+                        </div>
+                    </div>
+
+                    <div id="fixedRateSettings">
+                        <div class="mb-3">
+                            <label class="form-label">회수율</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="range" class="form-range flex-grow-1" id="recoveryRateSlider" 
+                                       min="0" max="100" value="80">
+                                <span class="badge bg-primary" id="recoveryRateValue">80%</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">회수 리드타임</label>
+                            <select id="recoveryLeadMonths" class="form-select form-select-sm">
+                                <option value="1">1개월</option>
+                                <option value="2" selected>2개월</option>
+                                <option value="3">3개월</option>
+                                <option value="4">4개월</option>
+                                <option value="6">6개월</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 투입 조절 -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-sliders me-2"></i>투입 조절
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span>신규 구매 배수</span>
+                            <span class="text-primary fw-bold" id="purchaseMultValue">1.0x</span>
+                        </label>
+                        <input type="range" class="form-range" id="purchaseMultiplier" 
+                               min="0" max="2" step="0.1" value="1">
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label d-flex justify-content-between">
+                            <span>정비 투입 배수</span>
+                            <span class="text-primary fw-bold" id="repairMultValue">1.0x</span>
+                        </label>
+                        <input type="range" class="form-range" id="repairMultiplier" 
+                               min="0" max="2" step="0.1" value="1">
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary w-100 btn-lg" id="simulateBtn" disabled>
+                <i class="bi bi-play-fill me-2"></i>시뮬레이션 실행
+            </button>
+        </div>
+
+        <!-- 우측: 그래프 및 결과 -->
+        <div class="col-lg-8">
+            {% include 'simulation/_chart_panel.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- ==================== 매트릭스 모드 ==================== -->
+<div id="matrixModePanel" style="display: none;">
+    <div class="row g-3">
+        <!-- 그래프 (상단) -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span><i class="bi bi-graph-up me-2"></i>실시간 재고 예측</span>
+                    <small class="text-muted">숫자를 변경하면 즉시 그래프가 업데이트됩니다</small>
+                </div>
+                <div class="card-body py-2">
+                    <div id="matrixChart" style="min-height: 280px;"></div>
                 </div>
             </div>
         </div>
 
-        <!-- 범례 -->
-        <div class="d-flex gap-3 mb-3 flex-wrap justify-content-center">
-            <span class="legend-badge available"><span class="dot"></span>가용재고</span>
-            <span class="legend-badge enduser"><span class="dot"></span>엔드유저 보유</span>
-            <span class="legend-badge repair"><span class="dot"></span>정비대기</span>
-            <span class="legend-badge expired"><span class="dot"></span>내압만료</span>
-        </div>
-
-        <!-- 상세 테이블 -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-table me-2"></i>월별 상세 내역</span>
-                <button class="btn btn-sm btn-outline-secondary" type="button" 
-                        data-bs-toggle="collapse" data-bs-target="#detailsCollapse">
-                    <i class="bi bi-chevron-down"></i>
-                </button>
-            </div>
-            <div class="collapse show" id="detailsCollapse">
+        <!-- 편집 가능한 매트릭스 테이블 -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-pencil-square me-2"></i>월별 데이터 입력</span>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadPlanData()">
+                            <i class="bi bi-download me-1"></i>계획 불러오기
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="resetMatrix()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>초기화
+                        </button>
+                    </div>
+                </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0" id="detailsTable">
+                        <table class="table table-bordered mb-0 matrix-edit-table" id="matrixTable">
                             <thead>
                                 <tr>
-                                    <th>월</th>
-                                    <th class="text-end">가용</th>
-                                    <th class="text-end" style="color:#5856D6;">충전</th>
-                                    <th class="text-end text-danger">출하</th>
-                                    <th class="text-end text-success">회수</th>
-                                    <th class="text-end text-primary">구매</th>
-                                    <th class="text-end text-info">정비</th>
-                                    <th class="text-end text-warning">만료</th>
-                                    <th class="text-end">엔드유저</th>
+                                    <th class="sticky-col">항목</th>
+                                    <!-- 월 컬럼은 JS에서 동적 생성 -->
                                 </tr>
                             </thead>
-                            <tbody id="detailsBody">
-                                <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">
-                                        시뮬레이션 결과가 여기에 표시됩니다
-                                    </td>
+                            <tbody>
+                                <tr data-row="ship">
+                                    <td class="sticky-col row-label"><span class="badge bg-danger">출하</span> 출하 수량</td>
+                                </tr>
+                                <tr data-row="fill">
+                                    <td class="sticky-col row-label"><span class="badge bg-purple">충전</span> 충전 수량</td>
+                                </tr>
+                                <tr data-row="recover">
+                                    <td class="sticky-col row-label"><span class="badge bg-success">회수</span> 회수 수량</td>
+                                </tr>
+                                <tr data-row="purchase">
+                                    <td class="sticky-col row-label"><span class="badge bg-primary">구매</span> 신규 구매</td>
+                                </tr>
+                                <tr data-row="repair">
+                                    <td class="sticky-col row-label"><span class="badge bg-info">정비</span> 정비 투입</td>
+                                </tr>
+                                <tr class="result-row" data-row="available">
+                                    <td class="sticky-col row-label"><strong>📦 가용재고</strong></td>
+                                </tr>
+                                <tr class="result-row" data-row="enduser">
+                                    <td class="sticky-col row-label"><strong>🏭 엔드유저</strong></td>
                                 </tr>
                             </tbody>
                         </table>
@@ -240,40 +234,91 @@
                 </div>
             </div>
         </div>
+
+        <!-- 현재 재고 현황 (축소) -->
+        <div class="col-12">
+            <div class="d-flex gap-3 justify-content-center flex-wrap" id="matrixInventorySummary">
+                <div class="inventory-badge available">
+                    <span class="label">가용재고</span>
+                    <span class="value" id="matrixAvailable">-</span>
+                </div>
+                <div class="inventory-badge enduser">
+                    <span class="label">엔드유저</span>
+                    <span class="value" id="matrixEnduser">-</span>
+                </div>
+                <div class="inventory-badge repair">
+                    <span class="label">정비대기</span>
+                    <span class="value" id="matrixRepair">-</span>
+                </div>
+                <div class="inventory-badge expired">
+                    <span class="label">내압만료</span>
+                    <span class="value" id="matrixExpired">-</span>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
+<!-- 차트 패널 템플릿 (기본 모드용) -->
+{% verbatim %}
+<template id="chartPanelTemplate">
+</template>
+{% endverbatim %}
+
 <script>
 let chart = null;
+let matrixChart = null;
 let simulationData = null;
+let currentMode = 'basic';
+let matrixData = {
+    months: [],
+    ship: {},
+    fill: {},
+    recover: {},
+    purchase: {},
+    repair: {},
+    available: {},
+    enduser: {},
+    inRepair: {},
+    expired: {}
+};
+let currentInventory = null;
+let debounceTimer = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // 용기종류 선택 시
+    initializeMonths();
+    
+    // 모드 전환
+    document.getElementById('modeBasic').addEventListener('change', function() {
+        if (this.checked) switchMode('basic');
+    });
+    document.getElementById('modeMatrix').addEventListener('change', function() {
+        if (this.checked) switchMode('matrix');
+    });
+    
+    // 용기종류 선택
     document.getElementById('cylinderTypeSelect').addEventListener('change', function() {
         const selected = this.value;
         document.getElementById('simulateBtn').disabled = !selected;
         if (selected) {
             document.getElementById('currentInventoryCard').style.display = 'block';
-            // 자동으로 시뮬레이션 실행
-            runSimulation();
+            if (currentMode === 'basic') {
+                runSimulation();
+            } else {
+                loadPlanData();
+            }
         } else {
             document.getElementById('currentInventoryCard').style.display = 'none';
         }
     });
 
-    // 회수 방법 변경 시
+    // 기본 모드 이벤트들
     document.querySelectorAll('input[name="recoveryMethod"]').forEach(radio => {
         radio.addEventListener('change', function() {
-            document.getElementById('fixedRateSettings').style.display = 
-                (this.value === 'fixed_rate' || this.value === 'historical') ? 'block' : 'none';
-            document.getElementById('manualSettings').style.display = 
-                this.value === 'manual' ? 'block' : 'none';
-            
             if (simulationData) runSimulation();
         });
     });
 
-    // 슬라이더 변경 시
     document.getElementById('recoveryRateSlider').addEventListener('input', function() {
         document.getElementById('recoveryRateValue').textContent = this.value + '%';
     });
@@ -299,18 +344,298 @@ document.addEventListener('DOMContentLoaded', function() {
         if (simulationData) runSimulation();
     });
 
-    // 시뮬레이션 버튼
     document.getElementById('simulateBtn').addEventListener('click', runSimulation);
 
-    // 차트 타입 변경
     document.querySelectorAll('input[name="chartType"]').forEach(radio => {
         radio.addEventListener('change', function() {
-            if (simulationData) {
-                renderChart(simulationData);
-            }
+            if (simulationData) renderChart(simulationData);
         });
     });
 });
+
+function initializeMonths() {
+    const today = new Date();
+    matrixData.months = [];
+    for (let i = 0; i < 12; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+        const monthKey = d.toISOString().slice(0, 7);
+        matrixData.months.push(monthKey);
+        
+        // 초기값
+        matrixData.ship[monthKey] = 0;
+        matrixData.fill[monthKey] = 0;
+        matrixData.recover[monthKey] = 0;
+        matrixData.purchase[monthKey] = 0;
+        matrixData.repair[monthKey] = 0;
+    }
+    buildMatrixTable();
+}
+
+function buildMatrixTable() {
+    const table = document.getElementById('matrixTable');
+    const thead = table.querySelector('thead tr');
+    const rows = table.querySelectorAll('tbody tr');
+    
+    // 헤더 월 추가
+    thead.innerHTML = '<th class="sticky-col">항목</th>';
+    matrixData.months.forEach(month => {
+        thead.innerHTML += `<th class="text-center month-header">${month}</th>`;
+    });
+    
+    // 각 행에 셀 추가
+    rows.forEach(row => {
+        const rowType = row.dataset.row;
+        const isEditable = !row.classList.contains('result-row');
+        const existingLabel = row.querySelector('.row-label');
+        row.innerHTML = '';
+        row.appendChild(existingLabel);
+        
+        matrixData.months.forEach(month => {
+            const td = document.createElement('td');
+            td.className = 'text-center matrix-cell';
+            td.dataset.month = month;
+            td.dataset.type = rowType;
+            
+            if (isEditable) {
+                td.innerHTML = `<input type="number" class="matrix-input" value="0" min="0" 
+                    data-month="${month}" data-type="${rowType}"
+                    onchange="onMatrixChange(this)" oninput="onMatrixInput(this)">`;
+            } else {
+                td.innerHTML = `<span class="result-value">0</span>`;
+            }
+            row.appendChild(td);
+        });
+    });
+}
+
+function switchMode(mode) {
+    currentMode = mode;
+    if (mode === 'basic') {
+        document.getElementById('basicModePanel').style.display = 'block';
+        document.getElementById('matrixModePanel').style.display = 'none';
+        if (document.getElementById('cylinderTypeSelect').value && simulationData) {
+            renderChart(simulationData);
+        }
+    } else {
+        document.getElementById('basicModePanel').style.display = 'none';
+        document.getElementById('matrixModePanel').style.display = 'block';
+        if (document.getElementById('cylinderTypeSelect').value) {
+            loadPlanData();
+        }
+    }
+}
+
+async function loadPlanData() {
+    const cylinderTypeKey = document.getElementById('cylinderTypeSelect').value;
+    if (!cylinderTypeKey) return;
+
+    try {
+        // 기본 시뮬레이션 실행해서 계획 데이터 가져오기
+        const response = await fetch('{% url "simulation:calculate" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                cylinder_type_key: cylinderTypeKey,
+                recovery_method: 'fixed_rate',
+                recovery_rate: 80,
+                recovery_lead_months: 2,
+                purchase_multiplier: 1,
+                repair_multiplier: 1
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            currentInventory = result.data.current;
+            updateMatrixInventory(currentInventory);
+            
+            // 계획 데이터를 매트릭스에 반영
+            result.data.details.forEach(row => {
+                const month = row.month;
+                matrixData.ship[month] = Math.abs(row.ship) || 0;
+                matrixData.fill[month] = row.fill || 0;
+                matrixData.recover[month] = row.recover || 0;
+                matrixData.purchase[month] = row.purchase || 0;
+                matrixData.repair[month] = row.repair || 0;
+            });
+            
+            // 입력 필드 업데이트
+            updateMatrixInputs();
+            
+            // 시뮬레이션 실행
+            calculateMatrix();
+        }
+    } catch (error) {
+        console.error('Load plan error:', error);
+    }
+}
+
+function updateMatrixInputs() {
+    ['ship', 'fill', 'recover', 'purchase', 'repair'].forEach(type => {
+        matrixData.months.forEach(month => {
+            const input = document.querySelector(`input[data-month="${month}"][data-type="${type}"]`);
+            if (input) {
+                input.value = matrixData[type][month] || 0;
+            }
+        });
+    });
+}
+
+function updateMatrixInventory(inv) {
+    document.getElementById('matrixAvailable').textContent = inv.available.toLocaleString();
+    document.getElementById('matrixEnduser').textContent = inv.at_enduser.toLocaleString();
+    document.getElementById('matrixRepair').textContent = inv.in_repair.toLocaleString();
+    document.getElementById('matrixExpired').textContent = inv.expired.toLocaleString();
+    
+    // 기본 모드 현황도 업데이트
+    document.getElementById('currentAvailable').textContent = inv.available.toLocaleString();
+    document.getElementById('currentEnduser').textContent = inv.at_enduser.toLocaleString();
+    document.getElementById('currentRepair').textContent = inv.in_repair.toLocaleString();
+    document.getElementById('currentExpired').textContent = inv.expired.toLocaleString();
+}
+
+function onMatrixInput(input) {
+    // 입력 중에는 debounce로 계산 지연
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        onMatrixChange(input);
+    }, 300);
+}
+
+function onMatrixChange(input) {
+    const month = input.dataset.month;
+    const type = input.dataset.type;
+    const value = parseInt(input.value) || 0;
+    
+    matrixData[type][month] = value;
+    calculateMatrix();
+}
+
+function calculateMatrix() {
+    if (!currentInventory) return;
+    
+    let available = currentInventory.available;
+    let atEnduser = currentInventory.at_enduser;
+    let inRepair = currentInventory.in_repair;
+    let expired = currentInventory.expired;
+    
+    const availableSeries = [];
+    const enduserSeries = [];
+    
+    matrixData.months.forEach(month => {
+        const ship = matrixData.ship[month] || 0;
+        const fill = matrixData.fill[month] || 0;
+        const recover = matrixData.recover[month] || 0;
+        const purchase = matrixData.purchase[month] || 0;
+        const repair = matrixData.repair[month] || 0;
+        
+        // 출하: 가용 → 엔드유저
+        const actualShip = Math.min(ship, available);
+        available -= actualShip;
+        atEnduser += actualShip;
+        
+        // 회수: 엔드유저 → 가용
+        const actualRecover = Math.min(recover, atEnduser);
+        atEnduser -= actualRecover;
+        available += actualRecover;
+        
+        // 신규 구매
+        available += purchase;
+        
+        // 정비 투입
+        const actualRepair = Math.min(repair, inRepair);
+        inRepair -= actualRepair;
+        available += actualRepair;
+        
+        // 결과 저장
+        matrixData.available[month] = available;
+        matrixData.enduser[month] = atEnduser;
+        
+        availableSeries.push(available);
+        enduserSeries.push(atEnduser);
+    });
+    
+    // 결과 행 업데이트
+    matrixData.months.forEach(month => {
+        const availableCell = document.querySelector(`tr[data-row="available"] td[data-month="${month}"] .result-value`);
+        const enduserCell = document.querySelector(`tr[data-row="enduser"] td[data-month="${month}"] .result-value`);
+        
+        if (availableCell) availableCell.textContent = matrixData.available[month].toLocaleString();
+        if (enduserCell) enduserCell.textContent = matrixData.enduser[month].toLocaleString();
+    });
+    
+    // 그래프 업데이트
+    renderMatrixChart(availableSeries, enduserSeries);
+}
+
+function renderMatrixChart(availableSeries, enduserSeries) {
+    const options = {
+        series: [
+            { name: '가용재고', data: availableSeries },
+            { name: '엔드유저', data: enduserSeries },
+        ],
+        chart: {
+            type: 'area',
+            height: 280,
+            stacked: false,
+            toolbar: { show: false },
+            animations: {
+                enabled: true,
+                easing: 'easeinout',
+                speed: 300
+            }
+        },
+        colors: ['#34C759', '#007AFF'],
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 3 },
+        fill: {
+            type: 'gradient',
+            gradient: { opacityFrom: 0.5, opacityTo: 0.1 }
+        },
+        xaxis: {
+            categories: matrixData.months,
+            labels: { style: { fontSize: '11px' } }
+        },
+        yaxis: {
+            title: { text: '용기 수량' },
+            labels: {
+                formatter: function(val) { return val.toLocaleString(); }
+            }
+        },
+        tooltip: {
+            shared: true,
+            y: {
+                formatter: function(val) { return val.toLocaleString() + '병'; }
+            }
+        },
+        legend: { position: 'top' }
+    };
+
+    if (matrixChart) {
+        matrixChart.updateOptions(options);
+    } else {
+        matrixChart = new ApexCharts(document.getElementById('matrixChart'), options);
+        matrixChart.render();
+    }
+}
+
+function resetMatrix() {
+    matrixData.months.forEach(month => {
+        matrixData.ship[month] = 0;
+        matrixData.fill[month] = 0;
+        matrixData.recover[month] = 0;
+        matrixData.purchase[month] = 0;
+        matrixData.repair[month] = 0;
+    });
+    updateMatrixInputs();
+    calculateMatrix();
+}
+
+// ==================== 기본 모드 함수들 ====================
 
 async function runSimulation() {
     const cylinderTypeKey = document.getElementById('cylinderTypeSelect').value;
@@ -343,6 +668,7 @@ async function runSimulation() {
         
         if (result.success) {
             simulationData = result.data;
+            currentInventory = result.data.current;
             updateCurrentInventory(result.data.current);
             renderChart(result.data);
             renderTable(result.data.details);
@@ -364,7 +690,8 @@ function updateCurrentInventory(current) {
 }
 
 function renderChart(data) {
-    const chartType = document.querySelector('input[name="chartType"]:checked').id;
+    const chartTypeEl = document.querySelector('input[name="chartType"]:checked');
+    const chartType = chartTypeEl ? chartTypeEl.id : 'chartArea';
     
     let type = 'area';
     if (chartType === 'chartLine') type = 'line';
@@ -383,74 +710,34 @@ function renderChart(data) {
             stacked: type === 'area' || type === 'bar',
             toolbar: {
                 show: true,
-                tools: {
-                    download: true,
-                    selection: false,
-                    zoom: false,
-                    zoomin: false,
-                    zoomout: false,
-                    pan: false,
-                    reset: false
-                }
+                tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false, reset: false }
             },
-            animations: {
-                enabled: true,
-                easing: 'easeinout',
-                speed: 500
-            }
+            animations: { enabled: true, easing: 'easeinout', speed: 500 }
         },
         colors: ['#34C759', '#007AFF', '#FF9500', '#FF3B30'],
-        dataLabels: {
-            enabled: false
-        },
-        stroke: {
-            curve: 'smooth',
-            width: type === 'area' ? 2 : 3
-        },
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: type === 'area' ? 2 : 3 },
         fill: {
             type: type === 'area' ? 'gradient' : 'solid',
-            gradient: {
-                opacityFrom: 0.6,
-                opacityTo: 0.1,
-            }
+            gradient: { opacityFrom: 0.6, opacityTo: 0.1 }
         },
         xaxis: {
             categories: data.months,
-            labels: {
-                style: {
-                    fontSize: '11px'
-                }
-            }
+            labels: { style: { fontSize: '11px' } }
         },
         yaxis: {
-            title: {
-                text: '용기 수량'
-            },
-            labels: {
-                formatter: function(val) {
-                    return val.toLocaleString();
-                }
-            }
+            title: { text: '용기 수량' },
+            labels: { formatter: function(val) { return val.toLocaleString(); } }
         },
         tooltip: {
             shared: true,
             intersect: false,
-            y: {
-                formatter: function(val) {
-                    return val.toLocaleString() + '병';
-                }
-            }
+            y: { formatter: function(val) { return val.toLocaleString() + '병'; } }
         },
-        legend: {
-            position: 'top',
-            horizontalAlign: 'center'
-        }
+        legend: { position: 'top', horizontalAlign: 'center' }
     };
 
-    if (chart) {
-        chart.destroy();
-    }
-
+    if (chart) chart.destroy();
     chart = new ApexCharts(document.getElementById('simulationChart'), options);
     chart.render();
 }
@@ -509,6 +796,91 @@ function renderTable(details) {
     margin-top: 2px;
 }
 
+/* 매트릭스 모드 스타일 */
+.matrix-edit-table {
+    font-size: 13px;
+}
+.matrix-edit-table th {
+    background: #F5F5F7;
+    font-weight: 600;
+    font-size: 11px;
+    padding: 8px 4px;
+    white-space: nowrap;
+}
+.matrix-edit-table .sticky-col {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 1;
+    border-right: 2px solid #dee2e6 !important;
+    min-width: 140px;
+}
+.matrix-edit-table thead .sticky-col {
+    background: #F5F5F7;
+    z-index: 2;
+}
+.matrix-edit-table .row-label {
+    font-size: 12px;
+    padding: 4px 8px;
+}
+.matrix-edit-table .matrix-cell {
+    padding: 2px !important;
+}
+.matrix-input {
+    width: 60px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 4px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+.matrix-input:focus {
+    outline: none;
+    border-color: var(--ios-blue);
+    box-shadow: 0 0 0 2px rgba(0,122,255,0.2);
+}
+.result-row {
+    background: #f8f9fa !important;
+}
+.result-row td {
+    font-weight: 600;
+}
+.result-value {
+    font-variant-numeric: tabular-nums;
+    color: var(--ios-blue);
+}
+.month-header {
+    min-width: 70px;
+}
+.bg-purple {
+    background-color: #5856D6 !important;
+}
+
+/* 매트릭스 재고 배지 */
+.inventory-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+.inventory-badge.available { background: rgba(52, 199, 89, 0.1); }
+.inventory-badge.enduser { background: rgba(0, 122, 255, 0.1); }
+.inventory-badge.repair { background: rgba(255, 149, 0, 0.1); }
+.inventory-badge.expired { background: rgba(255, 59, 48, 0.1); }
+
+.inventory-badge .label { color: #666; }
+.inventory-badge .value { 
+    font-weight: 700; 
+    font-variant-numeric: tabular-nums;
+}
+.inventory-badge.available .value { color: #34C759; }
+.inventory-badge.enduser .value { color: #007AFF; }
+.inventory-badge.repair .value { color: #FF9500; }
+.inventory-badge.expired .value { color: #FF3B30; }
+
 .legend-badge {
     display: inline-flex;
     align-items: center;
@@ -542,4 +914,3 @@ function renderTable(details) {
 }
 </style>
 {% endblock %}
-

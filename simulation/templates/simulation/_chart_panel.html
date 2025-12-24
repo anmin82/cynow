@@ -1,0 +1,69 @@
+<!-- 그래프 카드 -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-graph-up me-2"></i>12개월 재고 예측</span>
+        <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="chartType" id="chartArea" checked>
+            <label class="btn btn-outline-secondary" for="chartArea">영역</label>
+            <input type="radio" class="btn-check" name="chartType" id="chartLine">
+            <label class="btn btn-outline-secondary" for="chartLine">선</label>
+            <input type="radio" class="btn-check" name="chartType" id="chartBar">
+            <label class="btn btn-outline-secondary" for="chartBar">막대</label>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="simulationChart" style="min-height: 350px;"></div>
+        <div id="chartPlaceholder" class="text-center text-muted py-5">
+            <i class="bi bi-bar-chart" style="font-size: 3rem;"></i>
+            <p class="mt-3">용기종류를 선택하고 시뮬레이션을 실행하세요</p>
+        </div>
+    </div>
+</div>
+
+<!-- 범례 -->
+<div class="d-flex gap-3 mb-3 flex-wrap justify-content-center">
+    <span class="legend-badge available"><span class="dot"></span>가용재고</span>
+    <span class="legend-badge enduser"><span class="dot"></span>엔드유저 보유</span>
+    <span class="legend-badge repair"><span class="dot"></span>정비대기</span>
+    <span class="legend-badge expired"><span class="dot"></span>내압만료</span>
+</div>
+
+<!-- 상세 테이블 -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table me-2"></i>월별 상세 내역</span>
+        <button class="btn btn-sm btn-outline-secondary" type="button" 
+                data-bs-toggle="collapse" data-bs-target="#detailsCollapse">
+            <i class="bi bi-chevron-down"></i>
+        </button>
+    </div>
+    <div class="collapse show" id="detailsCollapse">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0" id="detailsTable">
+                    <thead>
+                        <tr>
+                            <th>월</th>
+                            <th class="text-end">가용</th>
+                            <th class="text-end" style="color:#5856D6;">충전</th>
+                            <th class="text-end text-danger">출하</th>
+                            <th class="text-end text-success">회수</th>
+                            <th class="text-end text-primary">구매</th>
+                            <th class="text-end text-info">정비</th>
+                            <th class="text-end text-warning">만료</th>
+                            <th class="text-end">엔드유저</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailsBody">
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                시뮬레이션 결과가 여기에 표시됩니다
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
