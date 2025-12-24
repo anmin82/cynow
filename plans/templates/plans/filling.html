@@ -44,7 +44,7 @@
                                 {{ row.info.capacity|default:"-" }} | 
                                 {{ row.info.valve_type|default:"-" }} | 
                                 {{ row.info.cylinder_spec|extract_material }}
-                                {% if row.info.usage_place %} | {{ row.info.usage_place }}{% endif %}
+                                {% if row.info.enduser %}<br><small class="text-primary">{{ row.info.enduser }}</small>{% endif %}
                             </div>
                         </td>
                         {% for month in months %}

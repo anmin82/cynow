@@ -70,11 +70,11 @@
                                         {% for type_key, type_info in cylinder_types %}
                                         <option value="{{ type_key }}" 
                                                 {% if product.cylinder_type_key == type_key %}selected{% endif %}>
-                                            {{ type_info.gas_name }} / {{ type_info.capacity }} / {{ type_info.valve_spec|default:'-' }}
+                                            {{ type_info.gas_name }} / {{ type_info.capacity }} / {{ type_info.valve_type|default:'-' }}{% if type_info.enduser %} [{{ type_info.enduser }}]{% endif %}
                                         </option>
                                         {% endfor %}
                                     </select>
-                                    <small class="text-muted">시뮬레이션 등에서 사용할 용기종류</small>
+                                    <small class="text-muted">시뮬레이션 등에서 사용할 용기종류 (엔드유저별 구분)</small>
                                 </div>
                                 
                                 <div class="col-md-6">

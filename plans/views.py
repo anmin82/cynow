@@ -12,7 +12,7 @@ import json
 
 
 def get_cylinder_type_list():
-    """용기종류 목록 조회 (대시보드와 동일한 그룹화)"""
+    """용기종류 목록 조회 (대시보드와 동일한 그룹화 + 엔드유저별 구분)"""
     all_inventory = CylinderRepository.get_inventory_summary()
     cylinder_type_options = {}
     
@@ -22,9 +22,9 @@ def get_cylinder_type_list():
         valve_spec = row.get('valve_spec', '')
         valve_type = extract_valve_type(valve_spec)
         cylinder_spec = row.get('cylinder_spec', '')
-        usage_place = row.get('usage_place') or ''
+        enduser = row.get('enduser') or ''  # 엔드유저별 구분
         
-        group_key = f"{gas_name}|{capacity}|{valve_type}|{cylinder_spec}|{usage_place}"
+        group_key = f"{gas_name}|{capacity}|{valve_type}|{cylinder_spec}|{enduser}"
         
         if group_key not in cylinder_type_options:
             cylinder_type_options[group_key] = {
@@ -32,10 +32,10 @@ def get_cylinder_type_list():
                 'capacity': capacity,
                 'valve_type': valve_type,
                 'cylinder_spec': cylinder_spec,
-                'usage_place': usage_place,
+                'enduser': enduser,
             }
     
-    return sorted(cylinder_type_options.items(), key=lambda x: (x[1]['gas_name'], x[1]['capacity'] or ''))
+    return sorted(cylinder_type_options.items(), key=lambda x: (x[1]['gas_name'], x[1]['capacity'] or '', x[1]['enduser'] or ''))
 
 
 def get_months_list(count=6):
