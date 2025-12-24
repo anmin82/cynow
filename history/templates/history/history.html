@@ -148,57 +148,46 @@
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
-                <thead>
+            <table class="table table-hover table-sm mb-0" style="font-size: 12px;">
+                <thead class="table-light">
                     <tr>
-                        <th>이동일시</th>
-                        <th>용기번호</th>
-                        <th>가스/용량/밸브</th>
-                        <th>이동</th>
-                        <th>상태</th>
-                        <th>이동서</th>
-                        <th>LOT</th>
-                        <th class="text-end">Gross</th>
-                        <th class="text-end">Net</th>
-                        <th class="text-end">Tare</th>
-                        <th>담당자</th>
-                        <th>비고</th>
+                        <th class="text-nowrap">이동일시</th>
+                        <th class="text-nowrap">용기번호</th>
+                        <th class="text-nowrap">가스명</th>
+                        <th class="text-nowrap text-center">용량</th>
+                        <th class="text-nowrap">이동</th>
+                        <th class="text-nowrap">상태</th>
+                        <th class="text-nowrap">이동서</th>
+                        <th class="text-nowrap">제조LOT</th>
+                        <th class="text-nowrap">충전LOT</th>
+                        <th class="text-nowrap text-end">Gross</th>
+                        <th class="text-nowrap text-end">Net</th>
+                        <th class="text-nowrap text-end">Tare</th>
+                        <th class="text-nowrap">담당자</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for h in histories %}
                     <tr>
-                        <td class="font-monospace">{{ h.move_date|date:"Y-m-d H:i" }}</td>
-                        <td class="font-monospace">
+                        <td class="font-monospace text-nowrap">{{ h.move_date|date:"Y-m-d H:i" }}</td>
+                        <td class="font-monospace text-nowrap">
                             {{ h.cylinder_no }}
-                            {% if h.clf3_over %}
-                            <span class="badge bg-danger ms-1">CLF3 5회 초과</span>
-                            {% elif h.clf3_ship_count %}
-                            <span class="badge bg-warning text-dark ms-1">CLF3 {{ h.clf3_ship_count }}회</span>
-                            {% endif %}
+                            {% if h.clf3_over %}<span class="badge bg-danger">초과</span>
+                            {% elif h.clf3_ship_count %}<span class="badge bg-warning text-dark">{{ h.clf3_ship_count }}회</span>{% endif %}
                         </td>
-                        <td>
-                            <div>{{ h.gas_name }} ({{ h.capacity }})</div>
-                            <div class="text-muted small">{{ h.valve_spec }} / {{ h.cylinder_spec }}</div>
+                        <td class="text-nowrap">{{ h.gas_name }}</td>
+                        <td class="text-center text-nowrap">{{ h.capacity }}</td>
+                        <td class="text-nowrap">
+                            <span class="badge bg-secondary">{{ move_code_names|dict_get:h.move_code|default:h.move_code }}</span>
                         </td>
-                        <td>
-                            <span class="badge bg-dark">{{ move_code_names|dict_get:h.move_code|default:h.move_code }}</span>
-                        </td>
-                        <td>
-                            <div class="fw-semibold">{{ h.standard_status|default:"" }}</div>
-                        </td>
-                        <td class="font-monospace">
-                            {{ h.move_report_no }}
-                        </td>
-                        <td>
-                            <div class="small text-muted">제조 {{ h.manufacture_lot|default:"-" }}</div>
-                            <div class="small text-muted">충전 {{ h.filling_lot|default:"-" }}</div>
-                        </td>
-                        <td class="text-end">{{ h.gross_weight|default:"" }}</td>
-                        <td class="text-end">{{ h.net_weight|default:"" }}</td>
-                        <td class="text-end">{{ h.tare_weight|default:"" }}</td>
-                        <td>{{ h.move_staff_name }}</td>
-                        <td><small class="text-muted">{{ h.remarks|default:"" }}</small></td>
+                        <td class="text-nowrap fw-semibold">{{ h.standard_status|default:"-" }}</td>
+                        <td class="font-monospace text-nowrap">{{ h.move_report_no|default:"-" }}</td>
+                        <td class="font-monospace text-nowrap">{{ h.manufacture_lot|default:"-" }}</td>
+                        <td class="font-monospace text-nowrap">{{ h.filling_lot|default:"-" }}</td>
+                        <td class="text-end text-nowrap">{{ h.gross_weight|default:"-" }}</td>
+                        <td class="text-end text-nowrap">{{ h.net_weight|default:"-" }}</td>
+                        <td class="text-end text-nowrap">{{ h.tare_weight|default:"-" }}</td>
+                        <td class="text-nowrap">{{ h.move_staff_name|default:"-" }}</td>
                     </tr>
                     {% empty %}
                     <tr>
