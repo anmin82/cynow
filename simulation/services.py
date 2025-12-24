@@ -57,7 +57,8 @@ class SimulationService:
             result['total'] += qty
             
             # 내압만료 체크
-            if expire_date and expire_date.date() < today:
+            expire_date_val = expire_date.date() if hasattr(expire_date, 'date') else expire_date
+            if expire_date_val and expire_date_val < today:
                 result['expired'] += qty
             elif status in ('보관:미회수', '보관:회수', '보관'):
                 result['available'] += qty
