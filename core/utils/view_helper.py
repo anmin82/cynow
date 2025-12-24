@@ -236,16 +236,13 @@ def group_cylinder_types(inventory_data: List[Dict]) -> Dict[str, Dict]:
             cylinder_types[group_key]['statuses'][status] = qty
         
         # 통합된 상태 카운트 (UI 표시용)
+        # 충전중/충전완료, 분석중/분석완료는 분리 표시
         grouped_status = status
         if status in ('보관:미회수', '보관:회수'):
             grouped_status = '보관'
-        elif status in ('충전중', '충전완료'):
-            grouped_status = '충전중'
-        elif status == '분석완료':
-            grouped_status = '분석중'
         elif status == '정비대상':
             grouped_status = '정비'
-        # 제품, 출하, 이상, 폐기는 그대로
+        # 충전중, 충전완료, 분석중, 분석완료, 제품, 출하, 이상, 폐기는 그대로
         
         if grouped_status in cylinder_types[group_key]['statuses_grouped']:
             cylinder_types[group_key]['statuses_grouped'][grouped_status] += qty

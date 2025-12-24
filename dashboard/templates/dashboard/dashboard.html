@@ -139,7 +139,9 @@
                         <th class="text-end">총</th>
                         <th class="text-end">보관</th>
                         <th class="text-end">충전중</th>
+                        <th class="text-end">충전완료</th>
                         <th class="text-end">분석중</th>
+                        <th class="text-end">분석완료</th>
                         <th class="text-end">제품</th>
                         <th class="text-end">출하</th>
                         <th class="text-end">이상</th>
@@ -165,7 +167,9 @@
                         <td class="text-end text-muted">{{ type.total_qty }}</td>
                         <td class="text-end">{{ type.statuses_grouped.보관|default:0 }}</td>
                         <td class="text-end">{{ type.statuses_grouped.충전중|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.충전완료|default:0 }}</td>
                         <td class="text-end">{{ type.statuses_grouped.분석중|default:0 }}</td>
+                        <td class="text-end">{{ type.statuses_grouped.분석완료|default:0 }}</td>
                         <td class="text-end">{{ type.statuses_grouped.제품|default:0 }}</td>
                         <td class="text-end">{{ type.statuses_grouped.출하|default:0 }}</td>
                         <td class="text-end {% if type.statuses_grouped.이상 %}text-danger{% endif %}">{{ type.statuses_grouped.이상|default:0 }}</td>
