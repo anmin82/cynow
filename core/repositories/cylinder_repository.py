@@ -210,7 +210,8 @@ class CylinderRepository:
                              THEN CONCAT('-', tcs."FILLING_LOT_BRANCH") 
                              ELSE '' 
                         END
-                    ) as filling_lot
+                    ) as filling_lot,
+                    mc."WEIGHT" as cylinder_weight
                 FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
