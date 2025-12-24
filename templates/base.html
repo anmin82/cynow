@@ -634,6 +634,8 @@
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{% url 'plans:forecast' %}"><i class="bi bi-box-arrow-up me-2"></i>출하 계획</a></li>
                             <li><a class="dropdown-item" href="{% url 'plans:scheduled' %}"><i class="bi bi-box-arrow-in-down me-2"></i>투입 계획</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'simulation:index' %}"><i class="bi bi-arrow-repeat me-2"></i>사이클 시뮬레이션</a></li>
                         </ul>
                     </li>
                     {% if user.is_authenticated and user.is_staff %}

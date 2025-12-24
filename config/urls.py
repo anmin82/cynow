@@ -35,6 +35,7 @@ urlpatterns = [
     
     # Login required (write operations)
     path('plans/', include('plans.urls')),
+    path('simulation/', include('simulation.urls')),
     
     # Policy management (staff only)
     path('core/', include('core.urls')),

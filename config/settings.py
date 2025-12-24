@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'alerts',
     'orders',
     'devices',
+    'simulation',
 ]
 
 MIDDLEWARE = [

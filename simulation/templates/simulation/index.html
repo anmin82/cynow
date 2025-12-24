@@ -1,0 +1,540 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}용기 사이클 시뮬레이션 - CYNOW{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="page-title">🔄 용기 사이클 시뮬레이션</h1>
+    <p class="page-subtitle">CYLINDER LIFECYCLE • 출하/회수/투입 시나리오 예측</p>
+</div>
+
+<div class="row g-4">
+    <!-- 좌측: 설정 패널 -->
+    <div class="col-lg-4">
+        <!-- 용기종류 선택 -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-box-seam me-2"></i>용기종류 선택
+            </div>
+            <div class="card-body">
+                <select id="cylinderTypeSelect" class="form-select">
+                    <option value="">-- 용기종류 선택 --</option>
+                    {% for ct in cylinder_types %}
+                    <option value="{{ ct.cylinder_type_key }}" 
+                            data-gas="{{ ct.gas_name }}"
+                            data-capacity="{{ ct.capacity }}">
+                        {{ ct.display_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- 현재 재고 현황 -->
+        <div class="card mb-3" id="currentInventoryCard" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-pie-chart me-2"></i>현재 재고 현황
+            </div>
+            <div class="card-body">
+                <div class="row g-2 text-center">
+                    <div class="col-6">
+                        <div class="inventory-stat available">
+                            <div class="stat-value" id="currentAvailable">-</div>
+                            <div class="stat-label">가용재고</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="inventory-stat enduser">
+                            <div class="stat-value" id="currentEnduser">-</div>
+                            <div class="stat-label">엔드유저</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="inventory-stat repair">
+                            <div class="stat-value" id="currentRepair">-</div>
+                            <div class="stat-label">정비대기</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="inventory-stat expired">
+                            <div class="stat-value" id="currentExpired">-</div>
+                            <div class="stat-label">내압만료</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 회수 예측 설정 -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-arrow-return-left me-2"></i>회수 예측 설정
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="recoveryMethod" 
+                               id="methodFixedRate" value="fixed_rate" checked>
+                        <label class="form-check-label" for="methodFixedRate">
+                            고정 비율
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="recoveryMethod" 
+                               id="methodHistorical" value="historical">
+                        <label class="form-check-label" for="methodHistorical">
+                            과거 실적 기반
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="recoveryMethod" 
+                               id="methodManual" value="manual">
+                        <label class="form-check-label" for="methodManual">
+                            직접 입력
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 고정 비율 설정 -->
+                <div id="fixedRateSettings">
+                    <div class="mb-3">
+                        <label class="form-label">회수율</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="range" class="form-range flex-grow-1" id="recoveryRateSlider" 
+                                   min="0" max="100" value="80">
+                            <span class="badge bg-primary" id="recoveryRateValue">80%</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">회수 리드타임</label>
+                        <select id="recoveryLeadMonths" class="form-select form-select-sm">
+                            <option value="1">1개월</option>
+                            <option value="2" selected>2개월</option>
+                            <option value="3">3개월</option>
+                            <option value="4">4개월</option>
+                            <option value="6">6개월</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 직접 입력 (숨김) -->
+                <div id="manualSettings" style="display: none;">
+                    <p class="text-muted small">월별 회수량은 하단 테이블에서 직접 입력하세요.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 투입 조절 -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-sliders me-2"></i>투입 조절
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label d-flex justify-content-between">
+                        <span>신규 구매 배수</span>
+                        <span class="text-primary fw-bold" id="purchaseMultValue">1.0x</span>
+                    </label>
+                    <input type="range" class="form-range" id="purchaseMultiplier" 
+                           min="0" max="2" step="0.1" value="1">
+                    <div class="d-flex justify-content-between text-muted small">
+                        <span>0x</span>
+                        <span>계획대비</span>
+                        <span>2x</span>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <label class="form-label d-flex justify-content-between">
+                        <span>정비 투입 배수</span>
+                        <span class="text-primary fw-bold" id="repairMultValue">1.0x</span>
+                    </label>
+                    <input type="range" class="form-range" id="repairMultiplier" 
+                           min="0" max="2" step="0.1" value="1">
+                    <div class="d-flex justify-content-between text-muted small">
+                        <span>0x</span>
+                        <span>계획대비</span>
+                        <span>2x</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 시뮬레이션 버튼 -->
+        <button class="btn btn-primary w-100 btn-lg" id="simulateBtn" disabled>
+            <i class="bi bi-play-fill me-2"></i>시뮬레이션 실행
+        </button>
+    </div>
+
+    <!-- 우측: 그래프 및 결과 -->
+    <div class="col-lg-8">
+        <!-- 그래프 카드 -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-graph-up me-2"></i>12개월 재고 예측</span>
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="chartType" id="chartArea" checked>
+                    <label class="btn btn-outline-secondary" for="chartArea">영역</label>
+                    <input type="radio" class="btn-check" name="chartType" id="chartLine">
+                    <label class="btn btn-outline-secondary" for="chartLine">선</label>
+                    <input type="radio" class="btn-check" name="chartType" id="chartBar">
+                    <label class="btn btn-outline-secondary" for="chartBar">막대</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="simulationChart" style="min-height: 350px;"></div>
+                <div id="chartPlaceholder" class="text-center text-muted py-5">
+                    <i class="bi bi-bar-chart" style="font-size: 3rem;"></i>
+                    <p class="mt-3">용기종류를 선택하고 시뮬레이션을 실행하세요</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 범례 -->
+        <div class="d-flex gap-3 mb-3 flex-wrap justify-content-center">
+            <span class="legend-badge available"><span class="dot"></span>가용재고</span>
+            <span class="legend-badge enduser"><span class="dot"></span>엔드유저 보유</span>
+            <span class="legend-badge repair"><span class="dot"></span>정비대기</span>
+            <span class="legend-badge expired"><span class="dot"></span>내압만료</span>
+        </div>
+
+        <!-- 상세 테이블 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-table me-2"></i>월별 상세 내역</span>
+                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                        data-bs-toggle="collapse" data-bs-target="#detailsCollapse">
+                    <i class="bi bi-chevron-down"></i>
+                </button>
+            </div>
+            <div class="collapse show" id="detailsCollapse">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0" id="detailsTable">
+                            <thead>
+                                <tr>
+                                    <th>월</th>
+                                    <th class="text-end">가용</th>
+                                    <th class="text-end text-danger">출하</th>
+                                    <th class="text-end text-success">회수</th>
+                                    <th class="text-end text-primary">구매</th>
+                                    <th class="text-end text-info">정비</th>
+                                    <th class="text-end text-warning">만료</th>
+                                    <th class="text-end">엔드유저</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailsBody">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        시뮬레이션 결과가 여기에 표시됩니다
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let chart = null;
+let simulationData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 용기종류 선택 시
+    document.getElementById('cylinderTypeSelect').addEventListener('change', function() {
+        const selected = this.value;
+        document.getElementById('simulateBtn').disabled = !selected;
+        if (selected) {
+            document.getElementById('currentInventoryCard').style.display = 'block';
+            // 자동으로 시뮬레이션 실행
+            runSimulation();
+        } else {
+            document.getElementById('currentInventoryCard').style.display = 'none';
+        }
+    });
+
+    // 회수 방법 변경 시
+    document.querySelectorAll('input[name="recoveryMethod"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('fixedRateSettings').style.display = 
+                (this.value === 'fixed_rate' || this.value === 'historical') ? 'block' : 'none';
+            document.getElementById('manualSettings').style.display = 
+                this.value === 'manual' ? 'block' : 'none';
+            
+            if (simulationData) runSimulation();
+        });
+    });
+
+    // 슬라이더 변경 시
+    document.getElementById('recoveryRateSlider').addEventListener('input', function() {
+        document.getElementById('recoveryRateValue').textContent = this.value + '%';
+    });
+    document.getElementById('recoveryRateSlider').addEventListener('change', function() {
+        if (simulationData) runSimulation();
+    });
+
+    document.getElementById('purchaseMultiplier').addEventListener('input', function() {
+        document.getElementById('purchaseMultValue').textContent = parseFloat(this.value).toFixed(1) + 'x';
+    });
+    document.getElementById('purchaseMultiplier').addEventListener('change', function() {
+        if (simulationData) runSimulation();
+    });
+
+    document.getElementById('repairMultiplier').addEventListener('input', function() {
+        document.getElementById('repairMultValue').textContent = parseFloat(this.value).toFixed(1) + 'x';
+    });
+    document.getElementById('repairMultiplier').addEventListener('change', function() {
+        if (simulationData) runSimulation();
+    });
+
+    document.getElementById('recoveryLeadMonths').addEventListener('change', function() {
+        if (simulationData) runSimulation();
+    });
+
+    // 시뮬레이션 버튼
+    document.getElementById('simulateBtn').addEventListener('click', runSimulation);
+
+    // 차트 타입 변경
+    document.querySelectorAll('input[name="chartType"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (simulationData) {
+                renderChart(simulationData);
+            }
+        });
+    });
+});
+
+async function runSimulation() {
+    const cylinderTypeKey = document.getElementById('cylinderTypeSelect').value;
+    if (!cylinderTypeKey) return;
+
+    const recoveryMethod = document.querySelector('input[name="recoveryMethod"]:checked').value;
+    const recoveryRate = document.getElementById('recoveryRateSlider').value;
+    const recoveryLeadMonths = document.getElementById('recoveryLeadMonths').value;
+    const purchaseMultiplier = document.getElementById('purchaseMultiplier').value;
+    const repairMultiplier = document.getElementById('repairMultiplier').value;
+
+    try {
+        const response = await fetch('{% url "simulation:calculate" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                cylinder_type_key: cylinderTypeKey,
+                recovery_method: recoveryMethod,
+                recovery_rate: recoveryRate,
+                recovery_lead_months: recoveryLeadMonths,
+                purchase_multiplier: purchaseMultiplier,
+                repair_multiplier: repairMultiplier
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            simulationData = result.data;
+            updateCurrentInventory(result.data.current);
+            renderChart(result.data);
+            renderTable(result.data.details);
+            document.getElementById('chartPlaceholder').style.display = 'none';
+        } else {
+            alert('오류: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Simulation error:', error);
+        alert('시뮬레이션 실행 중 오류가 발생했습니다.');
+    }
+}
+
+function updateCurrentInventory(current) {
+    document.getElementById('currentAvailable').textContent = current.available.toLocaleString();
+    document.getElementById('currentEnduser').textContent = current.at_enduser.toLocaleString();
+    document.getElementById('currentRepair').textContent = current.in_repair.toLocaleString();
+    document.getElementById('currentExpired').textContent = current.expired.toLocaleString();
+}
+
+function renderChart(data) {
+    const chartType = document.querySelector('input[name="chartType"]:checked').id;
+    
+    let type = 'area';
+    if (chartType === 'chartLine') type = 'line';
+    if (chartType === 'chartBar') type = 'bar';
+
+    const options = {
+        series: [
+            { name: '가용재고', data: data.series.available },
+            { name: '엔드유저', data: data.series.at_enduser },
+            { name: '정비대기', data: data.series.in_repair },
+            { name: '내압만료', data: data.series.expired },
+        ],
+        chart: {
+            type: type,
+            height: 350,
+            stacked: type === 'area' || type === 'bar',
+            toolbar: {
+                show: true,
+                tools: {
+                    download: true,
+                    selection: false,
+                    zoom: false,
+                    zoomin: false,
+                    zoomout: false,
+                    pan: false,
+                    reset: false
+                }
+            },
+            animations: {
+                enabled: true,
+                easing: 'easeinout',
+                speed: 500
+            }
+        },
+        colors: ['#34C759', '#007AFF', '#FF9500', '#FF3B30'],
+        dataLabels: {
+            enabled: false
+        },
+        stroke: {
+            curve: 'smooth',
+            width: type === 'area' ? 2 : 3
+        },
+        fill: {
+            type: type === 'area' ? 'gradient' : 'solid',
+            gradient: {
+                opacityFrom: 0.6,
+                opacityTo: 0.1,
+            }
+        },
+        xaxis: {
+            categories: data.months,
+            labels: {
+                style: {
+                    fontSize: '11px'
+                }
+            }
+        },
+        yaxis: {
+            title: {
+                text: '용기 수량'
+            },
+            labels: {
+                formatter: function(val) {
+                    return val.toLocaleString();
+                }
+            }
+        },
+        tooltip: {
+            shared: true,
+            intersect: false,
+            y: {
+                formatter: function(val) {
+                    return val.toLocaleString() + '병';
+                }
+            }
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'center'
+        }
+    };
+
+    if (chart) {
+        chart.destroy();
+    }
+
+    chart = new ApexCharts(document.getElementById('simulationChart'), options);
+    chart.render();
+}
+
+function renderTable(details) {
+    const tbody = document.getElementById('detailsBody');
+    
+    let html = '';
+    for (const row of details) {
+        html += `
+            <tr>
+                <td><strong>${row.month}</strong></td>
+                <td class="text-end">${row.available.toLocaleString()}</td>
+                <td class="text-end text-danger">${row.ship}</td>
+                <td class="text-end text-success">+${row.recover}</td>
+                <td class="text-end text-primary">+${row.purchase}</td>
+                <td class="text-end text-info">+${row.repair}</td>
+                <td class="text-end text-warning">${row.expire}</td>
+                <td class="text-end">${row.at_enduser.toLocaleString()}</td>
+            </tr>
+        `;
+    }
+    
+    tbody.innerHTML = html;
+}
+</script>
+
+<style>
+.inventory-stat {
+    padding: 12px 8px;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+.inventory-stat.available { background: rgba(52, 199, 89, 0.1); }
+.inventory-stat.enduser { background: rgba(0, 122, 255, 0.1); }
+.inventory-stat.repair { background: rgba(255, 149, 0, 0.1); }
+.inventory-stat.expired { background: rgba(255, 59, 48, 0.1); }
+
+.inventory-stat .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.inventory-stat.available .stat-value { color: #34C759; }
+.inventory-stat.enduser .stat-value { color: #007AFF; }
+.inventory-stat.repair .stat-value { color: #FF9500; }
+.inventory-stat.expired .stat-value { color: #FF3B30; }
+
+.inventory-stat .stat-label {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+}
+
+.legend-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #666;
+}
+.legend-badge .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+.legend-badge.available .dot { background: #34C759; }
+.legend-badge.enduser .dot { background: #007AFF; }
+.legend-badge.repair .dot { background: #FF9500; }
+.legend-badge.expired .dot { background: #FF3B30; }
+
+#detailsTable th {
+    background: #f8f9fa;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 8px 12px;
+}
+#detailsTable td {
+    padding: 8px 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.form-range::-webkit-slider-thumb {
+    background: var(--ios-blue);
+}
+</style>
+{% endblock %}
+
