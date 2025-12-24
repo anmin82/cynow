@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}제품코드 관리{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-upc-scan me-2"></i>제품코드 관리</h2>
+            <p class="text-muted mb-0">FCMS CDC 제품코드 동기화 및 단가 관리</p>
+        </div>
+        {% if user.is_authenticated %}
+        <button class="btn btn-primary" id="btnSync">
+            <i class="bi bi-arrow-repeat me-1"></i>CDC 동기화
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- 상태 카드 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 rounded-3 p-3">
+                                <i class="bi bi-database text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">CDC 테이블</h6>
+                            <h3 class="mb-0">{{ cdc_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 rounded-3 p-3">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">CYNOW 등록</h6>
+                            <h3 class="mb-0">{{ cynow_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 rounded-3 p-3">
+                                <i class="bi bi-clock-history text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">마지막 동기화</h6>
+                            <h5 class="mb-0">
+                                {% if last_sync %}
+                                    {{ last_sync.completed_at|date:"m/d H:i" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 검색 및 필터 -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label">검색</label>
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="제품코드, 가스명, 엔드유저..." value="{{ search }}">
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check">
+                        <input type="checkbox" name="show_inactive" value="1" 
+                               class="form-check-input" id="showInactive"
+                               {% if show_inactive %}checked{% endif %}>
+                        <label class="form-check-label" for="showInactive">
+                            비활성 포함
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-3 text-end">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-search me-1"></i>검색
+                    </button>
+                    <a href="{% url 'products:list' %}" class="btn btn-outline-secondary">
+                        초기화
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 제품코드 목록 -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul me-2"></i>제품코드 목록
+                <span class="badge bg-secondary ms-2">{{ products.paginator.count }}건</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">제품코드</th>
+                            <th>가스/용량/밸브</th>
+                            <th>엔드유저</th>
+                            <th class="text-end">현재 단가</th>
+                            <th style="width: 100px;">상태</th>
+                            <th style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                        <tr {% if not product.is_active %}class="table-secondary"{% endif %}>
+                            <td>
+                                <a href="{% url 'products:detail' product.pk %}" class="fw-bold text-decoration-none">
+                                    {{ product.trade_condition_no }}
+                                </a>
+                            </td>
+                            <td>
+                                <div>
+                                    {% if product.gas_name %}
+                                        <span class="badge bg-primary">{{ product.gas_name }}</span>
+                                    {% endif %}
+                                    {% if product.capacity %}
+                                        <span class="badge bg-secondary">{{ product.capacity }}kg</span>
+                                    {% endif %}
+                                    {% if product.valve_spec_name %}
+                                        <span class="badge bg-outline-secondary border">{{ product.valve_spec_name }}</span>
+                                    {% endif %}
+                                </div>
+                                {% if product.display_name %}
+                                <small class="text-muted">{{ product.display_name }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ product.customer_user_code|default:"-" }}</small>
+                            </td>
+                            <td class="text-end">
+                                {% with price=product.current_price_per_kg %}
+                                    {% if price %}
+                                        <strong>{{ price|floatformat:0 }}</strong>
+                                        <small class="text-muted">원/kg</small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% if product.is_active %}
+                                    <span class="badge bg-success">활성</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">비활성</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{% url 'products:detail' product.pk %}" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                                {% if cynow_count == 0 %}
+                                    등록된 제품코드가 없습니다.<br>
+                                    <strong>CDC 동기화</strong> 버튼을 클릭하여 FCMS에서 가져오세요.
+                                {% else %}
+                                    검색 결과가 없습니다.
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 페이징 -->
+        {% if products.has_other_pages %}
+        <div class="card-footer bg-white">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if products.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ products.previous_page_number }}&search={{ search }}&show_inactive={{ show_inactive|yesno:'1,0' }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in products.paginator.page_range %}
+                        {% if products.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}&search={{ search }}&show_inactive={{ show_inactive|yesno:'1,0' }}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if products.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ products.next_page_number }}&search={{ search }}&show_inactive={{ show_inactive|yesno:'1,0' }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnSync = document.getElementById('btnSync');
+    if (btnSync) {
+        btnSync.addEventListener('click', function() {
+            if (!confirm('FCMS CDC에서 제품코드를 동기화하시겠습니까?')) return;
+            
+            btnSync.disabled = true;
+            btnSync.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>동기화 중...';
+            
+            fetch('{% url "products:sync" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('오류: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('동기화 실패: ' + error);
+            })
+            .finally(() => {
+                btnSync.disabled = false;
+                btnSync.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>CDC 동기화';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}
+

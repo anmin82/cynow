@@ -36,6 +36,7 @@ urlpatterns = [
     # Login required (write operations)
     path('plans/', include('plans.urls')),
     path('simulation/', include('simulation.urls')),
+    path('products/', include('products.urls')),  # 제품코드 관리
     
     # Policy management (staff only)
     path('core/', include('core.urls')),

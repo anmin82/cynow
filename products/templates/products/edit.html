@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ product.trade_condition_no }} 수정{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-3">
+                    <li class="breadcrumb-item"><a href="{% url 'products:list' %}">제품코드</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'products:detail' product.pk %}">{{ product.trade_condition_no }}</a></li>
+                    <li class="breadcrumb-item active">수정</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-pencil me-2"></i>
+                        <span class="badge bg-primary me-2">{{ product.trade_condition_no }}</span>
+                        제품코드 수정
+                    </h5>
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="card-body">
+                        <!-- FCMS 정보 (읽기 전용) -->
+                        <div class="mb-4">
+                            <h6 class="text-muted mb-3">FCMS 정보 (읽기 전용)</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">가스명</label>
+                                    <input type="text" class="form-control" value="{{ product.gas_name|default:'-' }}" disabled>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">용량</label>
+                                    <input type="text" class="form-control" value="{{ product.capacity|default:'-' }} kg" disabled>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">용기 스펙</label>
+                                    <input type="text" class="form-control" value="{{ product.cylinder_spec_name|default:'-' }}" disabled>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">밸브 스펙</label>
+                                    <input type="text" class="form-control" value="{{ product.valve_spec_name|default:'-' }}" disabled>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- CYNOW 설정 -->
+                        <div class="mb-4">
+                            <h6 class="text-muted mb-3">CYNOW 설정</h6>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">표시명</label>
+                                    <input type="text" name="display_name" class="form-control" 
+                                           value="{{ product.display_name|default:'' }}"
+                                           placeholder="예: COS 25kg CGA330">
+                                    <small class="text-muted">사용자 친화적인 이름</small>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">용기종류 매핑</label>
+                                    <select name="cylinder_type_key" class="form-select">
+                                        <option value="">-- 선택 안 함 --</option>
+                                        {% for type_key, type_info in cylinder_types %}
+                                        <option value="{{ type_key }}" 
+                                                {% if product.cylinder_type_key == type_key %}selected{% endif %}>
+                                            {{ type_info.gas_name }} / {{ type_info.capacity }} / {{ type_info.valve_spec|default:'-' }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <small class="text-muted">시뮬레이션 등에서 사용할 용기종류</small>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <label class="form-label">메모</label>
+                                    <textarea name="note" class="form-control" rows="2"
+                                              placeholder="내부 메모">{{ product.note|default:'' }}</textarea>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="is_active" value="1" 
+                                               class="form-check-input" id="isActive"
+                                               {% if product.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="isActive">
+                                            활성화 (목록에 표시)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'products:detail' product.pk %}" class="btn btn-secondary">
+                                취소
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>저장
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
