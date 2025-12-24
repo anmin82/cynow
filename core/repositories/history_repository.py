@@ -764,50 +764,50 @@ class HistoryRepository:
                     ],
                 )
             else:
-            cursor.execute(
-                """
-                WITH last_snap AS (
+                cursor.execute(
+                    """
+                    WITH last_snap AS (
+                        SELECT
+                            date_trunc(%s, snapshot_datetime) AS bucket,
+                            MAX(snapshot_datetime) AS last_dt
+                        FROM hist_inventory_snapshot
+                        WHERE cylinder_type_key = %s
+                          AND snapshot_datetime >= %s
+                          AND snapshot_datetime < %s
+                          AND snapshot_type = %s
+                        GROUP BY 1
+                    )
                     SELECT
-                        date_trunc(%s, snapshot_datetime) AS bucket,
-                        MAX(snapshot_datetime) AS last_dt
-                    FROM hist_inventory_snapshot
-                    WHERE cylinder_type_key = %s
-                      AND snapshot_datetime >= %s
-                      AND snapshot_datetime < %s
-                      AND snapshot_type = %s
-                    GROUP BY 1
+                        l.bucket AS bucket,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS available_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS process_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS product_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS ship_qty,
+                        COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS unavailable_qty,
+                        COALESCE(SUM(s.qty), 0) AS total_qty
+                    FROM last_snap l
+                    LEFT JOIN hist_inventory_snapshot s
+                        ON s.snapshot_datetime = l.last_dt
+                       AND s.cylinder_type_key = %s
+                       AND s.snapshot_type = %s
+                    GROUP BY l.bucket
+                    ORDER BY l.bucket ASC
+                    """,
+                    [
+                        period,
+                        cylinder_type_key,
+                        start_dt,
+                        end_dt_exclusive,
+                        snapshot_type,
+                        available_statuses,
+                        process_statuses,
+                        product_statuses,
+                        ship_statuses,
+                        unavailable_statuses,
+                        cylinder_type_key,
+                        snapshot_type,
+                    ],
                 )
-                SELECT
-                    l.bucket AS bucket,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS available_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS process_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS product_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS ship_qty,
-                    COALESCE(SUM(s.qty) FILTER (WHERE s.status = ANY(%s)), 0) AS unavailable_qty,
-                    COALESCE(SUM(s.qty), 0) AS total_qty
-                FROM last_snap l
-                LEFT JOIN hist_inventory_snapshot s
-                    ON s.snapshot_datetime = l.last_dt
-                   AND s.cylinder_type_key = %s
-                   AND s.snapshot_type = %s
-                GROUP BY l.bucket
-                ORDER BY l.bucket ASC
-                """,
-                [
-                    period,
-                    cylinder_type_key,
-                    start_dt,
-                    end_dt_exclusive,
-                    snapshot_type,
-                    available_statuses,
-                    process_statuses,
-                    product_statuses,
-                    ship_statuses,
-                    unavailable_statuses,
-                    cylinder_type_key,
-                    snapshot_type,
-                ],
-            )
 
             cols = [c[0] for c in cursor.description]
             rows = cursor.fetchall()
