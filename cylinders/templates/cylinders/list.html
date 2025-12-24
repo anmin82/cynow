@@ -179,6 +179,7 @@
                     <tr class="small">
                         <th style="white-space:nowrap;">용기번호</th>
                         <th style="white-space:nowrap;">가스명</th>
+                        <th style="white-space:nowrap;">용기중량</th>
                         <th style="white-space:nowrap;">밸브형식</th>
                         <th style="white-space:nowrap;">밸브재질</th>
                         <th style="white-space:nowrap;">용기형식</th>
@@ -203,6 +204,7 @@
                             {% endif %}
                         </td>
                         <td>{{ cylinder.gas_name|translate_gas_name }}</td>
+                        <td class="text-end">{{ cylinder.cylinder_weight|default:"-" }}</td>
                         <td title="{{ cylinder.valve_spec|translate_valve_spec }}">
                             {% with raw=cylinder.valve_spec_raw|default:cylinder.valve_spec %}
                                 {% with parsed=raw|parse_valve_spec %}{{ parsed.format|default:"-" }}{% endwith %}
@@ -236,7 +238,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="12" class="text-center text-muted py-5">데이터가 없습니다.</td>
+                        <td colspan="13" class="text-center text-muted py-5">데이터가 없습니다.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

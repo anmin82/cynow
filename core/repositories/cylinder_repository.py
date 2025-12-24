@@ -210,12 +210,16 @@ class CylinderRepository:
                              THEN CONCAT('-', tcs."FILLING_LOT_BRANCH") 
                              ELSE '' 
                         END
-                    ) as filling_lot
+                    ) as filling_lot,
+                    mrd."CYLINDER_WEIGHT" as cylinder_weight
                 FROM {current_table}
                 INNER JOIN "fcms_cdc"."ma_cylinders" mc 
                     ON RTRIM(c.cylinder_no) = RTRIM(mc."CYLINDER_NO")
                 LEFT JOIN "fcms_cdc"."tr_latest_cylinder_statuses" tcs
                     ON RTRIM(mc."CYLINDER_NO") = RTRIM(tcs."CYLINDER_NO")
+                LEFT JOIN "fcms_cdc"."tr_move_report_details" mrd
+                    ON RTRIM(tcs."CYLINDER_NO") = RTRIM(mrd."CYLINDER_NO")
+                   AND RTRIM(tcs."MOVE_REPORT_NO") = RTRIM(mrd."MOVE_REPORT_NO")
                 WHERE c.dashboard_enduser IS NOT NULL
             """
             query = query.format(current_table=current_table)
