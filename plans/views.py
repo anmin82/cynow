@@ -52,7 +52,7 @@ def get_months_list(count=6):
 def forecast(request):
     """출하 계획 - 매트릭스 조회 (누구나 접근 가능, 수정은 로그인 필요)"""
     cylinder_types = get_cylinder_type_list()
-    months = get_months_list(6)
+    months = get_months_list(12)
     
     # 기존 계획 데이터 조회
     existing_plans = {}
@@ -135,7 +135,7 @@ def forecast_save(request):
 def scheduled(request):
     """투입 계획 - 매트릭스 조회 (누구나 접근 가능, 수정은 로그인 필요)"""
     cylinder_types = get_cylinder_type_list()
-    months = get_months_list(6)
+    months = get_months_list(12)
     
     # 기존 계획 데이터 조회
     existing_plans = {}
