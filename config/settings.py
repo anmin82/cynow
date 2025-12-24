@@ -192,8 +192,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # =============================================================================
 # Login URLs
 # =============================================================================
-# FORCE_SCRIPT_NAME이 설정되면 Django가 자동으로 URL 앞에 붙여줌
-LOGIN_URL = '/accounts/login/'
+# URL 이름을 사용하면 FORCE_SCRIPT_NAME이 자동으로 적용됨
+LOGIN_URL = 'login'
 _default_root = f'{_script_name}/' if _script_name else '/'
 LOGIN_REDIRECT_URL = os.getenv('LOGIN_REDIRECT_URL', _default_root)
 LOGOUT_REDIRECT_URL = os.getenv('LOGOUT_REDIRECT_URL', _default_root)
