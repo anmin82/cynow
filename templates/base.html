@@ -629,9 +629,6 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'orders:list' %}">수주</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'products:list' %}">제품코드</a>
-                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="plansDropdown" role="button" data-bs-toggle="dropdown">
                             계획
@@ -645,10 +642,14 @@
                         </ul>
                     </li>
                     {% if user.is_authenticated and user.is_staff %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'core:policy_management' %}">
-                            <i class="bi bi-gear"></i> 정책 관리
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-gear"></i> 관리
                         </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'products:list' %}"><i class="bi bi-upc-scan me-2"></i>제품코드</a></li>
+                            <li><a class="dropdown-item" href="{% url 'core:policy_management' %}"><i class="bi bi-sliders me-2"></i>정책 관리</a></li>
+                        </ul>
                     </li>
                     {% endif %}
                 </ul>
