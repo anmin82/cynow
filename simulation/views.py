@@ -13,7 +13,7 @@ from dashboard.views import extract_valve_type
 
 
 def get_cylinder_type_list():
-    """용기종류 목록 조회 (대시보드와 동일한 그룹화 + 엔드유저별 구분)"""
+    """용기종류 목록 조회 (cylinder_type_key 기준 그룹화, 엔드유저 목록 수집)"""
     all_inventory = CylinderRepository.get_inventory_summary()
     cylinder_type_options = {}
     
@@ -29,25 +29,35 @@ def get_cylinder_type_list():
         cylinder_spec = row.get('cylinder_spec', '')
         enduser = row.get('enduser') or ''
         
-        # 엔드유저별로 구분된 키 생성
-        group_key = f"{cylinder_type_key}|{enduser}"
-        
-        if group_key not in cylinder_type_options:
-            # display_name에 엔드유저 포함
-            base_name = f"{gas_name} / {capacity}L / {valve_type}" if capacity else f"{gas_name} / {valve_type}"
-            display_name = f"{base_name} [{enduser}]" if enduser else base_name
-            
-            cylinder_type_options[group_key] = {
+        if cylinder_type_key not in cylinder_type_options:
+            cylinder_type_options[cylinder_type_key] = {
                 'cylinder_type_key': cylinder_type_key,
                 'gas_name': gas_name,
                 'capacity': capacity,
                 'valve_type': valve_type,
                 'cylinder_spec': cylinder_spec,
-                'enduser': enduser,
-                'display_name': display_name,
+                'endusers': set(),
+                'display_name': '',
             }
+        
+        # 엔드유저 수집
+        if enduser:
+            cylinder_type_options[cylinder_type_key]['endusers'].add(enduser)
     
-    return sorted(cylinder_type_options.values(), key=lambda x: (x['gas_name'], x['capacity'] or '', x['enduser'] or ''))
+    # display_name 생성 (엔드유저 목록 포함)
+    for key, info in cylinder_type_options.items():
+        base_name = f"{info['gas_name']} / {info['capacity']}L / {info['valve_type']}" if info['capacity'] else f"{info['gas_name']} / {info['valve_type']}"
+        endusers = sorted(info['endusers'])
+        if endusers:
+            enduser_str = ', '.join(endusers[:3])  # 최대 3개 표시
+            if len(endusers) > 3:
+                enduser_str += f" 외 {len(endusers)-3}"
+            info['display_name'] = f"{base_name} [{enduser_str}]"
+        else:
+            info['display_name'] = base_name
+        info['endusers'] = list(info['endusers'])  # set → list 변환
+    
+    return sorted(cylinder_type_options.values(), key=lambda x: (x['gas_name'], x['capacity'] or ''))
 
 
 def simulation_view(request):
