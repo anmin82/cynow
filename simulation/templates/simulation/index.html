@@ -4,7 +4,7 @@
 {% block title %}용기 사이클 시뮬레이션 - CYNOW{% endblock %}
 
 {% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<!-- ApexCharts will be loaded in extra_js -->
 {% endblock %}
 
 {% block content %}
@@ -265,6 +265,7 @@
 </template>
 {% endverbatim %}
 
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
 let chart = null;
 let matrixChart = null;
