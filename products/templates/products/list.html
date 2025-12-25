@@ -163,6 +163,8 @@
                                     {% if price %}
                                         {% if product.default_currency == 'JPY' %}
                                             <span class="badge bg-danger me-1">¥</span>
+                                        {% elif product.default_currency == 'USD' %}
+                                            <span class="badge bg-success me-1">$</span>
                                         {% elif product.default_currency == 'CNY' %}
                                             <span class="badge bg-warning text-dark me-1">¥</span>
                                         {% else %}
