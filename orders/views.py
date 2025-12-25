@@ -143,9 +143,23 @@ def po_create(request):
         form = POForm(request.POST)
         formset = POItemFormSet(request.POST)
         
-        if form.is_valid() and formset.is_valid():
+        # 디버깅: 폼 유효성 검사 결과 출력
+        form_valid = form.is_valid()
+        formset_valid = formset.is_valid()
+        
+        if not form_valid:
+            print(f"[PO Create] Form errors: {form.errors}")
+        if not formset_valid:
+            print(f"[PO Create] Formset errors: {formset.errors}")
+            print(f"[PO Create] Formset non_form_errors: {formset.non_form_errors()}")
+        
+        if form_valid and formset_valid:
             # PO 저장
             po = form.save(commit=False)
+            
+            # 고객 정보 동기화
+            if po.customer:
+                po.sync_from_customer()
             
             # 작성자 설정
             if request.user.is_authenticated:

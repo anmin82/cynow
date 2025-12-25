@@ -137,6 +137,34 @@
     <form method="post" id="po-form">
         {% csrf_token %}
         
+        <!-- 폼 에러 표시 -->
+        {% if form.errors or formset.errors %}
+        <div class="alert alert-danger mb-4">
+            <h5><i class="bi bi-exclamation-triangle me-2"></i>입력 오류</h5>
+            {% if form.errors %}
+            <div><strong>수주 정보:</strong>
+                <ul class="mb-0">
+                {% for field, errors in form.errors.items %}
+                    <li>{{ field }}: {{ errors|join:", " }}</li>
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if formset.errors %}
+            <div><strong>품목:</strong>
+                <ul class="mb-0">
+                {% for error in formset.errors %}
+                    {% if error %}<li>{{ error }}</li>{% endif %}
+                {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if formset.non_form_errors %}
+            <div><strong>품목 전체:</strong> {{ formset.non_form_errors }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+        
         <div class="row">
             <!-- 좌측: 기본 정보 -->
             <div class="col-lg-4">
@@ -239,8 +267,12 @@
                                             {{ item_form.currency }}
                                         </td>
                                         <td>
-                                            <select name="{{ item_form.trade_condition_code.html_name }}" 
-                                                    class="form-select form-select-sm product-select"
+                                            <!-- 실제 값 저장용 hidden input -->
+                                            <input type="hidden" name="{{ item_form.trade_condition_code.html_name }}" 
+                                                   class="product-code-input"
+                                                   value="{{ item_form.trade_condition_code.value|default:'' }}">
+                                            <!-- UI용 select -->
+                                            <select class="form-select form-select-sm product-select"
                                                     data-current="{{ item_form.trade_condition_code.value|default:'' }}">
                                                 <option value="">-- 제품 선택 --</option>
                                             </select>
@@ -316,7 +348,10 @@
             <input type="number" name="items-__prefix__-line_no" class="form-control form-control-sm line-no" min="1" style="width: 45px;" value="">
         </td>
         <td>
-            <select name="items-__prefix__-trade_condition_code" class="form-select form-select-sm product-select">
+            <!-- 실제 값 저장용 hidden input -->
+            <input type="hidden" name="items-__prefix__-trade_condition_code" class="product-code-input" value="">
+            <!-- UI용 select -->
+            <select class="form-select form-select-sm product-select">
                 <option value="">-- 제품 선택 --</option>
             </select>
             <div class="calc-display mt-1" style="display: none;">
@@ -502,6 +537,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateRowWithProduct(row, product) {
         row.querySelector('.product-code-pk').value = product.pk;
+        row.querySelector('.product-code-input').value = product.code;  // hidden input에 코드 저장
         row.querySelector('.product-name').value = product.name;
         row.querySelector('.gas-name').value = product.gas_name;
         row.querySelector('.cylinder-spec').value = product.cylinder_spec;
@@ -521,6 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function clearRowProduct(row) {
         row.querySelector('.product-code-pk').value = '';
+        row.querySelector('.product-code-input').value = '';  // hidden input도 클리어
         row.querySelector('.product-name').value = '';
         row.querySelector('.gas-name').value = '';
         row.querySelector('.cylinder-spec').value = '';

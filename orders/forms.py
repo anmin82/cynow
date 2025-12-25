@@ -124,8 +124,9 @@ class POItemForm(forms.ModelForm):
                 'min': 1,
                 'style': 'width: 50px;'
             }),
-            'trade_condition_code': forms.Select(attrs={
-                'class': 'form-select form-select-sm product-select',
+            'trade_condition_code': forms.TextInput(attrs={
+                'class': 'form-control form-control-sm product-code-input',
+                'readonly': 'readonly'
             }),
             'trade_condition_name': forms.HiddenInput(attrs={
                 'class': 'product-name'
