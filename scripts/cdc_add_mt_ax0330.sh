@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# MT_AX0330 (충전량 마스터) CDC 추가 스크립트
+# MT_AX0330 (충전량 마스터) CDC 추가 스크립트 - 한방 실행
 # 
 # 연결: ma_selection_patterns.PACKING_CODE → MT_AX0330.NSGT_CD
 # 충전량: MT_AX0330.NSGT_YORY
@@ -13,10 +13,10 @@ PG_HOST="10.78.30.98"
 PG_PORT="5434"
 PG_DB="cycy_db"
 PG_USER="postgres"
-PG_PASSWORD="cynow2024!"
+PG_PASSWORD="postgres"
 
 echo "=========================================="
-echo "MT_AX0330 CDC 추가"
+echo "MT_AX0330 CDC 추가 - 한방 스크립트"
 echo "=========================================="
 
 # -----------------------------------------------------------------------------
@@ -49,45 +49,41 @@ CREATE TABLE IF NOT EXISTS fcms_cdc.mt_ax0330 (
 COMMENT ON TABLE fcms_cdc.mt_ax0330 IS '충전량 마스터 (PACKING_CODE 연결)';
 COMMENT ON COLUMN fcms_cdc.mt_ax0330."NSGT_CD" IS '납입형태 코드 (PACKING_CODE)';
 COMMENT ON COLUMN fcms_cdc.mt_ax0330."NSGT_YORY" IS '충전량 (kg)';
-COMMENT ON COLUMN fcms_cdc.mt_ax0330."NSGT_MEI" IS '납입형태 명칭';
-
 EOF
 
 echo "✓ 테이블 생성 완료"
 
 # -----------------------------------------------------------------------------
-# Step 2: 현재 Source Connector 설정 확인
+# Step 2: Source Connector 설정 가져오기 및 업데이트
 # -----------------------------------------------------------------------------
 echo ""
-echo "[Step 2] 현재 Source Connector 설정 확인..."
+echo "[Step 2] Source Connector 업데이트 (MT_AX0330 추가)..."
 
-CURRENT_TABLES=$(curl -s $KAFKA_CONNECT_URL/connectors/oracle-fcms-cylcy-main-v4/config | jq -r '.["table.include.list"]')
-echo "현재 테이블 목록: $CURRENT_TABLES"
+# 현재 설정 가져오기
+curl -s $KAFKA_CONNECT_URL/connectors/oracle-fcms-cylcy-main-v4/config > /tmp/source_config.json
 
-# -----------------------------------------------------------------------------
-# Step 3: Source Connector에 MT_AX0330 추가
-# -----------------------------------------------------------------------------
-echo ""
-echo "[Step 3] Source Connector에 MT_AX0330 추가..."
-echo "⚠️  주의: table.include.list에 FCMS.MT_AX0330을 수동으로 추가해야 합니다."
-echo ""
-echo "다음 명령어로 업데이트하세요:"
-echo ""
-cat << 'HEREDOC'
-# 현재 설정 백업
-curl -s http://10.78.30.98:8083/connectors/oracle-fcms-cylcy-main-v4/config > /tmp/connector_backup.json
-
-# 설정 수정 (table.include.list에 FCMS.MT_AX0330 추가)
-# 예: "table.include.list": "...,FCMS.MT_AX0330"
+# table.include.list에 MT_AX0330 추가
+# jq로 업데이트
+cat /tmp/source_config.json | jq '.["table.include.list"] = .["table.include.list"] + ",FCMS.MT_AX0330"' > /tmp/source_config_updated.json
 
 # 커넥터 업데이트
-curl -X PUT http://10.78.30.98:8083/connectors/oracle-fcms-cylcy-main-v4/config \
+curl -X PUT $KAFKA_CONNECT_URL/connectors/oracle-fcms-cylcy-main-v4/config \
   -H "Content-Type: application/json" \
-  -d @/tmp/connector_config_updated.json
-HEREDOC
+  -d @/tmp/source_config_updated.json
+
+echo ""
+echo "✓ Source Connector 업데이트 완료"
 
 # -----------------------------------------------------------------------------
-# Step 4: Sink Connector 생성
+# Step 3: 기존 Sink Connector 삭제 (있으면)
+# -----------------------------------------------------------------------------
+echo ""
+echo "[Step 3] 기존 Sink Connector 정리..."
+curl -X DELETE $KAFKA_CONNECT_URL/connectors/jdbc-sink-mt-ax0330 2>/dev/null || true
+sleep 2
+
+# -----------------------------------------------------------------------------
+# Step 4: Sink Connector 생성 (Debezium JDBC Sink)
 # -----------------------------------------------------------------------------
 echo ""
 echo "[Step 4] Sink Connector 생성..."
@@ -97,20 +93,18 @@ curl -X POST $KAFKA_CONNECT_URL/connectors \
   -d '{
     "name": "jdbc-sink-mt-ax0330",
     "config": {
-      "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+      "connector.class": "io.debezium.connector.jdbc.JdbcSinkConnector",
+      "tasks.max": "1",
       "connection.url": "jdbc:postgresql://10.78.30.98:5434/cycy_db",
-      "connection.user": "postgres",
-      "connection.password": "cynow2024!",
+      "connection.username": "postgres",
+      "connection.password": "postgres",
       "topics": "fcms.FCMS.MT_AX0330",
       "table.name.format": "fcms_cdc.mt_ax0330",
-      "auto.create": "false",
-      "auto.evolve": "true",
       "insert.mode": "upsert",
-      "pk.mode": "record_key",
-      "pk.fields": "KAISYA_CD,NSGT_CD",
-      "transforms": "unwrap",
-      "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-      "transforms.unwrap.drop.tombstones": "true"
+      "primary.key.mode": "record_key",
+      "primary.key.fields": "KAISYA_CD,NSGT_CD",
+      "schema.evolution": "basic",
+      "database.time_zone": "Asia/Seoul"
     }
   }'
 
@@ -118,20 +112,35 @@ echo ""
 echo "✓ Sink Connector 생성 완료"
 
 # -----------------------------------------------------------------------------
-# Step 5: 확인
+# Step 5: 상태 확인
 # -----------------------------------------------------------------------------
 echo ""
 echo "[Step 5] 커넥터 상태 확인..."
-sleep 3
+sleep 5
+
+echo ""
+echo "=== Source Connector 상태 ==="
+curl -s $KAFKA_CONNECT_URL/connectors/oracle-fcms-cylcy-main-v4/status | jq '.connector.state'
+
+echo ""
+echo "=== Sink Connector 상태 ==="
 curl -s $KAFKA_CONNECT_URL/connectors/jdbc-sink-mt-ax0330/status | jq .
+
+# -----------------------------------------------------------------------------
+# Step 6: 데이터 확인
+# -----------------------------------------------------------------------------
+echo ""
+echo "[Step 6] 데이터 동기화 확인 (30초 대기 후)..."
+sleep 30
+
+PGPASSWORD=$PG_PASSWORD psql -h $PG_HOST -p $PG_PORT -U $PG_USER -d $PG_DB -c \
+  "SELECT COUNT(*) as count FROM fcms_cdc.mt_ax0330;"
 
 echo ""
 echo "=========================================="
-echo "완료!"
+echo "✅ 완료!"
 echo ""
-echo "다음 단계:"
-echo "1. Source Connector에 FCMS.MT_AX0330 추가 필요"
-echo "2. 데이터 동기화 확인: SELECT COUNT(*) FROM fcms_cdc.mt_ax0330;"
-echo "3. CYNOW 제품코드 서비스에서 충전량 조인 추가"
+echo "확인 쿼리:"
+echo "SELECT \"NSGT_CD\", \"NSGT_YORY\", \"NSGT_MEI\" FROM fcms_cdc.mt_ax0330 LIMIT 10;"
 echo "=========================================="
 
