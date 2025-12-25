@@ -33,6 +33,7 @@ urlpatterns = [
     path('template/<int:pk>/set-default/', views.template_set_default, name='template_set_default'),
     path('template/<int:pk>/delete/', views.template_delete, name='template_delete'),
     path('template/guide/', views.template_guide, name='template_guide'),
+    path('template/test-quote/', views.template_test_quote, name='template_test_quote'),
     
     # API
     path('api/generate/', views.api_generate_docx, name='api_generate'),

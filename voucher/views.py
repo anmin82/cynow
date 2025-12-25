@@ -650,3 +650,118 @@ def template_guide(request):
         'content': content,
     }
     return render(request, 'voucher/template_guide.html', context)
+
+
+@login_required
+def template_test_quote(request):
+    """
+    테스트 견적서 생성
+    
+    실제 DB 데이터(회사정보, 제품코드)를 사용해서 
+    템플릿이 어떻게 출력되는지 확인할 수 있는 샘플 견적서 생성
+    """
+    from products.models import ProductCode, ProductPriceHistory
+    
+    # 자사 정보 가져오기
+    supplier = CompanyInfo.get_supplier()
+    if not supplier:
+        messages.error(request, "자사 정보가 등록되어 있지 않습니다. 회사정보에서 먼저 등록해주세요.")
+        return redirect('voucher:template_list')
+    
+    # 거래처 정보 가져오기 (KDKK 또는 첫 번째 거래처)
+    customer = CompanyInfo.objects.filter(code='KDKK', is_customer=True).first()
+    if not customer:
+        customer = CompanyInfo.objects.filter(is_customer=True, is_active=True).first()
+    
+    if not customer:
+        messages.error(request, "거래처 정보가 등록되어 있지 않습니다. 회사정보에서 먼저 등록해주세요.")
+        return redirect('voucher:template_list')
+    
+    # 제품코드에서 품목 가져오기 (최대 10개)
+    products = ProductCode.objects.filter(is_active=True).order_by('trade_condition_no')[:10]
+    
+    items = []
+    for idx, pc in enumerate(products, 1):
+        # 현재 단가 조회
+        current_price = pc.get_current_price()
+        price_per_kg = current_price.price_per_kg if current_price else 0
+        currency = current_price.currency if current_price else 'KRW'
+        
+        # 포장단가 계산
+        filling_weight = float(pc.filling_weight or 0)
+        packing_price = float(price_per_kg) * filling_weight if filling_weight else 0
+        
+        items.append({
+            'no': idx,
+            'category': '',
+            'gas_name': pc.gas_name or '',
+            'product_name': pc.display_name or '',
+            'material_code': pc.trade_condition_no or '',
+            'end_user': pc.customer_user_name or '',
+            'packing': '',
+            'filling_weight': f"{filling_weight:.0f}" if filling_weight else '',
+            'currency': currency,
+            'price_per_kg': price_per_kg,
+            'packing_price': packing_price,
+        })
+    
+    if not items:
+        messages.error(request, "제품코드가 등록되어 있지 않습니다.")
+        return redirect('voucher:template_list')
+    
+    # 템플릿 조회
+    template = DocumentTemplate.get_default_template('QUOTE')
+    template_name = template.filename if template else 'offer_template.docx'
+    
+    try:
+        generator = QuoteDocxGenerator(template_name)
+        
+        output_path = generator.generate_quote(
+            quote_info={
+                'date': date.today(),
+                'no': 'TEST-0001',
+                'title': '테스트 견적서 (샘플 데이터)',
+            },
+            supplier_info={
+                'name': supplier.name,
+                'address': supplier.address or '',
+                'ceo': supplier.ceo or '',
+                'tel': supplier.tel or '',
+                'fax': supplier.fax or '',
+                'manager': supplier.manager_name or '',
+                'manager_tel': supplier.manager_tel or '',
+                'manager_email': supplier.manager_email or '',
+            },
+            customer_info={
+                'name': customer.name,
+                'address': customer.address or '',
+                'ceo': customer.ceo or '',
+                'tel': customer.tel or '',
+                'tel2': customer.fax or '',
+                'manager': customer.manager_name or '',
+                'manager_tel': customer.manager_tel or '',
+                'manager_email': customer.manager_email or '',
+            },
+            items=items,
+            footer_info={
+                'valid_period': f'{date.today().year}.01.01 ~ {date.today().year}.12.31',
+                'trade_terms': supplier.default_trade_terms or 'FOB',
+                'document_date': date.today(),
+            },
+            output_filename=f"테스트견적서_{date.today().strftime('%Y%m%d')}.docx"
+        )
+        
+        response = FileResponse(
+            open(output_path, 'rb'),
+            as_attachment=True,
+            filename=f"테스트견적서_{date.today().strftime('%Y%m%d')}.docx"
+        )
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        return response
+        
+    except FileNotFoundError as e:
+        messages.error(request, f"템플릿 파일을 찾을 수 없습니다: {e}")
+        return redirect('voucher:template_list')
+    except Exception as e:
+        messages.error(request, f"견적서 생성 오류: {e}")
+        return redirect('voucher:template_list')
