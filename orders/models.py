@@ -428,6 +428,208 @@ class MoveNoGuide(models.Model):
         return f"{self.po.customer_order_no}: {self.suggested_move_no}"
 
 
+class PlannedMoveReport(models.Model):
+    """
+    가발행 이동서 (CYNOW에서 미리 계획)
+    
+    수주 수량을 여러 이동서로 분할하여 발행 계획
+    FCMS에 수기 입력 후 매칭 확인
+    
+    흐름:
+    1. 수주 등록 → 수주 수량 확인
+    2. 가발행 등록 (다음 번호 추천 → 수량/품목 입력)
+    3. FCMS에 수기 입력
+    4. CDC 동기화 → 매칭 확인
+    """
+    
+    STATUS_CHOICES = [
+        ('PLANNED', '가발행'),      # CYNOW에서 계획만 입력
+        ('PENDING', '입력대기'),     # FCMS 입력 예정
+        ('MATCHED', 'FCMS매칭'),    # FCMS에 동일 번호 확인
+        ('MISMATCH', '불일치'),     # 번호 또는 내용 불일치
+        ('CANCELLED', '취소'),      # 계획 취소
+    ]
+    
+    po = models.ForeignKey(
+        PO,
+        on_delete=models.CASCADE,
+        related_name='planned_moves',
+        verbose_name='수주'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 가발행 이동서번호
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    planned_move_no = models.CharField(
+        max_length=50,
+        verbose_name='가발행번호',
+        help_text='CYNOW에서 추천/입력한 이동서번호 (예: FP250001)'
+    )
+    
+    # 순번 (수주 내에서 몇 번째 이동서인지)
+    sequence = models.IntegerField(
+        default=1,
+        verbose_name='순번',
+        help_text='해당 수주의 N번째 이동서'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 품목 정보 (수주품목 연결 또는 직접 입력)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    po_item = models.ForeignKey(
+        POItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planned_moves',
+        verbose_name='수주품목',
+        help_text='연결된 수주품목 (선택)'
+    )
+    
+    # 직접 입력 (po_item 없을 경우)
+    trade_condition_code = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='제품코드'
+    )
+    
+    gas_name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='가스명'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 발행 수량 (1회 충전 lot)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    planned_qty = models.IntegerField(
+        default=0,
+        verbose_name='계획수량(병)',
+        help_text='이 이동서로 발행할 수량'
+    )
+    
+    planned_weight = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='계획중량(kg)',
+        help_text='수량 × 충전량'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 일정
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    planned_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='발행예정일'
+    )
+    
+    filling_plan_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='충전계획일'
+    )
+    
+    shipping_plan_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='출하계획일'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 상태 및 매칭
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='PLANNED',
+        verbose_name='상태'
+    )
+    
+    # FCMS 매칭 결과
+    fcms_matched_no = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='FCMS매칭번호',
+        help_text='CDC에서 확인된 실제 이동서번호'
+    )
+    
+    fcms_matched_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='매칭일시'
+    )
+    
+    fcms_instruction_count = models.IntegerField(
+        default=0,
+        verbose_name='FCMS지시수량',
+        help_text='CDC에서 확인된 실제 지시 수량'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 메모
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    remarks = models.TextField(
+        blank=True,
+        verbose_name='비고'
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='생성일시'
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name='수정일시'
+    )
+    
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='planned_moves_created',
+        verbose_name='작성자'
+    )
+    
+    class Meta:
+        db_table = 'planned_move_report'
+        verbose_name = '가발행이동서'
+        verbose_name_plural = '가발행이동서'
+        ordering = ['po', 'sequence']
+        indexes = [
+            models.Index(fields=['planned_move_no']),
+            models.Index(fields=['status']),
+            models.Index(fields=['po', 'sequence']),
+        ]
+    
+    def __str__(self):
+        return f"{self.po.customer_order_no} #{self.sequence}: {self.planned_move_no}"
+    
+    @property
+    def is_matched(self):
+        """FCMS 매칭 완료 여부"""
+        return self.status == 'MATCHED'
+    
+    @property
+    def qty_diff(self):
+        """수량 차이 (계획 - FCMS)"""
+        if self.fcms_instruction_count:
+            return self.planned_qty - self.fcms_instruction_count
+        return None
+    
+    def sync_from_po_item(self):
+        """수주품목에서 정보 동기화"""
+        if self.po_item:
+            self.trade_condition_code = self.po_item.trade_condition_code
+            self.gas_name = self.po_item.gas_name
+            if self.po_item.filling_weight and self.planned_qty:
+                self.planned_weight = self.po_item.filling_weight * self.planned_qty
+
+
 class FCMSMatchStatus(models.Model):
     """
     FCMS 매칭 검증 상태

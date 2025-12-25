@@ -57,6 +57,126 @@ class FcmsRepository:
             return None
     
     @staticmethod
+    def get_next_move_no() -> str:
+        """
+        다음 이동서번호 추천
+        
+        이동서번호 형식: FP + 년도(2자리) + 연번(4~6자리)
+        예: FP250001, FP251234
+        
+        Returns:
+            추천 이동서번호 (예: FP250002)
+        """
+        from datetime import datetime
+        
+        current_year = datetime.now().strftime('%y')  # 25
+        prefix = f'FP{current_year}'
+        
+        query = """
+            SELECT arrival_shipping_no
+            FROM fcms_cdc.tr_orders
+            WHERE arrival_shipping_no IS NOT NULL
+              AND arrival_shipping_no LIKE %s
+            ORDER BY arrival_shipping_no DESC
+            LIMIT 1
+        """
+        
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query, [f'{prefix}%'])
+                row = cursor.fetchone()
+                
+                if row and row[0]:
+                    latest_no = row[0].strip()
+                    # FP25xxxx에서 숫자 부분 추출
+                    # FP + 2자리 년도 = 4글자 이후가 연번
+                    seq_part = latest_no[4:]  # 0001 또는 001234 등
+                    try:
+                        next_seq = int(seq_part) + 1
+                        # 기존 자릿수 유지 (최소 4자리)
+                        seq_len = max(len(seq_part), 4)
+                        return f'{prefix}{str(next_seq).zfill(seq_len)}'
+                    except ValueError:
+                        # 숫자 파싱 실패 시 기본값
+                        return f'{prefix}0001'
+                else:
+                    # 해당 년도 첫 번호
+                    return f'{prefix}0001'
+        except Exception as e:
+            logger.warning(f"다음 이동서번호 추천 실패: {e}")
+            return f'{prefix}0001'
+    
+    @staticmethod
+    def check_move_no_exists(move_no: str) -> bool:
+        """
+        이동서번호 중복 확인
+        
+        Args:
+            move_no: 확인할 이동서번호
+        
+        Returns:
+            True if exists, False otherwise
+        """
+        query = """
+            SELECT COUNT(*)
+            FROM fcms_cdc.tr_orders
+            WHERE TRIM(arrival_shipping_no) = %s
+        """
+        
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query, [move_no])
+                row = cursor.fetchone()
+                return row[0] > 0 if row else False
+        except Exception as e:
+            logger.warning(f"이동서번호 중복 확인 실패: {e}")
+            return False
+    
+    @staticmethod
+    def get_move_no_range_for_year(year: str = None) -> Dict[str, Any]:
+        """
+        해당 년도 이동서번호 범위 조회
+        
+        Args:
+            year: 년도 (2자리), None이면 현재 년도
+        
+        Returns:
+            {'min': 최소번호, 'max': 최대번호, 'count': 개수}
+        """
+        from datetime import datetime
+        
+        if year is None:
+            year = datetime.now().strftime('%y')
+        
+        prefix = f'FP{year}'
+        
+        query = """
+            SELECT 
+                MIN(arrival_shipping_no) as min_no,
+                MAX(arrival_shipping_no) as max_no,
+                COUNT(*) as cnt
+            FROM fcms_cdc.tr_orders
+            WHERE arrival_shipping_no IS NOT NULL
+              AND arrival_shipping_no LIKE %s
+        """
+        
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query, [f'{prefix}%'])
+                row = cursor.fetchone()
+                
+                if row:
+                    return {
+                        'min': row[0].strip() if row[0] else None,
+                        'max': row[1].strip() if row[1] else None,
+                        'count': int(row[2]) if row[2] else 0,
+                    }
+                return {'min': None, 'max': None, 'count': 0}
+        except Exception as e:
+            logger.warning(f"년도별 이동서번호 범위 조회 실패: {e}")
+            return {'min': None, 'max': None, 'count': 0}
+    
+    @staticmethod
     def get_latest_move_report_no() -> Optional[str]:
         """
         최신 이동서번호 조회

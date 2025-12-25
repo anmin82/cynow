@@ -20,9 +20,10 @@ from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Sum, Q
 from django.db.utils import ProgrammingError, OperationalError
 
-from .models import PO, POItem, MoveNoGuide, FCMSMatchStatus, FCMSProductionProgress
+from .models import PO, POItem, MoveNoGuide, FCMSMatchStatus, FCMSProductionProgress, PlannedMoveReport
 from .forms import POForm, POItemFormSet
 from .repositories.fcms_repository import FcmsRepository
+from django.utils import timezone
 
 
 def po_list(request):
@@ -687,6 +688,267 @@ def api_fcms_progress(request, customer_order_no):
         
         return JsonResponse(progress_summary)
     
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============================================
+# 가발행 이동서 관리
+# ============================================
+
+def planned_move_list(request, customer_order_no):
+    """
+    가발행 이동서 목록 (수주별)
+    """
+    po = get_object_or_404(PO, customer_order_no=customer_order_no)
+    
+    # 가발행 목록
+    planned_moves = po.planned_moves.all()
+    
+    # 수주 잔량 계산
+    total_order_qty = po.total_qty  # 수주 수량
+    total_planned_qty = sum(pm.planned_qty for pm in planned_moves)  # 가발행 수량
+    remaining_qty = total_order_qty - total_planned_qty  # 잔량
+    
+    # FCMS 최신 번호 및 다음 번호 추천
+    try:
+        latest_no = FcmsRepository.get_latest_arrival_shipping_no()
+        next_no = FcmsRepository.get_next_move_no()
+        year_range = FcmsRepository.get_move_no_range_for_year()
+    except Exception:
+        latest_no = None
+        next_no = None
+        year_range = {'min': None, 'max': None, 'count': 0}
+    
+    context = {
+        'po': po,
+        'planned_moves': planned_moves,
+        'total_order_qty': total_order_qty,
+        'total_planned_qty': total_planned_qty,
+        'remaining_qty': remaining_qty,
+        'latest_no': latest_no,
+        'next_no': next_no,
+        'year_range': year_range,
+    }
+    
+    return render(request, 'orders/planned_move_list.html', context)
+
+
+@require_POST
+def planned_move_create(request, customer_order_no):
+    """
+    가발행 이동서 등록
+    """
+    po = get_object_or_404(PO, customer_order_no=customer_order_no)
+    
+    # 폼 데이터
+    planned_move_no = request.POST.get('planned_move_no', '').strip()
+    planned_qty = request.POST.get('planned_qty', 0)
+    po_item_id = request.POST.get('po_item_id')
+    trade_condition_code = request.POST.get('trade_condition_code', '')
+    gas_name = request.POST.get('gas_name', '')
+    filling_plan_date = request.POST.get('filling_plan_date')
+    shipping_plan_date = request.POST.get('shipping_plan_date')
+    remarks = request.POST.get('remarks', '')
+    
+    if not planned_move_no:
+        messages.error(request, '이동서번호를 입력해주세요.')
+        return redirect('orders:planned_moves', customer_order_no=customer_order_no)
+    
+    # 중복 확인 (CYNOW 내)
+    if PlannedMoveReport.objects.filter(planned_move_no=planned_move_no).exists():
+        messages.warning(request, f'이미 가발행된 번호입니다: {planned_move_no}')
+    
+    # FCMS 중복 확인
+    try:
+        if FcmsRepository.check_move_no_exists(planned_move_no):
+            messages.warning(request, f'FCMS에 이미 존재하는 번호입니다: {planned_move_no}')
+    except Exception:
+        pass
+    
+    # 순번 계산
+    last_seq = po.planned_moves.order_by('-sequence').first()
+    next_seq = (last_seq.sequence + 1) if last_seq else 1
+    
+    # 수주품목 연결
+    po_item = None
+    if po_item_id:
+        try:
+            po_item = POItem.objects.get(pk=po_item_id, po=po)
+            trade_condition_code = po_item.trade_condition_code
+            gas_name = po_item.gas_name
+        except POItem.DoesNotExist:
+            pass
+    
+    # 중량 계산
+    planned_weight = None
+    if po_item and po_item.filling_weight and planned_qty:
+        try:
+            planned_weight = po_item.filling_weight * int(planned_qty)
+        except (ValueError, TypeError):
+            pass
+    
+    # 생성
+    PlannedMoveReport.objects.create(
+        po=po,
+        planned_move_no=planned_move_no,
+        sequence=next_seq,
+        po_item=po_item,
+        trade_condition_code=trade_condition_code,
+        gas_name=gas_name,
+        planned_qty=int(planned_qty) if planned_qty else 0,
+        planned_weight=planned_weight,
+        filling_plan_date=filling_plan_date if filling_plan_date else None,
+        shipping_plan_date=shipping_plan_date if shipping_plan_date else None,
+        remarks=remarks,
+        created_by=request.user if request.user.is_authenticated else None,
+    )
+    
+    messages.success(request, f'가발행 이동서가 등록되었습니다: {planned_move_no}')
+    return redirect('orders:planned_moves', customer_order_no=customer_order_no)
+
+
+@require_POST
+def planned_move_delete(request, pk):
+    """
+    가발행 이동서 삭제
+    """
+    planned_move = get_object_or_404(PlannedMoveReport, pk=pk)
+    customer_order_no = planned_move.po.customer_order_no
+    move_no = planned_move.planned_move_no
+    
+    planned_move.delete()
+    
+    messages.success(request, f'가발행 이동서가 삭제되었습니다: {move_no}')
+    return redirect('orders:planned_moves', customer_order_no=customer_order_no)
+
+
+@require_POST
+def planned_move_match(request, pk):
+    """
+    가발행 이동서 FCMS 매칭 확인
+    """
+    planned_move = get_object_or_404(PlannedMoveReport, pk=pk)
+    
+    try:
+        # FCMS에서 해당 번호 조회
+        fcms_order = FcmsRepository.get_order_by_arrival_shipping_no(
+            planned_move.planned_move_no
+        )
+        
+        if fcms_order:
+            planned_move.status = 'MATCHED'
+            planned_move.fcms_matched_no = fcms_order.get('arrival_shipping_no', '')
+            planned_move.fcms_matched_at = timezone.now()
+            planned_move.fcms_instruction_count = fcms_order.get('total_instruction_count', 0)
+            planned_move.save()
+            
+            messages.success(
+                request, 
+                f'FCMS 매칭 완료: {planned_move.planned_move_no} '
+                f'(지시수량: {planned_move.fcms_instruction_count}병)'
+            )
+        else:
+            planned_move.status = 'PENDING'
+            planned_move.save()
+            messages.info(request, f'FCMS에 아직 입력되지 않았습니다: {planned_move.planned_move_no}')
+    
+    except Exception as e:
+        messages.error(request, f'매칭 확인 실패: {e}')
+    
+    return redirect('orders:planned_moves', customer_order_no=planned_move.po.customer_order_no)
+
+
+@require_POST
+def planned_move_match_all(request, customer_order_no):
+    """
+    수주의 모든 가발행 이동서 FCMS 매칭 확인
+    """
+    po = get_object_or_404(PO, customer_order_no=customer_order_no)
+    
+    matched_count = 0
+    pending_count = 0
+    
+    for planned_move in po.planned_moves.filter(status__in=['PLANNED', 'PENDING']):
+        try:
+            fcms_order = FcmsRepository.get_order_by_arrival_shipping_no(
+                planned_move.planned_move_no
+            )
+            
+            if fcms_order:
+                planned_move.status = 'MATCHED'
+                planned_move.fcms_matched_no = fcms_order.get('arrival_shipping_no', '')
+                planned_move.fcms_matched_at = timezone.now()
+                planned_move.fcms_instruction_count = fcms_order.get('total_instruction_count', 0)
+                planned_move.save()
+                matched_count += 1
+            else:
+                planned_move.status = 'PENDING'
+                planned_move.save()
+                pending_count += 1
+        except Exception:
+            pending_count += 1
+    
+    messages.success(
+        request, 
+        f'매칭 확인 완료: {matched_count}건 매칭, {pending_count}건 대기'
+    )
+    
+    return redirect('orders:planned_moves', customer_order_no=customer_order_no)
+
+
+# ============================================
+# 가발행 이동서 API
+# ============================================
+
+@require_GET
+def api_next_move_no(request):
+    """
+    다음 이동서번호 추천 API
+    
+    GET /orders/api/next-move-no/
+    """
+    try:
+        next_no = FcmsRepository.get_next_move_no()
+        latest_no = FcmsRepository.get_latest_arrival_shipping_no()
+        
+        # 중복 확인 (CYNOW 가발행)
+        is_used = PlannedMoveReport.objects.filter(planned_move_no=next_no).exists()
+        
+        return JsonResponse({
+            'next_no': next_no,
+            'latest_no': latest_no,
+            'is_used': is_used,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_GET
+def api_check_move_no(request):
+    """
+    이동서번호 중복 확인 API
+    
+    GET /orders/api/check-move-no/?no=FP250001
+    """
+    move_no = request.GET.get('no', '').strip()
+    
+    if not move_no:
+        return JsonResponse({'error': '번호를 입력해주세요.'}, status=400)
+    
+    try:
+        # CYNOW 가발행 확인
+        cynow_exists = PlannedMoveReport.objects.filter(planned_move_no=move_no).exists()
+        
+        # FCMS 확인
+        fcms_exists = FcmsRepository.check_move_no_exists(move_no)
+        
+        return JsonResponse({
+            'move_no': move_no,
+            'cynow_exists': cynow_exists,
+            'fcms_exists': fcms_exists,
+            'available': not cynow_exists and not fcms_exists,
+        })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 

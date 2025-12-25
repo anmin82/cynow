@@ -1,0 +1,422 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}가발행 이동서 - {{ po.customer_order_no }} - CYNOW{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- 페이지 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'orders:list' %}">수주</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'orders:management' %}">수주관리표</a></li>
+                    <li class="breadcrumb-item active">{{ po.customer_order_no }}</li>
+                </ol>
+            </nav>
+            <h2 class="mb-1">
+                <i class="fas fa-file-export me-2 text-primary"></i>
+                가발행 이동서 관리
+            </h2>
+            <p class="text-muted mb-0">
+                {{ po.supplier_user_code }} / {{ po.supplier_user_name }}
+            </p>
+        </div>
+        <div>
+            <form action="{% url 'orders:planned_move_match_all' po.customer_order_no %}" method="post" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-sync-alt me-1"></i>전체 매칭 확인
+                </button>
+            </form>
+            <a href="{% url 'orders:management_detail' po.customer_order_no %}" class="btn btn-outline-secondary">
+                <i class="fas fa-chart-line me-1"></i>진척 현황
+            </a>
+            <a href="{% url 'orders:detail' po.customer_order_no %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>수주 상세
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 좌측: 수량 현황 및 등록 폼 -->
+        <div class="col-md-4">
+            <!-- 수량 현황 카드 -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-calculator me-2"></i>수량 현황</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td>수주 수량</td>
+                            <td class="text-end fw-bold text-primary fs-5">{{ total_order_qty }} 병</td>
+                        </tr>
+                        <tr>
+                            <td>가발행 수량</td>
+                            <td class="text-end fw-bold text-success fs-5">{{ total_planned_qty }} 병</td>
+                        </tr>
+                        <tr class="{% if remaining_qty > 0 %}table-warning{% elif remaining_qty < 0 %}table-danger{% else %}table-success{% endif %}">
+                            <td><strong>잔여 수량</strong></td>
+                            <td class="text-end fw-bold fs-4">
+                                {% if remaining_qty > 0 %}
+                                    <span class="text-warning">{{ remaining_qty }} 병</span>
+                                {% elif remaining_qty < 0 %}
+                                    <span class="text-danger">{{ remaining_qty }} 병 (초과)</span>
+                                {% else %}
+                                    <span class="text-success">완료 ✓</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <!-- 진행률 바 -->
+                    <div class="mt-3">
+                        {% widthratio total_planned_qty total_order_qty 100 as progress %}
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar {% if progress >= 100 %}bg-success{% else %}bg-primary{% endif %}" 
+                                 role="progressbar" 
+                                 style="width: {% if progress %}{{ progress }}{% else %}0{% endif %}%;">
+                                {% if progress %}{{ progress }}{% else %}0{% endif %}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FCMS 번호 현황 -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-database me-2"></i>FCMS 번호 현황</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td>최신 번호</td>
+                            <td class="text-end">
+                                {% if latest_no %}
+                                    <code class="fs-5">{{ latest_no }}</code>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr class="table-primary">
+                            <td><strong>다음 추천</strong></td>
+                            <td class="text-end">
+                                {% if next_no %}
+                                    <code class="fs-4 text-primary fw-bold">{{ next_no }}</code>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if year_range.count > 0 %}
+                        <tr>
+                            <td>올해 발행 수</td>
+                            <td class="text-end">
+                                {{ year_range.count }}건
+                                <small class="text-muted">({{ year_range.min }} ~ {{ year_range.max }})</small>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <!-- 가발행 등록 폼 -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-plus me-2"></i>가발행 등록</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{% url 'orders:planned_move_create' po.customer_order_no %}" method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">이동서번호 <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="text" name="planned_move_no" id="planned_move_no"
+                                       class="form-control form-control-lg" 
+                                       value="{{ next_no }}"
+                                       placeholder="FP250001" required>
+                                <button type="button" class="btn btn-outline-secondary" onclick="refreshNextNo()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div id="moveNoStatus" class="form-text"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">수주품목</label>
+                            <select name="po_item_id" id="po_item_id" class="form-select" onchange="onItemChange()">
+                                <option value="">-- 선택 --</option>
+                                {% for item in po.items.all %}
+                                <option value="{{ item.pk }}" 
+                                        data-code="{{ item.trade_condition_code }}"
+                                        data-gas="{{ item.gas_name }}"
+                                        data-weight="{{ item.filling_weight|default:0 }}"
+                                        data-remaining="{{ item.qty }}">
+                                    {{ item.line_no }}. {{ item.trade_condition_code }} 
+                                    {% if item.gas_name %}({{ item.gas_name }}){% endif %}
+                                    - {{ item.qty }}병
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label fw-bold">수량(병)</label>
+                                <input type="number" name="planned_qty" id="planned_qty"
+                                       class="form-control form-control-lg text-center" 
+                                       value="{% if remaining_qty > 0 %}{{ remaining_qty }}{% else %}0{% endif %}"
+                                       min="1" max="{{ remaining_qty }}" onchange="calcWeight()">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-bold">중량(kg)</label>
+                                <input type="text" id="planned_weight_display" 
+                                       class="form-control form-control-lg text-center bg-light" 
+                                       readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">충전계획일</label>
+                                <input type="date" name="filling_plan_date" class="form-control">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">출하계획일</label>
+                                <input type="date" name="shipping_plan_date" class="form-control">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">비고</label>
+                            <textarea name="remarks" class="form-control" rows="2"></textarea>
+                        </div>
+                        
+                        <!-- 히든 필드 -->
+                        <input type="hidden" name="trade_condition_code" id="trade_condition_code">
+                        <input type="hidden" name="gas_name" id="gas_name">
+                        
+                        <button type="submit" class="btn btn-primary w-100 btn-lg">
+                            <i class="fas fa-plus me-1"></i>가발행 등록
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 우측: 가발행 목록 -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>가발행 목록
+                        <span class="badge bg-light text-dark ms-2">{{ planned_moves.count }}건</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if planned_moves %}
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 120px;">이동서번호</th>
+                                <th>품목</th>
+                                <th style="width: 80px;" class="text-center">수량</th>
+                                <th style="width: 80px;" class="text-center">FCMS</th>
+                                <th style="width: 100px;" class="text-center">상태</th>
+                                <th style="width: 150px;">일정</th>
+                                <th style="width: 120px;" class="text-center">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pm in planned_moves %}
+                            <tr class="{% if pm.status == 'MATCHED' %}table-success{% elif pm.status == 'MISMATCH' %}table-danger{% endif %}">
+                                <td class="text-center">{{ pm.sequence }}</td>
+                                <td>
+                                    <code class="{% if pm.status == 'MATCHED' %}text-success{% else %}text-primary{% endif %} fw-bold">
+                                        {{ pm.planned_move_no }}
+                                    </code>
+                                </td>
+                                <td>
+                                    <span class="fw-bold">{{ pm.trade_condition_code|default:"-" }}</span>
+                                    {% if pm.gas_name %}
+                                    <br><small class="text-muted">{{ pm.gas_name }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="fw-bold">{{ pm.planned_qty }}</span>
+                                    {% if pm.planned_weight %}
+                                    <br><small class="text-muted">{{ pm.planned_weight }}kg</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if pm.fcms_instruction_count > 0 %}
+                                        <span class="fw-bold text-success">{{ pm.fcms_instruction_count }}</span>
+                                        {% if pm.qty_diff %}
+                                            {% if pm.qty_diff > 0 %}
+                                                <br><small class="text-warning">-{{ pm.qty_diff }}</small>
+                                            {% elif pm.qty_diff < 0 %}
+                                                <br><small class="text-info">+{{ pm.qty_diff|slice:"1:" }}</small>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if pm.status == 'PLANNED' %}
+                                        <span class="badge bg-warning text-dark">가발행</span>
+                                    {% elif pm.status == 'PENDING' %}
+                                        <span class="badge bg-secondary">입력대기</span>
+                                    {% elif pm.status == 'MATCHED' %}
+                                        <span class="badge bg-success">매칭완료</span>
+                                    {% elif pm.status == 'MISMATCH' %}
+                                        <span class="badge bg-danger">불일치</span>
+                                    {% elif pm.status == 'CANCELLED' %}
+                                        <span class="badge bg-dark">취소</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if pm.filling_plan_date %}
+                                        <small><i class="fas fa-fill-drip text-info me-1"></i>{{ pm.filling_plan_date|date:"m/d" }}</small><br>
+                                    {% endif %}
+                                    {% if pm.shipping_plan_date %}
+                                        <small><i class="fas fa-truck text-success me-1"></i>{{ pm.shipping_plan_date|date:"m/d" }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        {% if pm.status != 'MATCHED' %}
+                                        <form action="{% url 'orders:planned_move_match' pm.pk %}" method="post" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-success" title="매칭확인">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                        <form action="{% url 'orders:planned_move_delete' pm.pk %}" method="post" class="d-inline"
+                                              onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-danger" title="삭제">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% if pm.remarks %}
+                            <tr class="table-light">
+                                <td colspan="8" class="py-1">
+                                    <small class="text-muted">
+                                        <i class="fas fa-comment me-1"></i>{{ pm.remarks }}
+                                    </small>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-dark">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold">합계</td>
+                                <td class="text-center fw-bold">{{ total_planned_qty }}</td>
+                                <td colspan="4"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-file-export fa-3x mb-3"></i>
+                        <p>아직 가발행된 이동서가 없습니다.</p>
+                        <p class="small">좌측 폼에서 가발행 이동서를 등록해주세요.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- 사용 안내 -->
+            <div class="card mt-4">
+                <div class="card-body py-3">
+                    <h6 class="text-muted mb-2"><i class="fas fa-info-circle me-1"></i>사용 방법</h6>
+                    <ol class="small text-muted mb-0">
+                        <li>수주 수량을 확인하고, 1회 충전 lot 단위로 가발행 등록</li>
+                        <li>가발행된 이동서번호를 <strong>FCMS 이동서등록 페이지</strong>에 수기 입력</li>
+                        <li><strong>매칭 확인</strong> 버튼으로 FCMS 입력 확인</li>
+                        <li>모든 수주 수량이 이동서로 발행될 때까지 반복</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 다음 번호 새로고침
+function refreshNextNo() {
+    fetch("{% url 'orders:api_next_move_no' %}")
+        .then(r => r.json())
+        .then(data => {
+            if (data.next_no) {
+                document.getElementById('planned_move_no').value = data.next_no;
+                checkMoveNo(data.next_no);
+            }
+        });
+}
+
+// 번호 중복 확인
+function checkMoveNo(moveNo) {
+    if (!moveNo) return;
+    
+    fetch(`{% url 'orders:api_check_move_no' %}?no=${encodeURIComponent(moveNo)}`)
+        .then(r => r.json())
+        .then(data => {
+            const status = document.getElementById('moveNoStatus');
+            if (data.fcms_exists) {
+                status.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle"></i> FCMS에 이미 존재</span>';
+            } else if (data.cynow_exists) {
+                status.innerHTML = '<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> 이미 가발행됨</span>';
+            } else {
+                status.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> 사용 가능</span>';
+            }
+        });
+}
+
+// 이동서번호 입력 시 중복 확인
+document.getElementById('planned_move_no').addEventListener('blur', function() {
+    checkMoveNo(this.value);
+});
+
+// 품목 선택 시 정보 반영
+function onItemChange() {
+    const select = document.getElementById('po_item_id');
+    const option = select.options[select.selectedIndex];
+    
+    document.getElementById('trade_condition_code').value = option.dataset.code || '';
+    document.getElementById('gas_name').value = option.dataset.gas || '';
+    
+    calcWeight();
+}
+
+// 중량 계산
+function calcWeight() {
+    const select = document.getElementById('po_item_id');
+    const option = select.options[select.selectedIndex];
+    const qty = parseInt(document.getElementById('planned_qty').value) || 0;
+    const weight = parseFloat(option.dataset.weight) || 0;
+    
+    const totalWeight = qty * weight;
+    document.getElementById('planned_weight_display').value = totalWeight > 0 ? totalWeight.toFixed(1) + ' kg' : '';
+}
+
+// 초기 실행
+document.addEventListener('DOMContentLoaded', function() {
+    checkMoveNo(document.getElementById('planned_move_no').value);
+});
+</script>
+{% endblock %}
+
