@@ -36,7 +36,6 @@ class POForm(forms.ModelForm):
             'supplier_user_code',
             'supplier_user_name',
             'received_at',
-            'status',
             'memo',
         ]
         widgets = {
@@ -58,9 +57,6 @@ class POForm(forms.ModelForm):
                 'class': 'form-control',
                 'type': 'date'
             }),
-            'status': forms.Select(attrs={
-                'class': 'form-select'
-            }),
             'memo': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 2,
@@ -71,8 +67,7 @@ class POForm(forms.ModelForm):
             'customer_order_no': 'PO번호',
             'supplier_user_code': '고객코드',
             'supplier_user_name': '고객명',
-            'received_at': '수주일시',
-            'status': '상태',
+            'received_at': '수주일',
             'memo': '메모',
         }
     

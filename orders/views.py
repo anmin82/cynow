@@ -185,7 +185,14 @@ def po_create(request):
                 item.save()
                 line_no += 1
             
-            messages.success(request, f'수주 {po.customer_order_no}가 생성되었습니다.')
+            # 상태 자동 설정: 품목이 있으면 진행중, 없으면 임시저장
+            if items:
+                po.status = 'IN_PROGRESS'
+            else:
+                po.status = 'DRAFT'
+            po.save(update_fields=['status'])
+            
+            messages.success(request, f'수주 {po.customer_order_no}가 등록되었습니다.')
             return redirect('orders:detail', customer_order_no=po.customer_order_no)
     else:
         form = POForm()
@@ -208,8 +215,16 @@ def po_edit(request, customer_order_no):
         formset = POItemFormSet(request.POST, instance=po)
         
         if form.is_valid() and formset.is_valid():
-            form.save()
+            po = form.save()
             formset.save()
+            
+            # 상태 자동 업데이트 (COMPLETED가 아닌 경우만)
+            if po.status != 'COMPLETED':
+                if po.items.exists():
+                    po.status = 'IN_PROGRESS'
+                else:
+                    po.status = 'DRAFT'
+                po.save(update_fields=['status'])
             
             messages.success(request, f'수주 {po.customer_order_no}가 수정되었습니다.')
             return redirect('orders:detail', customer_order_no=customer_order_no)
@@ -670,7 +685,13 @@ def sync_fcms_progress(request, customer_order_no):
             )
             sync_count += 1
         
-        messages.success(request, f'FCMS 생산 진척 정보가 동기화되었습니다. ({sync_count}건)')
+        # 상태 자동 업데이트
+        if sync_count > 0 and po.status in ('DRAFT', 'IN_PROGRESS', 'GUIDED'):
+            po.status = 'MATCHED'
+            po.save(update_fields=['status'])
+            messages.success(request, f'FCMS 생산 진척 정보가 동기화되었습니다. ({sync_count}건) - 상태: FCMS매칭완료')
+        else:
+            messages.success(request, f'FCMS 생산 진척 정보가 동기화되었습니다. ({sync_count}건)')
     except Exception as e:
         messages.error(request, f'FCMS 동기화 실패: {e}')
     
