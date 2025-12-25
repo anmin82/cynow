@@ -20,16 +20,130 @@
     .currency-krw { color: #28a745; }
     .currency-jpy { color: #ffc107; }
     .currency-usd { color: #007bff; }
+    
+    /* 인쇄용 헤더 (화면에서는 숨김) */
+    .print-header {
+        display: none;
+    }
+    
     @media print {
-        .no-print { display: none !important; }
-        .filter-bar { display: none !important; }
-        body { background: white !important; }
-        .card { box-shadow: none !important; }
+        /* 불필요한 요소 숨김 */
+        .no-print, .filter-bar, nav, .navbar, footer { 
+            display: none !important; 
+        }
+        
+        /* 기본 스타일 초기화 */
+        body { 
+            background: white !important; 
+            color: black !important;
+            font-size: 10pt !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        
+        /* 컨테이너 */
+        .main-container {
+            padding: 0 !important;
+            max-width: 100% !important;
+        }
+        
+        /* 카드 스타일 제거 */
+        .card { 
+            box-shadow: none !important; 
+            border: none !important;
+            background: white !important;
+        }
+        .card-body {
+            padding: 0 !important;
+        }
+        
+        /* 인쇄용 헤더 표시 */
+        .print-header {
+            display: block !important;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #333;
+        }
+        .print-header h1 {
+            font-size: 18pt;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+            color: black;
+        }
+        .print-header p {
+            font-size: 10pt;
+            margin: 0;
+            color: #666;
+        }
+        
+        /* 테이블 스타일 */
+        .price-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+        }
+        .price-table th {
+            background: #f0f0f0 !important;
+            border: 1px solid #ccc;
+            padding: 6px 4px;
+            font-weight: bold;
+            text-align: center;
+            position: static;
+        }
+        .price-table td {
+            border: 1px solid #ccc;
+            padding: 5px 4px;
+        }
+        .price-table tbody tr:nth-child(even) {
+            background: #fafafa !important;
+        }
+        
+        /* 통화 뱃지 */
+        .badge {
+            background: transparent !important;
+            color: black !important;
+            border: 1px solid #999;
+            padding: 1px 4px;
+            font-size: 8pt;
+        }
+        
+        /* 페이지 설정 */
+        @page {
+            size: A4 landscape;
+            margin: 15mm;
+        }
+        
+        /* 페이지 나눔 방지 */
+        .price-table tr {
+            page-break-inside: avoid;
+        }
+        
+        /* 푸터 정보 */
+        .print-footer {
+            display: block !important;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+            font-size: 9pt;
+            color: #666;
+        }
+    }
+    
+    /* 화면에서 인쇄용 푸터 숨김 */
+    .print-footer {
+        display: none;
     }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- 인쇄용 헤더 (화면에서는 숨김) -->
+<div class="print-header">
+    <h1>{{ selected_year }}년 제품 단가표</h1>
+    <p>CYNOW Co., Ltd. | 발행일: {% now "Y년 m월 d일" %}</p>
+</div>
+
 <nav aria-label="breadcrumb" class="no-print">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{% url 'voucher:quote_list' %}">제품견적</a></li>
@@ -37,12 +151,12 @@
     </ol>
 </nav>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
     <div>
         <h1 class="page-title">{{ selected_year }}년 단가표</h1>
         <p class="page-subtitle">제품별 kg당 단가 및 용기 단가</p>
     </div>
-    <div class="no-print">
+    <div>
         <button onclick="window.print()" class="btn btn-primary">
             <i class="bi bi-printer"></i> 인쇄 / PDF 저장
         </button>
@@ -144,9 +258,18 @@
     </div>
 </div>
 
-<div class="text-muted mt-3 small">
+<div class="text-muted mt-3 small no-print">
     <i class="bi bi-info-circle me-1"></i>
     총 {{ price_items|length }}개 제품 | 용기단가 = 단가(/kg) × 충전량(kg)
+</div>
+
+<!-- 인쇄용 푸터 -->
+<div class="print-footer">
+    <div style="display: flex; justify-content: space-between;">
+        <span>총 {{ price_items|length }}개 제품</span>
+        <span>용기단가 = 단가(/kg) × 충전량(kg)</span>
+        <span>© CYNOW Co., Ltd.</span>
+    </div>
 </div>
 {% endblock %}
 
