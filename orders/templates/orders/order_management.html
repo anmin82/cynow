@@ -15,6 +15,12 @@
             <p class="text-muted mb-0">수주별 FCMS 생산 진척 현황</p>
         </div>
         <div>
+            <form action="{% url 'orders:sync_all_progress' %}" method="post" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success" id="sync-all-btn">
+                    <i class="fas fa-sync-alt me-1"></i>FCMS 전체 동기화
+                </button>
+            </form>
             <a href="{% url 'orders:list' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-list me-1"></i>수주 목록
             </a>

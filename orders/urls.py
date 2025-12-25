@@ -14,6 +14,7 @@ urlpatterns = [
     
     # 수주관리표 (생산 진척 현황)
     path('management/', views.order_management_list, name='management'),
+    path('management/sync-all/', views.sync_all_fcms_progress, name='sync_all_progress'),
     path('management/<str:customer_order_no>/', views.order_management_detail, name='management_detail'),
     path('management/<str:customer_order_no>/sync/', views.sync_fcms_progress, name='sync_progress'),
     

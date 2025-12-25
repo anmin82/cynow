@@ -713,6 +713,76 @@ def sync_fcms_progress(request, customer_order_no):
     return redirect('orders:management_detail', customer_order_no=customer_order_no)
 
 
+@require_POST
+def sync_all_fcms_progress(request):
+    """
+    모든 수주의 FCMS 생산 진척 정보 일괄 동기화
+    """
+    # 진행중인 수주만 동기화 (완료된 건은 제외)
+    pos = PO.objects.exclude(status='COMPLETED')
+    
+    total_synced = 0
+    matched_count = 0
+    error_count = 0
+    
+    for po in pos:
+        try:
+            progress_summary = FcmsRepository.get_production_summary_by_customer_order_no(
+                po.customer_order_no
+            )
+            
+            # 기존 데이터 삭제 후 재생성
+            FCMSProductionProgress.objects.filter(po=po).delete()
+            
+            sync_count = 0
+            products_data = progress_summary.get('products', {})
+            
+            for trade_code, product_info in products_data.items():
+                for order in product_info.get('orders', []):
+                    FCMSProductionProgress.objects.create(
+                        po=po,
+                        arrival_shipping_no=order.get('arrival_shipping_no', ''),
+                        item_name=order.get('item_name', ''),
+                        packing_name=order.get('packing_name', ''),
+                        trade_condition_code=order.get('trade_condition_code', ''),
+                        selection_pattern_code=order.get('selection_pattern_code', ''),
+                        instruction_quantity=order.get('instruction_quantity'),
+                        instruction_count=order.get('instruction_count', 0),
+                        filling_threshold=order.get('filling_threshold'),
+                        filled_count=0,
+                        move_report_no=order.get('arrival_shipping_no', ''),
+                        designation_delivery_date=order.get('delivery_date'),
+                        order_remarks=order.get('order_remarks', ''),
+                        production_remarks=order.get('move_report_remarks', ''),
+                    )
+                    sync_count += 1
+            
+            total_synced += sync_count
+            
+            # 상태 업데이트
+            if sync_count > 0 and po.status in ('DRAFT', 'IN_PROGRESS', 'GUIDED'):
+                po.status = 'MATCHED'
+                po.save(update_fields=['status'])
+                matched_count += 1
+                
+        except Exception as e:
+            error_count += 1
+            print(f"[Sync Error] {po.customer_order_no}: {e}")
+    
+    if error_count > 0:
+        messages.warning(
+            request, 
+            f'FCMS 동기화 완료: {len(pos)}건 중 {matched_count}건 매칭, {total_synced}건 이동서, {error_count}건 오류'
+        )
+    else:
+        messages.success(
+            request, 
+            f'FCMS 전체 동기화 완료: {len(pos)}건 수주, {matched_count}건 매칭, {total_synced}건 이동서'
+        )
+    
+    return redirect('orders:management')
+
+
 # ============================================
 # FCMS 진척 API (AJAX용)
 # ============================================
