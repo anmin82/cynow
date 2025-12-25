@@ -36,16 +36,16 @@ class FcmsRepository:
         최신 도착출하번호 조회
         
         Returns:
-            최신 ARRIVAL_SHIPPING_NO (예: FP240125) 또는 None
+            최신 ARRIVAL_SHIPPING_NO (예: FP25000668) 또는 None
         """
-        query = """
-            SELECT arrival_shipping_no
+        query = '''
+            SELECT "ARRIVAL_SHIPPING_NO"
             FROM fcms_cdc.tr_orders
-            WHERE arrival_shipping_no IS NOT NULL
-              AND arrival_shipping_no LIKE 'FP%'
-            ORDER BY arrival_shipping_no DESC
+            WHERE "ARRIVAL_SHIPPING_NO" IS NOT NULL
+              AND "ARRIVAL_SHIPPING_NO" LIKE 'FP%%'
+            ORDER BY "ARRIVAL_SHIPPING_NO" DESC
             LIMIT 1
-        """
+        '''
         
         try:
             with connection.cursor() as cursor:
@@ -61,25 +61,25 @@ class FcmsRepository:
         """
         다음 이동서번호 추천
         
-        이동서번호 형식: FP + 년도(2자리) + 연번(4~6자리)
-        예: FP250001, FP251234
+        이동서번호 형식: FP + 년도(2자리) + 연번(6자리)
+        예: FP25000001, FP25000669
         
         Returns:
-            추천 이동서번호 (예: FP250002)
+            추천 이동서번호 (예: FP25000669)
         """
         from datetime import datetime
         
         current_year = datetime.now().strftime('%y')  # 25
         prefix = f'FP{current_year}'
         
-        query = """
-            SELECT arrival_shipping_no
+        query = '''
+            SELECT "ARRIVAL_SHIPPING_NO"
             FROM fcms_cdc.tr_orders
-            WHERE arrival_shipping_no IS NOT NULL
-              AND arrival_shipping_no LIKE %s
-            ORDER BY arrival_shipping_no DESC
+            WHERE "ARRIVAL_SHIPPING_NO" IS NOT NULL
+              AND "ARRIVAL_SHIPPING_NO" LIKE %s
+            ORDER BY "ARRIVAL_SHIPPING_NO" DESC
             LIMIT 1
-        """
+        '''
         
         try:
             with connection.cursor() as cursor:
@@ -88,23 +88,23 @@ class FcmsRepository:
                 
                 if row and row[0]:
                     latest_no = row[0].strip()
-                    # FP25xxxx에서 숫자 부분 추출
+                    # FP25xxxxxx에서 숫자 부분 추출
                     # FP + 2자리 년도 = 4글자 이후가 연번
-                    seq_part = latest_no[4:]  # 0001 또는 001234 등
+                    seq_part = latest_no[4:]  # 000668 등
                     try:
                         next_seq = int(seq_part) + 1
-                        # 기존 자릿수 유지 (최소 4자리)
-                        seq_len = max(len(seq_part), 4)
+                        # 기존 자릿수 유지 (6자리)
+                        seq_len = max(len(seq_part), 6)
                         return f'{prefix}{str(next_seq).zfill(seq_len)}'
                     except ValueError:
                         # 숫자 파싱 실패 시 기본값
-                        return f'{prefix}0001'
+                        return f'{prefix}000001'
                 else:
                     # 해당 년도 첫 번호
-                    return f'{prefix}0001'
+                    return f'{prefix}000001'
         except Exception as e:
             logger.warning(f"다음 이동서번호 추천 실패: {e}")
-            return f'{prefix}0001'
+            return f'{prefix}000001'
     
     @staticmethod
     def check_move_no_exists(move_no: str) -> bool:
@@ -117,11 +117,11 @@ class FcmsRepository:
         Returns:
             True if exists, False otherwise
         """
-        query = """
+        query = '''
             SELECT COUNT(*)
             FROM fcms_cdc.tr_orders
-            WHERE TRIM(arrival_shipping_no) = %s
-        """
+            WHERE TRIM("ARRIVAL_SHIPPING_NO") = %s
+        '''
         
         try:
             with connection.cursor() as cursor:
@@ -150,15 +150,15 @@ class FcmsRepository:
         
         prefix = f'FP{year}'
         
-        query = """
+        query = '''
             SELECT 
-                MIN(arrival_shipping_no) as min_no,
-                MAX(arrival_shipping_no) as max_no,
+                MIN("ARRIVAL_SHIPPING_NO") as min_no,
+                MAX("ARRIVAL_SHIPPING_NO") as max_no,
                 COUNT(*) as cnt
             FROM fcms_cdc.tr_orders
-            WHERE arrival_shipping_no IS NOT NULL
-              AND arrival_shipping_no LIKE %s
-        """
+            WHERE "ARRIVAL_SHIPPING_NO" IS NOT NULL
+              AND "ARRIVAL_SHIPPING_NO" LIKE %s
+        '''
         
         try:
             with connection.cursor() as cursor:
@@ -179,28 +179,13 @@ class FcmsRepository:
     @staticmethod
     def get_latest_move_report_no() -> Optional[str]:
         """
-        최신 이동서번호 조회
+        최신 이동서번호 조회 (TR_ORDERS 기준)
         
         Returns:
-            최신 MOVE_REPORT_NO (예: FP240125) 또는 None
+            최신 ARRIVAL_SHIPPING_NO (예: FP25000668) 또는 None
         """
-        query = """
-            SELECT move_report_no
-            FROM fcms_cdc.tr_move_reports
-            WHERE move_report_no IS NOT NULL
-              AND move_report_no LIKE 'FP%'
-            ORDER BY move_report_no DESC
-            LIMIT 1
-        """
-        
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(query)
-                row = cursor.fetchone()
-                return row[0].strip() if row and row[0] else None
-        except Exception as e:
-            logger.warning(f"최신 이동서번호 조회 실패: {e}")
-            return None
+        # TR_ORDERS의 ARRIVAL_SHIPPING_NO가 이동서번호
+        return FcmsRepository.get_latest_arrival_shipping_no()
     
     # ============================================
     # 수주별 생산 진척 조회 (수주관리표용)
@@ -211,26 +196,36 @@ class FcmsRepository:
         """
         고객주문번호(PO번호)로 연결된 모든 FCMS 주문 조회
         
+        TR_ORDERS 테이블에서 CUSTOMER_ORDER_NO로 검색
+        (TR_ORDERS에 품목 정보가 모두 포함되어 있음)
+        
         Args:
             customer_order_no: PO번호(고객발주번호)
         
         Returns:
             연결된 FCMS 주문 리스트 (ARRIVAL_SHIPPING_NO별)
         """
-        query = """
+        query = '''
             SELECT 
-                o.id,
-                TRIM(o.arrival_shipping_no) as arrival_shipping_no,
-                TRIM(o.customer_order_no) as customer_order_no,
-                TRIM(o.supplier_user_code) as supplier_user_code,
-                o.order_date,
-                TRIM(o.trade_condition_code) as trade_condition_code,
-                TRIM(o.order_remarks) as order_remarks,
-                TRIM(o.selection_pattern_code) as selection_pattern_code
-            FROM fcms_cdc.tr_orders o
-            WHERE TRIM(o.customer_order_no) = %s
-            ORDER BY o.arrival_shipping_no
-        """
+                "ARRIVAL_SHIPPING_NO",
+                "CUSTOMER_ORDER_NO",
+                "SUPPLIER_USER_CODE",
+                "SUPPLIER_USER_NAME",
+                "ORDER_DATE",
+                "TRADE_CONDITION_CODE",
+                "ORDER_REMARKS",
+                "SELECTION_PATTERN_CODE",
+                "ITEM_NAME",
+                "PACKING_NAME",
+                "INSTRUCTION_QUANTITY",
+                "INSTRUCTION_COUNT",
+                "FILLING_THRESHOLD",
+                "DELIVERY_DATE",
+                "MOVE_REPORT_REMARKS"
+            FROM fcms_cdc.tr_orders
+            WHERE TRIM("CUSTOMER_ORDER_NO") = %s
+            ORDER BY "ARRIVAL_SHIPPING_NO"
+        '''
         
         try:
             with connection.cursor() as cursor:
@@ -239,14 +234,21 @@ class FcmsRepository:
                 
                 return [
                     {
-                        'id': row[0],
-                        'arrival_shipping_no': row[1],
-                        'customer_order_no': row[2],
-                        'supplier_user_code': row[3],
+                        'arrival_shipping_no': row[0].strip() if row[0] else '',
+                        'customer_order_no': row[1].strip() if row[1] else '',
+                        'supplier_user_code': row[2].strip() if row[2] else '',
+                        'supplier_user_name': row[3].strip() if row[3] else '',
                         'order_date': row[4],
-                        'trade_condition_code': row[5],
-                        'order_remarks': row[6],
-                        'selection_pattern_code': row[7],
+                        'trade_condition_code': row[5].strip() if row[5] else '',
+                        'order_remarks': row[6].strip() if row[6] else '',
+                        'selection_pattern_code': row[7].strip() if row[7] else '',
+                        'item_name': row[8].strip() if row[8] else '',
+                        'packing_name': row[9].strip() if row[9] else '',
+                        'instruction_quantity': float(row[10]) if row[10] else None,
+                        'instruction_count': int(row[11]) if row[11] else 0,
+                        'filling_threshold': float(row[12]) if row[12] else None,
+                        'delivery_date': row[13],
+                        'move_report_remarks': row[14].strip() if row[14] else '',
                     }
                     for row in rows
                 ]
@@ -255,79 +257,67 @@ class FcmsRepository:
             return []
     
     @staticmethod
-    def get_order_informations_by_order_id(order_id: int) -> List[Dict[str, Any]]:
+    def get_order_details_by_arrival_no(arrival_shipping_no: str) -> List[Dict[str, Any]]:
         """
-        주문 ID로 주문 상세(품목별) 정보 조회
+        도착출하번호로 주문 상세 조회
+        
+        TR_ORDERS 테이블에서 직접 조회 (별도 상세 테이블 없음)
         
         Args:
-            order_id: TR_ORDERS.id
+            arrival_shipping_no: 도착출하번호
         
         Returns:
             품목별 상세 정보 리스트
         """
-        query = """
+        query = '''
             SELECT 
-                oi.id,
-                oi.order_id,
-                TRIM(oi.item_name) as item_name,
-                TRIM(oi.packing_name) as packing_name,
-                oi.instruction_quantity,
-                oi.instruction_count,
-                oi.filling_threshold,
-                TRIM(oi.order_remarks) as order_remarks,
-                TRIM(oi.trade_condition_code) as trade_condition_code,
-                TRIM(oi.selection_pattern_code) as selection_pattern_code,
-                TRIM(oi.move_report_no) as move_report_no,
-                oi.designation_delivery_date,
-                oi.filling_plan_date,
-                oi.warehousing_plan_date,
-                oi.shipping_plan_date,
-                TRIM(oi.sales_remarks) as sales_remarks,
-                TRIM(oi.business_remarks) as business_remarks,
-                TRIM(oi.production_remarks) as production_remarks
-            FROM fcms_cdc.tr_order_informations oi
-            WHERE oi.order_id = %s
-            ORDER BY oi.id
-        """
+                "ARRIVAL_SHIPPING_NO",
+                "ITEM_NAME",
+                "PACKING_NAME",
+                "INSTRUCTION_QUANTITY",
+                "INSTRUCTION_COUNT",
+                "FILLING_THRESHOLD",
+                "ORDER_REMARKS",
+                "TRADE_CONDITION_CODE",
+                "SELECTION_PATTERN_CODE",
+                "DELIVERY_DATE",
+                "MOVE_REPORT_REMARKS"
+            FROM fcms_cdc.tr_orders
+            WHERE TRIM("ARRIVAL_SHIPPING_NO") = %s
+        '''
         
         try:
             with connection.cursor() as cursor:
-                cursor.execute(query, [order_id])
+                cursor.execute(query, [arrival_shipping_no])
                 rows = cursor.fetchall()
                 
                 return [
                     {
-                        'id': row[0],
-                        'order_id': row[1],
-                        'item_name': row[2],
-                        'packing_name': row[3],
-                        'instruction_quantity': float(row[4]) if row[4] else None,
-                        'instruction_count': int(row[5]) if row[5] else 0,
-                        'filling_threshold': float(row[6]) if row[6] else None,
-                        'order_remarks': row[7],
-                        'trade_condition_code': row[8],
-                        'selection_pattern_code': row[9],
-                        # 일정 정보
-                        'move_report_no': row[10],
-                        'designation_delivery_date': row[11],
-                        'filling_plan_date': row[12],
-                        'warehousing_plan_date': row[13],
-                        'shipping_plan_date': row[14],
-                        # 부서별 비고
-                        'sales_remarks': row[15],
-                        'business_remarks': row[16],
-                        'production_remarks': row[17],
+                        'arrival_shipping_no': row[0].strip() if row[0] else '',
+                        'item_name': row[1].strip() if row[1] else '',
+                        'packing_name': row[2].strip() if row[2] else '',
+                        'instruction_quantity': float(row[3]) if row[3] else None,
+                        'instruction_count': int(row[4]) if row[4] else 0,
+                        'filling_threshold': float(row[5]) if row[5] else None,
+                        'order_remarks': row[6].strip() if row[6] else '',
+                        'trade_condition_code': row[7].strip() if row[7] else '',
+                        'selection_pattern_code': row[8].strip() if row[8] else '',
+                        'delivery_date': row[9],
+                        'move_report_remarks': row[10].strip() if row[10] else '',
                     }
                     for row in rows
                 ]
         except Exception as e:
-            logger.warning(f"주문 상세 조회 실패: {e}")
+            logger.warning(f"도착출하번호별 주문 상세 조회 실패: {e}")
             return []
     
     @staticmethod
     def get_production_summary_by_customer_order_no(customer_order_no: str) -> Dict[str, Any]:
         """
         고객주문번호(PO번호)별 생산 진척 요약 조회
+        
+        TR_ORDERS 테이블에서 CUSTOMER_ORDER_NO로 검색
+        (모든 정보가 TR_ORDERS에 포함)
         
         Args:
             customer_order_no: PO번호(고객발주번호)
@@ -345,14 +335,11 @@ class FcmsRepository:
         total_instruction_count = 0
         total_instruction_quantity = Decimal('0')
         
+        # TR_ORDERS에 이미 품목 정보가 포함되어 있으므로 직접 집계
         for order in orders:
-            items = FcmsRepository.get_order_informations_by_order_id(order['id'])
-            order['items'] = items
-            
-            for item in items:
-                total_instruction_count += item['instruction_count'] or 0
-                if item['instruction_quantity']:
-                    total_instruction_quantity += Decimal(str(item['instruction_quantity']))
+            total_instruction_count += order.get('instruction_count', 0) or 0
+            if order.get('instruction_quantity'):
+                total_instruction_quantity += Decimal(str(order['instruction_quantity']))
         
         return {
             'customer_order_no': customer_order_no,
@@ -370,21 +357,20 @@ class FcmsRepository:
         Returns:
             [{customer_order_no, arrival_count, total_instruction_count, ...}]
         """
-        query = """
+        query = '''
             SELECT 
-                TRIM(o.customer_order_no) as customer_order_no,
-                COUNT(DISTINCT o.arrival_shipping_no) as arrival_count,
-                COALESCE(SUM(oi.instruction_count), 0) as total_instruction_count,
-                MIN(o.order_date) as first_order_date,
-                MAX(o.order_date) as last_order_date
-            FROM fcms_cdc.tr_orders o
-            LEFT JOIN fcms_cdc.tr_order_informations oi ON o.id = oi.order_id
-            WHERE o.customer_order_no IS NOT NULL
-              AND TRIM(o.customer_order_no) != ''
-            GROUP BY TRIM(o.customer_order_no)
-            ORDER BY MAX(o.order_date) DESC
+                TRIM("CUSTOMER_ORDER_NO") as customer_order_no,
+                COUNT(DISTINCT "ARRIVAL_SHIPPING_NO") as arrival_count,
+                COALESCE(SUM("INSTRUCTION_COUNT"), 0) as total_instruction_count,
+                MIN("ORDER_DATE") as first_order_date,
+                MAX("ORDER_DATE") as last_order_date
+            FROM fcms_cdc.tr_orders
+            WHERE "CUSTOMER_ORDER_NO" IS NOT NULL
+              AND TRIM("CUSTOMER_ORDER_NO") != ''
+            GROUP BY TRIM("CUSTOMER_ORDER_NO")
+            ORDER BY MAX("ORDER_DATE") DESC
             LIMIT 500
-        """
+        '''
         
         try:
             with connection.cursor() as cursor:
@@ -420,23 +406,21 @@ class FcmsRepository:
         Returns:
             주문 정보 dict 또는 None
         """
-        query = """
+        query = '''
             SELECT 
-                o.id,
-                TRIM(o.arrival_shipping_no) as arrival_shipping_no,
-                TRIM(o.customer_order_no) as customer_order_no,
-                TRIM(o.supplier_user_code) as supplier_user_code,
-                o.order_date,
-                TRIM(o.trade_condition_code) as trade_condition_code,
-                TRIM(o.order_remarks) as order_remarks,
-                COALESCE(SUM(oi.instruction_count), 0) as total_instruction_count,
-                COUNT(oi.id) as item_count
-            FROM fcms_cdc.tr_orders o
-            LEFT JOIN fcms_cdc.tr_order_informations oi ON o.id = oi.order_id
-            WHERE TRIM(o.arrival_shipping_no) = %s
-            GROUP BY o.id, o.arrival_shipping_no, o.customer_order_no, 
-                     o.supplier_user_code, o.order_date, o.trade_condition_code, o.order_remarks
-        """
+                "ARRIVAL_SHIPPING_NO",
+                "CUSTOMER_ORDER_NO",
+                "SUPPLIER_USER_CODE",
+                "SUPPLIER_USER_NAME",
+                "ORDER_DATE",
+                "TRADE_CONDITION_CODE",
+                "ORDER_REMARKS",
+                "INSTRUCTION_COUNT",
+                "ITEM_NAME",
+                "PACKING_NAME"
+            FROM fcms_cdc.tr_orders
+            WHERE TRIM("ARRIVAL_SHIPPING_NO") = %s
+        '''
         
         try:
             with connection.cursor() as cursor:
@@ -447,15 +431,16 @@ class FcmsRepository:
                     return None
                 
                 return {
-                    'id': row[0],
-                    'arrival_shipping_no': row[1],
-                    'customer_order_no': row[2],
-                    'supplier_user_code': row[3],
+                    'arrival_shipping_no': row[0].strip() if row[0] else '',
+                    'customer_order_no': row[1].strip() if row[1] else '',
+                    'supplier_user_code': row[2].strip() if row[2] else '',
+                    'supplier_user_name': row[3].strip() if row[3] else '',
                     'order_date': row[4],
-                    'trade_condition_code': row[5],
-                    'order_remarks': row[6],
-                    'total_instruction_count': int(row[7]),
-                    'item_count': int(row[8]),
+                    'trade_condition_code': row[5].strip() if row[5] else '',
+                    'order_remarks': row[6].strip() if row[6] else '',
+                    'total_instruction_count': int(row[7]) if row[7] else 0,
+                    'item_name': row[8].strip() if row[8] else '',
+                    'packing_name': row[9].strip() if row[9] else '',
                 }
         except Exception as e:
             logger.warning(f"도착출하번호로 주문 조회 실패: {e}")
@@ -466,31 +451,34 @@ class FcmsRepository:
         """
         도착출하번호 기준 충전 진행 현황 조회
         
+        TR_ORDERS에서 INSTRUCTION_COUNT 조회
+        (실제 충전 완료 수는 별도 테이블 필요 - 현재는 지시수량만 반환)
+        
         Args:
             arrival_shipping_no: 도착출하번호
         
         Returns:
             {'instruction_count': N, 'filled_count': M} 형식
         """
-        query = """
+        query = '''
             SELECT 
-                COALESCE(SUM(oi.instruction_count), 0) as instruction_count,
-                COUNT(DISTINCT mrd.cylinder_no) as filled_count
-            FROM fcms_cdc.tr_orders o
-            LEFT JOIN fcms_cdc.tr_order_informations oi ON o.id = oi.order_id
-            LEFT JOIN fcms_cdc.tr_move_reports mr ON TRIM(o.arrival_shipping_no) = TRIM(mr.move_report_no)
-            LEFT JOIN fcms_cdc.tr_move_report_details mrd ON mr.id = mrd.move_report_id
-            WHERE TRIM(o.arrival_shipping_no) = %s
-        """
+                COALESCE("INSTRUCTION_COUNT", 0) as instruction_count
+            FROM fcms_cdc.tr_orders
+            WHERE TRIM("ARRIVAL_SHIPPING_NO") = %s
+        '''
         
         try:
             with connection.cursor() as cursor:
                 cursor.execute(query, [arrival_shipping_no])
                 row = cursor.fetchone()
                 
+                instruction_count = int(row[0]) if row and row[0] else 0
+                
+                # TODO: 실제 충전 완료 수는 별도 조회 필요
+                # 현재는 지시수량만 반환
                 return {
-                    'instruction_count': int(row[0] or 0),
-                    'filled_count': int(row[1] or 0),
+                    'instruction_count': instruction_count,
+                    'filled_count': 0,  # 실제 충전 완료 추적 테이블 필요
                 }
         except Exception as e:
             logger.warning(f"충전 진행 현황 조회 실패: {e}")

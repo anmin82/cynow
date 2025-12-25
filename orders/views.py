@@ -616,40 +616,35 @@ def sync_fcms_progress(request, customer_order_no):
         
         sync_count = 0
         for order in progress_summary.get('orders', []):
-            # 충전 진척도 조회
-            filling_progress = FcmsRepository.get_filling_progress_by_arrival_shipping_no(
-                order['arrival_shipping_no']
+            # TR_ORDERS에 품목 정보가 포함되어 있음 (별도 items 없음)
+            FCMSProductionProgress.objects.create(
+                po=po,
+                arrival_shipping_no=order.get('arrival_shipping_no', ''),
+                item_name=order.get('item_name', ''),
+                packing_name=order.get('packing_name', ''),
+                trade_condition_code=order.get('trade_condition_code', ''),
+                selection_pattern_code=order.get('selection_pattern_code', ''),
+                instruction_quantity=order.get('instruction_quantity'),
+                instruction_count=order.get('instruction_count', 0),
+                filling_threshold=order.get('filling_threshold'),
+                filled_count=0,  # TODO: 실제 충전 완료 추적 필요
+                # 이동서번호 = 도착출하번호
+                move_report_no=order.get('arrival_shipping_no', ''),
+                # 일정 정보
+                designation_delivery_date=order.get('delivery_date'),
+                filling_plan_date=None,  # TR_ORDERS에는 없음
+                warehousing_plan_date=None,
+                shipping_plan_date=None,
+                # 비고
+                order_remarks=order.get('order_remarks', ''),
+                sales_remarks='',
+                business_remarks='',
+                production_remarks=order.get('move_report_remarks', ''),
+                # FCMS 원본 ID (없음 - 직접 조회)
+                fcms_order_id=None,
+                fcms_order_info_id=None,
             )
-            
-            for item in order.get('items', []):
-                FCMSProductionProgress.objects.create(
-                    po=po,
-                    arrival_shipping_no=order['arrival_shipping_no'],
-                    item_name=item.get('item_name', ''),
-                    packing_name=item.get('packing_name', ''),
-                    trade_condition_code=item.get('trade_condition_code', ''),
-                    selection_pattern_code=item.get('selection_pattern_code', ''),
-                    instruction_quantity=item.get('instruction_quantity'),
-                    instruction_count=item.get('instruction_count', 0),
-                    filling_threshold=item.get('filling_threshold'),
-                    filled_count=filling_progress.get('filled_count', 0),
-                    # 이동서번호
-                    move_report_no=item.get('move_report_no', ''),
-                    # 일정 정보
-                    designation_delivery_date=item.get('designation_delivery_date'),
-                    filling_plan_date=item.get('filling_plan_date'),
-                    warehousing_plan_date=item.get('warehousing_plan_date'),
-                    shipping_plan_date=item.get('shipping_plan_date'),
-                    # 부서별 비고
-                    order_remarks=item.get('order_remarks', ''),
-                    sales_remarks=item.get('sales_remarks', ''),
-                    business_remarks=item.get('business_remarks', ''),
-                    production_remarks=item.get('production_remarks', ''),
-                    # FCMS 원본 ID
-                    fcms_order_id=order.get('id'),
-                    fcms_order_info_id=item.get('id'),
-                )
-                sync_count += 1
+            sync_count += 1
         
         messages.success(request, f'FCMS 생산 진척 정보가 동기화되었습니다. ({sync_count}건)')
     except Exception as e:
