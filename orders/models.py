@@ -71,9 +71,9 @@ class PO(models.Model):
         verbose_name='고객명'
     )
     
-    received_at = models.DateTimeField(
-        default=timezone.now,
-        verbose_name='수주일시'
+    received_at = models.DateField(
+        default=timezone.localdate,
+        verbose_name='수주일'
     )
     
     status = models.CharField(

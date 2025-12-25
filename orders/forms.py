@@ -54,9 +54,9 @@ class POForm(forms.ModelForm):
                 'readonly': 'readonly',
                 'placeholder': '고객 선택 시 자동입력'
             }),
-            'received_at': forms.DateTimeInput(attrs={
+            'received_at': forms.DateInput(attrs={
                 'class': 'form-control',
-                'type': 'datetime-local'
+                'type': 'date'
             }),
             'status': forms.Select(attrs={
                 'class': 'form-select'
@@ -195,7 +195,7 @@ POItemFormSet = forms.inlineformset_factory(
     PO,
     POItem,
     form=POItemForm,
-    extra=3,  # 빈 폼 3개
+    extra=10,  # 빈 폼 10개
     can_delete=True,
     min_num=1,  # 최소 1개 라인
     validate_min=True,

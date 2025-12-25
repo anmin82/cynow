@@ -368,6 +368,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 고객 선택
+    const poNumberInput = document.querySelector('[name="customer_order_no"]');
+    
     if (customerSelect) {
         customerSelect.addEventListener('change', function() {
             const customerId = this.value;
@@ -387,6 +389,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         nameInput.value = data.name;
                         codeInput.classList.add('auto-filled');
                         nameInput.classList.add('auto-filled');
+                        
+                        // PO번호에 고객코드 자동 접두사 추가
+                        if (poNumberInput && !poNumberInput.value) {
+                            poNumberInput.value = data.code;
+                            poNumberInput.focus();
+                            poNumberInput.setSelectionRange(data.code.length, data.code.length);
+                        }
                     }
                 });
         });
