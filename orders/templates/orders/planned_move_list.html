@@ -475,6 +475,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // 수량, 건수 변경 시 계산
     document.getElementById('planned_qty').addEventListener('input', calcTotal);
     document.getElementById('batch_count').addEventListener('input', calcTotal);
+    
+    // URL 파라미터로 품목 미리 선택
+    {% if preselect_item_id %}
+    const itemSelect = document.getElementById('po_item_id');
+    if (itemSelect) {
+        itemSelect.value = '{{ preselect_item_id }}';
+        onItemChange();
+        
+        // 수량 입력란에 포커스
+        setTimeout(function() {
+            document.getElementById('planned_qty').focus();
+        }, 100);
+    }
+    {% endif %}
 });
 </script>
 {% endblock %}

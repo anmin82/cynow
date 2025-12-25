@@ -68,6 +68,10 @@
                     <span class="badge bg-danger fs-6">
                         잔여: <strong>{{ item_data.remaining_qty }}</strong>병
                     </span>
+                    <a href="{% url 'orders:planned_moves' po.customer_order_no %}?item={{ item_data.item.pk }}&code={{ item_data.item.trade_condition_code }}" 
+                       class="btn btn-sm btn-outline-primary ms-2" title="가발행 등록">
+                        <i class="fas fa-plus"></i> 가발행
+                    </a>
                     {% else %}
                     <span class="badge bg-success fs-6">
                         <i class="fas fa-check me-1"></i>완료
@@ -148,8 +152,8 @@
         <div class="card-body bg-light-subtle text-center py-4">
             <i class="fas fa-unlink fa-2x text-muted mb-2"></i>
             <p class="mb-2 text-muted">FCMS에 등록된 이동서가 없습니다</p>
-            <a href="{% url 'orders:planned_moves' po.customer_order_no %}" class="btn btn-sm btn-primary">
-                <i class="fas fa-plus me-1"></i>가발행 이동서 등록
+            <a href="{% url 'orders:planned_moves' po.customer_order_no %}?item={{ item_data.item.pk }}&code={{ item_data.item.trade_condition_code }}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus me-1"></i>가발행 등록
             </a>
         </div>
         {% endif %}

@@ -864,6 +864,10 @@ def planned_move_list(request, customer_order_no):
     """
     po = get_object_or_404(PO, customer_order_no=customer_order_no)
     
+    # URL 파라미터로 미리 선택할 품목
+    preselect_item_id = request.GET.get('item')
+    preselect_code = request.GET.get('code')
+    
     # 가발행 목록
     planned_moves = po.planned_moves.all()
     
@@ -903,6 +907,8 @@ def planned_move_list(request, customer_order_no):
         'latest_no': latest_no,
         'next_no': next_no,
         'year_range': year_range,
+        'preselect_item_id': preselect_item_id,
+        'preselect_code': preselect_code,
     }
     
     return render(request, 'orders/planned_move_list.html', context)
