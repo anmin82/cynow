@@ -318,13 +318,33 @@ def quote_create(request):
     # 견적번호 자동 생성
     suggested_quote_no = Quote().generate_quote_no()
     
+    # 자사 정보 가져오기
+    supplier = CompanyInfo.objects.filter(is_supplier=True).first()
+    
+    # 거래처 목록 (JSON 포함)
+    customers = CompanyInfo.objects.filter(is_customer=True, is_supplier=False).order_by('name')
+    customers_json = json.dumps([{
+        'id': c.id,
+        'code': c.code,
+        'name': c.name,
+        'address': c.address or '',
+        'ceo': c.ceo or '',
+        'tel': c.tel or '',
+        'fax': c.fax or '',
+        'manager_name': c.manager_name or '',
+        'manager_tel': c.manager_tel or '',
+        'manager_email': c.manager_email or '',
+    } for c in customers])
+    
     context = {
         'quote': None,
         'suggested_quote_no': suggested_quote_no,
         'today': date.today().strftime('%Y-%m-%d'),
         'status_choices': Quote.STATUS_CHOICES,
         'currency_choices': Quote.CURRENCY_CHOICES,
-        'customers': Customer.objects.filter(is_active=True).order_by('name'),
+        'customers': customers,
+        'customers_json': customers_json,
+        'supplier': supplier,
     }
     return render(request, 'voucher/quote_form.html', context)
 
@@ -379,12 +399,32 @@ def quote_edit(request, pk):
         messages.success(request, f"견적서 {quote.quote_no}가 수정되었습니다.")
         return redirect('voucher:quote_detail', pk=quote.pk)
     
+    # 자사 정보 가져오기
+    supplier = CompanyInfo.objects.filter(is_supplier=True).first()
+    
+    # 거래처 목록 (JSON 포함)
+    customers = CompanyInfo.objects.filter(is_customer=True, is_supplier=False).order_by('name')
+    customers_json = json.dumps([{
+        'id': c.id,
+        'code': c.code,
+        'name': c.name,
+        'address': c.address or '',
+        'ceo': c.ceo or '',
+        'tel': c.tel or '',
+        'fax': c.fax or '',
+        'manager_name': c.manager_name or '',
+        'manager_tel': c.manager_tel or '',
+        'manager_email': c.manager_email or '',
+    } for c in customers])
+    
     context = {
         'quote': quote,
         'today': date.today().strftime('%Y-%m-%d'),
         'status_choices': Quote.STATUS_CHOICES,
         'currency_choices': Quote.CURRENCY_CHOICES,
-        'customers': Customer.objects.filter(is_active=True).order_by('name'),
+        'customers': customers,
+        'customers_json': customers_json,
+        'supplier': supplier,
     }
     return render(request, 'voucher/quote_form.html', context)
 

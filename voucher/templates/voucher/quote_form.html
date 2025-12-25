@@ -140,43 +140,43 @@
     <!-- 공급처 정보 (접힌 상태) -->
     <div class="card mt-4">
         <div class="card-header" data-bs-toggle="collapse" data-bs-target="#supplierInfo" style="cursor: pointer;">
-            <i class="bi bi-building me-2"></i>공급처 정보 
+            <i class="bi bi-building me-2"></i>공급처 정보 (자사)
             <i class="bi bi-chevron-down float-end"></i>
         </div>
-        <div id="supplierInfo" class="collapse {% if quote.supplier_name %}show{% endif %}">
+        <div id="supplierInfo" class="collapse show">
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">공급처명</label>
                         <input type="text" name="supplier_name" class="form-control" 
-                               value="{{ quote.supplier_name|default:'CYNOW Co., Ltd.' }}">
+                               value="{% if quote %}{{ quote.supplier_name }}{% elif supplier %}{{ supplier.name }}{% endif %}">
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label">대표자</label>
                         <input type="text" name="supplier_ceo" class="form-control" 
-                               value="{{ quote.supplier_ceo|default:'' }}">
+                               value="{% if quote %}{{ quote.supplier_ceo }}{% elif supplier %}{{ supplier.ceo }}{% endif %}">
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">주소</label>
                     <input type="text" name="supplier_address" class="form-control" 
-                           value="{{ quote.supplier_address|default:'' }}">
+                           value="{% if quote %}{{ quote.supplier_address }}{% elif supplier %}{{ supplier.address }}{% endif %}">
                 </div>
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label">TEL</label>
                         <input type="text" name="supplier_tel" class="form-control" 
-                               value="{{ quote.supplier_tel|default:'' }}">
+                               value="{% if quote %}{{ quote.supplier_tel }}{% elif supplier %}{{ supplier.tel }}{% endif %}">
                     </div>
                     <div class="col-md-4 mb-3">
                         <label class="form-label">FAX</label>
                         <input type="text" name="supplier_fax" class="form-control" 
-                               value="{{ quote.supplier_fax|default:'' }}">
+                               value="{% if quote %}{{ quote.supplier_fax }}{% elif supplier %}{{ supplier.fax }}{% endif %}">
                     </div>
                     <div class="col-md-4 mb-3">
                         <label class="form-label">담당자</label>
                         <input type="text" name="supplier_manager" class="form-control" 
-                               value="{{ quote.supplier_manager|default:'' }}">
+                               value="{% if quote %}{{ quote.supplier_manager }}{% elif supplier %}{{ supplier.manager_name }}{% endif %}">
                     </div>
                 </div>
             </div>
