@@ -197,7 +197,7 @@ class FcmsRepository:
         고객주문번호(PO번호)로 연결된 모든 FCMS 주문 조회
         
         TR_ORDERS 테이블에서 CUSTOMER_ORDER_NO로 검색
-        (TR_ORDERS에 품목 정보가 모두 포함되어 있음)
+        TR_MOVE_REPORTS와 JOIN하여 취소된 이동서(PROGRESS_CODE='51') 제외
         
         Args:
             customer_order_no: PO번호(고객발주번호)
@@ -207,24 +207,28 @@ class FcmsRepository:
         """
         query = '''
             SELECT 
-                "ARRIVAL_SHIPPING_NO",
-                "CUSTOMER_ORDER_NO",
-                "SUPPLIER_USER_CODE",
-                "SUPPLIER_USER_NAME",
-                "ORDER_DATE",
-                "TRADE_CONDITION_CODE",
-                "ORDER_REMARKS",
-                "SELECTION_PATTERN_CODE",
-                "ITEM_NAME",
-                "PACKING_NAME",
-                "INSTRUCTION_QUANTITY",
-                "INSTRUCTION_COUNT",
-                "FILLING_THRESHOLD",
-                "DELIVERY_DATE",
-                "MOVE_REPORT_REMARKS"
-            FROM fcms_cdc.tr_orders
-            WHERE TRIM("CUSTOMER_ORDER_NO") = %s
-            ORDER BY "ARRIVAL_SHIPPING_NO"
+                o."ARRIVAL_SHIPPING_NO",
+                o."CUSTOMER_ORDER_NO",
+                o."SUPPLIER_USER_CODE",
+                o."SUPPLIER_USER_NAME",
+                o."ORDER_DATE",
+                o."TRADE_CONDITION_CODE",
+                o."ORDER_REMARKS",
+                o."SELECTION_PATTERN_CODE",
+                o."ITEM_NAME",
+                o."PACKING_NAME",
+                o."INSTRUCTION_QUANTITY",
+                o."INSTRUCTION_COUNT",
+                o."FILLING_THRESHOLD",
+                o."DELIVERY_DATE",
+                o."MOVE_REPORT_REMARKS",
+                m."PROGRESS_CODE"
+            FROM fcms_cdc.tr_orders o
+            LEFT JOIN fcms_cdc.tr_move_reports m 
+                ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
+            WHERE TRIM(o."CUSTOMER_ORDER_NO") = %s
+              AND (m."PROGRESS_CODE" IS NULL OR m."PROGRESS_CODE" != '51')
+            ORDER BY o."ARRIVAL_SHIPPING_NO"
         '''
         
         try:
@@ -249,6 +253,7 @@ class FcmsRepository:
                         'filling_threshold': float(row[12]) if row[12] else None,
                         'delivery_date': row[13],
                         'move_report_remarks': row[14].strip() if row[14] else '',
+                        'progress_code': row[15].strip() if row[15] else '',
                     }
                     for row in rows
                 ]
@@ -361,22 +366,26 @@ class FcmsRepository:
     def get_all_customer_order_nos_with_progress() -> List[Dict[str, Any]]:
         """
         모든 고객주문번호와 진척 요약 조회 (수주관리표 목록용)
+        취소된 이동서(PROGRESS_CODE='51') 제외
         
         Returns:
             [{customer_order_no, arrival_count, total_instruction_count, ...}]
         """
         query = '''
             SELECT 
-                TRIM("CUSTOMER_ORDER_NO") as customer_order_no,
-                COUNT(DISTINCT "ARRIVAL_SHIPPING_NO") as arrival_count,
-                COALESCE(SUM("INSTRUCTION_COUNT"), 0) as total_instruction_count,
-                MIN("ORDER_DATE") as first_order_date,
-                MAX("ORDER_DATE") as last_order_date
-            FROM fcms_cdc.tr_orders
-            WHERE "CUSTOMER_ORDER_NO" IS NOT NULL
-              AND TRIM("CUSTOMER_ORDER_NO") != ''
-            GROUP BY TRIM("CUSTOMER_ORDER_NO")
-            ORDER BY MAX("ORDER_DATE") DESC
+                TRIM(o."CUSTOMER_ORDER_NO") as customer_order_no,
+                COUNT(DISTINCT o."ARRIVAL_SHIPPING_NO") as arrival_count,
+                COALESCE(SUM(o."INSTRUCTION_COUNT"), 0) as total_instruction_count,
+                MIN(o."ORDER_DATE") as first_order_date,
+                MAX(o."ORDER_DATE") as last_order_date
+            FROM fcms_cdc.tr_orders o
+            LEFT JOIN fcms_cdc.tr_move_reports m 
+                ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
+            WHERE o."CUSTOMER_ORDER_NO" IS NOT NULL
+              AND TRIM(o."CUSTOMER_ORDER_NO") != ''
+              AND (m."PROGRESS_CODE" IS NULL OR m."PROGRESS_CODE" != '51')
+            GROUP BY TRIM(o."CUSTOMER_ORDER_NO")
+            ORDER BY MAX(o."ORDER_DATE") DESC
             LIMIT 500
         '''
         
