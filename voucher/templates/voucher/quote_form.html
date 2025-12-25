@@ -31,7 +31,7 @@
                     <div class="mb-3">
                         <label class="form-label">견적번호 *</label>
                         <input type="text" name="quote_no" class="form-control" 
-                               value="{{ quote.quote_no|default:suggested_quote_no }}" required>
+                               value="{% if quote %}{{ quote.quote_no }}{% else %}{{ suggested_quote_no }}{% endif %}" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">견적건명 *</label>
