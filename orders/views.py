@@ -296,25 +296,40 @@ def check_fcms_match(request, customer_order_no):
     """
     po = get_object_or_404(PO, customer_order_no=customer_order_no)
     
-    # TODO: FCMS CDC 조회 로직 구현
-    # TR_ORDERS.ARRIVAL_SHIPPING_NO 확인
-    # TR_MOVE_REPORTS.MOVE_REPORT_NO 확인
+    try:
+        # FCMS CDC에서 해당 PO번호로 데이터 조회
+        progress_summary = FcmsRepository.get_production_summary_by_customer_order_no(
+            customer_order_no
+        )
+        
+        fcms_count = progress_summary.get('total_arrival_count', 0)
+        
+        # 매칭 상태 업데이트
+        if fcms_count > 0:
+            match_state = 'MATCHED'
+            note = f'FCMS에서 {fcms_count}건의 이동서 확인됨'
+            
+            # PO 상태도 업데이트
+            if po.status in ('DRAFT', 'IN_PROGRESS', 'GUIDED'):
+                po.status = 'MATCHED'
+                po.save(update_fields=['status'])
+        else:
+            match_state = 'NOT_ENTERED'
+            note = 'FCMS에 아직 등록된 이동서가 없습니다'
+        
+        match_status, created = FCMSMatchStatus.objects.update_or_create(
+            po=po,
+            defaults={
+                'match_state': match_state,
+                'note': note
+            }
+        )
+        
+        messages.info(request, f'FCMS 매칭 확인 완료: {note}')
+        
+    except Exception as e:
+        messages.error(request, f'FCMS 조회 실패: {e}')
     
-    # 임시: 매칭 상태 생성/업데이트
-    match_status, created = FCMSMatchStatus.objects.get_or_create(
-        po=po,
-        defaults={
-            'match_state': 'NOT_ENTERED',
-            'note': 'CDC 조회 기능 구현 예정'
-        }
-    )
-    
-    if not created:
-        match_status.match_state = 'NOT_ENTERED'
-        match_status.note = 'CDC 조회 기능 구현 예정'
-        match_status.save()
-    
-    messages.info(request, 'FCMS 매칭 확인이 완료되었습니다. (CDC 조회 기능 구현 예정)')
     return redirect('orders:detail', customer_order_no=customer_order_no)
 
 
