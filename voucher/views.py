@@ -492,3 +492,161 @@ def company_edit(request, pk):
         'company': company,
     }
     return render(request, 'voucher/company_form.html', context)
+
+
+# ============================================
+# 템플릿 관리
+# ============================================
+
+@login_required
+def template_list(request):
+    """템플릿 목록 및 업로드"""
+    from pathlib import Path
+    import os
+    from datetime import datetime
+    
+    if request.method == 'POST' and request.FILES.get('template_file'):
+        # 파일 업로드 처리
+        uploaded_file = request.FILES['template_file']
+        template_type = request.POST.get('template_type', 'QUOTE')
+        name = request.POST.get('name', '')
+        
+        # 파일명 생성
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{template_type.lower()}_{timestamp}.docx"
+        
+        # 저장 경로
+        template_dir = Path(settings.BASE_DIR) / 'docx_templates'
+        template_dir.mkdir(exist_ok=True)
+        file_path = template_dir / filename
+        
+        # 파일 저장
+        with open(file_path, 'wb') as f:
+            for chunk in uploaded_file.chunks():
+                f.write(chunk)
+        
+        # DB에 등록
+        template = DocumentTemplate.objects.create(
+            name=name or uploaded_file.name,
+            template_type=template_type,
+            filename=filename,
+            is_active=True,
+        )
+        
+        messages.success(request, f"템플릿 '{template.name}'이(가) 업로드되었습니다.")
+        return redirect('voucher:template_list')
+    
+    # 등록된 템플릿 목록
+    templates = DocumentTemplate.objects.all().order_by('template_type', '-is_default', 'name')
+    
+    # 파일 시스템 템플릿 목록
+    template_dir = Path(settings.BASE_DIR) / 'docx_templates'
+    files = []
+    if template_dir.exists():
+        for f in template_dir.glob('*.docx'):
+            stat = f.stat()
+            files.append({
+                'name': f.name,
+                'size': stat.st_size,
+                'modified': datetime.fromtimestamp(stat.st_mtime),
+            })
+        files.sort(key=lambda x: x['modified'], reverse=True)
+    
+    context = {
+        'templates': templates,
+        'files': files,
+    }
+    return render(request, 'voucher/template_list.html', context)
+
+
+@login_required
+def template_download(request, pk):
+    """DB 등록 템플릿 다운로드"""
+    template = get_object_or_404(DocumentTemplate, pk=pk)
+    
+    file_path = Path(settings.BASE_DIR) / 'docx_templates' / template.filename
+    
+    if not file_path.exists():
+        messages.error(request, f"파일을 찾을 수 없습니다: {template.filename}")
+        return redirect('voucher:template_list')
+    
+    response = FileResponse(
+        open(file_path, 'rb'),
+        as_attachment=True,
+        filename=template.filename
+    )
+    return response
+
+
+@login_required
+def template_download_file(request):
+    """파일 시스템 템플릿 직접 다운로드"""
+    filename = request.GET.get('name', '')
+    
+    if not filename or '..' in filename:
+        messages.error(request, "잘못된 파일명입니다.")
+        return redirect('voucher:template_list')
+    
+    file_path = Path(settings.BASE_DIR) / 'docx_templates' / filename
+    
+    if not file_path.exists():
+        messages.error(request, f"파일을 찾을 수 없습니다: {filename}")
+        return redirect('voucher:template_list')
+    
+    response = FileResponse(
+        open(file_path, 'rb'),
+        as_attachment=True,
+        filename=filename
+    )
+    return response
+
+
+@login_required
+def template_set_default(request, pk):
+    """기본 템플릿으로 설정"""
+    template = get_object_or_404(DocumentTemplate, pk=pk)
+    
+    # 같은 유형의 다른 템플릿 기본 해제
+    DocumentTemplate.objects.filter(
+        template_type=template.template_type
+    ).update(is_default=False)
+    
+    # 선택한 템플릿을 기본으로
+    template.is_default = True
+    template.save()
+    
+    messages.success(request, f"'{template.name}'이(가) 기본 템플릿으로 설정되었습니다.")
+    return redirect('voucher:template_list')
+
+
+@login_required
+def template_delete(request, pk):
+    """템플릿 삭제"""
+    template = get_object_or_404(DocumentTemplate, pk=pk)
+    
+    # 파일도 삭제
+    file_path = Path(settings.BASE_DIR) / 'docx_templates' / template.filename
+    if file_path.exists():
+        file_path.unlink()
+    
+    name = template.name
+    template.delete()
+    
+    messages.success(request, f"템플릿 '{name}'이(가) 삭제되었습니다.")
+    return redirect('voucher:template_list')
+
+
+@login_required
+def template_guide(request):
+    """템플릿 변수 가이드"""
+    guide_path = Path(settings.BASE_DIR) / 'docx_templates' / 'TEMPLATE_VARIABLES.md'
+    
+    content = ""
+    if guide_path.exists():
+        with open(guide_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    
+    context = {
+        'content': content,
+    }
+    return render(request, 'voucher/template_guide.html', context)

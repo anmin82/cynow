@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}문서 템플릿 관리 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">문서 템플릿 관리</h1>
+        <p class="page-subtitle">견적서, 단가표 등 DOCX 템플릿 파일 관리</p>
+    </div>
+</div>
+
+<!-- 업로드 폼 -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-upload me-2"></i>템플릿 업로드
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">템플릿 유형</label>
+                    <select name="template_type" class="form-select" required>
+                        <option value="QUOTE">견적서</option>
+                        <option value="PRICE_LIST">단가표</option>
+                        <option value="INVOICE">청구서</option>
+                        <option value="DELIVERY">납품서</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">템플릿명</label>
+                    <input type="text" name="name" class="form-control" placeholder="예: KDKK 견적서" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">DOCX 파일</label>
+                    <input type="file" name="template_file" class="form-control" accept=".docx" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-upload"></i> 업로드
+                    </button>
+                </div>
+            </div>
+            <div class="form-text mt-2">
+                <i class="bi bi-info-circle"></i>
+                템플릿 파일에는 <code>{{ "{{변수명}}" }}</code> 형식의 플레이스홀더를 사용하세요.
+                <a href="{% url 'voucher:template_guide' %}" target="_blank">변수 가이드 보기</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 템플릿 목록 -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-file-earmark-word me-2"></i>등록된 템플릿
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>유형</th>
+                        <th>템플릿명</th>
+                        <th>파일명</th>
+                        <th>기본</th>
+                        <th>상태</th>
+                        <th>수정일</th>
+                        <th class="text-center">액션</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tpl in templates %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-primary">{{ tpl.get_template_type_display }}</span>
+                        </td>
+                        <td><strong>{{ tpl.name }}</strong></td>
+                        <td>
+                            <code>{{ tpl.filename }}</code>
+                        </td>
+                        <td>
+                            {% if tpl.is_default %}
+                            <span class="badge bg-success">기본</span>
+                            {% else %}
+                            <a href="{% url 'voucher:template_set_default' tpl.pk %}" 
+                               class="btn btn-sm btn-outline-light">기본으로 설정</a>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tpl.is_active %}
+                            <span class="badge bg-success">활성</span>
+                            {% else %}
+                            <span class="badge bg-secondary">비활성</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ tpl.updated_at|date:"Y-m-d H:i" }}</td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'voucher:template_download' tpl.pk %}" 
+                                   class="btn btn-outline-light" title="다운로드">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <a href="{% url 'voucher:template_delete' tpl.pk %}" 
+                                   class="btn btn-outline-light text-danger" title="삭제"
+                                   onclick="return confirm('정말 삭제하시겠습니까?');">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            등록된 템플릿이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 파일 시스템 템플릿 -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-folder me-2"></i>파일 시스템 템플릿
+        <small class="text-muted">(docx_templates/ 폴더)</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>파일명</th>
+                        <th>크기</th>
+                        <th>수정일</th>
+                        <th class="text-center">액션</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file in files %}
+                    <tr>
+                        <td><code>{{ file.name }}</code></td>
+                        <td>{{ file.size|filesizeformat }}</td>
+                        <td>{{ file.modified|date:"Y-m-d H:i" }}</td>
+                        <td class="text-center">
+                            <a href="{% url 'voucher:template_download_file' %}?name={{ file.name }}" 
+                               class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-download"></i> 다운로드
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-muted">
+                            파일이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

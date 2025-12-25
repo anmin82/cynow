@@ -26,6 +26,14 @@ urlpatterns = [
     path('company/create/', views.company_create, name='company_create'),
     path('company/<int:pk>/edit/', views.company_edit, name='company_edit'),
     
+    # 템플릿 관리
+    path('templates/', views.template_list, name='template_list'),
+    path('template/<int:pk>/download/', views.template_download, name='template_download'),
+    path('template/download/', views.template_download_file, name='template_download_file'),
+    path('template/<int:pk>/set-default/', views.template_set_default, name='template_set_default'),
+    path('template/<int:pk>/delete/', views.template_delete, name='template_delete'),
+    path('template/guide/', views.template_guide, name='template_guide'),
+    
     # API
     path('api/generate/', views.api_generate_docx, name='api_generate'),
 ]
