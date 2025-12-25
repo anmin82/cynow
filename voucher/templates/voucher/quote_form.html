@@ -2,6 +2,35 @@
 
 {% block title %}{% if quote %}견적서 수정{% else %}새 견적서{% endif %} - CYNOW{% endblock %}
 
+{% block extra_css %}
+<style>
+    .product-table {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    .product-table th {
+        position: sticky;
+        top: 0;
+        background: var(--ios-gray-6);
+        z-index: 1;
+    }
+    .product-row:hover {
+        background: rgba(0, 122, 255, 0.1);
+    }
+    .product-row input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+    }
+    .currency-badge {
+        font-size: 0.75rem;
+        padding: 2px 6px;
+    }
+    .select-all-btn {
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
@@ -13,7 +42,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="page-title">{% if quote %}견적서 수정{% else %}새 견적서{% endif %}</h1>
-        <p class="page-subtitle">{% if quote %}{{ quote.quote_no }}{% else %}견적서 정보를 입력하세요{% endif %}</p>
+        <p class="page-subtitle">{% if quote %}{{ quote.quote_no }}{% else %}제품을 선택하면 최신 단가가 자동 적용됩니다{% endif %}</p>
     </div>
 </div>
 
@@ -28,192 +57,140 @@
                     <i class="bi bi-info-circle me-2"></i>기본 정보
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">견적번호 *</label>
-                        <input type="text" name="quote_no" class="form-control" 
-                               value="{% if quote %}{{ quote.quote_no }}{% else %}{{ suggested_quote_no|default:'' }}{% endif %}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">견적건명 *</label>
-                        <input type="text" name="title" class="form-control" 
-                               value="{{ quote.title|default:'' }}" 
-                               placeholder="예: 2026년 특수가스 납품 단가" required>
-                    </div>
                     <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">견적번호 *</label>
+                            <input type="text" name="quote_no" class="form-control" 
+                                   value="{% if quote %}{{ quote.quote_no }}{% else %}{{ suggested_quote_no|default:'' }}{% endif %}" required>
+                        </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">견적일자</label>
                             <input type="date" name="quote_date" class="form-control" 
                                    value="{{ quote.quote_date|date:'Y-m-d'|default:today }}">
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">유효기간</label>
-                            <input type="date" name="valid_until" class="form-control" 
-                                   value="{{ quote.valid_until|date:'Y-m-d'|default:'' }}">
-                        </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">상태</label>
-                            <select name="status" class="form-select">
-                                {% for code, label in status_choices %}
-                                <option value="{{ code }}" {% if quote.status == code %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">기본 통화</label>
-                            <select name="default_currency" class="form-select">
-                                {% for code, label in currency_choices %}
-                                <option value="{{ code }}" {% if quote.default_currency == code %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">견적건명 *</label>
+                        <input type="text" name="title" class="form-control" 
+                               value="{{ quote.title|default:'' }}" 
+                               placeholder="예: {{ next_year }}년 특수가스 납품 단가" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">단가 적용 기간 (유효기간)</label>
+                        <input type="date" name="valid_until" class="form-control" 
+                               value="{{ quote.valid_until|date:'Y-m-d'|default:'' }}"
+                               placeholder="이 날짜 이후 적용되는 단가로 견적 생성">
+                        <small class="text-muted">이 날짜가 속한 연도의 단가가 적용됩니다</small>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- 거래처 정보 -->
+        <!-- 거래처 선택 -->
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <i class="bi bi-building me-2"></i>수신처 정보
+                    <i class="bi bi-building me-2"></i>거래처 선택
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label class="form-label">거래처 선택</label>
-                        <select name="customer" class="form-select" id="customerSelect">
+                        <label class="form-label">거래처 *</label>
+                        <select name="customer" class="form-select" id="customerSelect" required>
                             <option value="">-- 거래처 선택 --</option>
                             {% for c in customers %}
-                            <option value="{{ c.pk }}" 
-                                    data-address="{{ c.address }}"
-                                    data-ceo="{{ c.ceo }}"
-                                    data-tel="{{ c.tel }}"
-                                    data-manager="{{ c.manager_name }}"
-                                    data-manager-tel="{{ c.manager_tel }}"
-                                    data-manager-email="{{ c.manager_email }}"
-                                    {% if quote.customer_id == c.pk %}selected{% endif %}>
+                            <option value="{{ c.pk }}" {% if quote.customer_id == c.pk %}selected{% endif %}>
                                 {{ c.name }} ({{ c.code }})
                             </option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">주소</label>
-                        <input type="text" name="customer_address" class="form-control" 
-                               value="{{ quote.customer_address|default:'' }}">
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">대표자</label>
-                            <input type="text" name="customer_ceo" class="form-control" 
-                                   value="{{ quote.customer_ceo|default:'' }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">연락처</label>
-                            <input type="text" name="customer_tel" class="form-control" 
-                                   value="{{ quote.customer_tel|default:'' }}">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">담당자명</label>
-                        <input type="text" name="customer_manager" class="form-control" 
-                               value="{{ quote.customer_manager|default:'' }}">
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">담당자 연락처</label>
-                            <input type="text" name="customer_manager_tel" class="form-control" 
-                                   value="{{ quote.customer_manager_tel|default:'' }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">담당자 이메일</label>
-                            <input type="email" name="customer_manager_email" class="form-control" 
-                                   value="{{ quote.customer_manager_email|default:'' }}">
-                        </div>
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        거래처와 자사 정보는 회사정보에서 자동으로 가져옵니다.
+                        <a href="{% url 'voucher:company_list' %}">회사정보 관리</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <!-- 공급처 정보 (접힌 상태) -->
+    {% if not quote %}
+    <!-- 제품 선택 (신규 생성 시에만) -->
     <div class="card mt-4">
-        <div class="card-header" data-bs-toggle="collapse" data-bs-target="#supplierInfo" style="cursor: pointer;">
-            <i class="bi bi-building me-2"></i>공급처 정보 (자사)
-            <i class="bi bi-chevron-down float-end"></i>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-box-seam me-2"></i>제품 선택</span>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-light select-all-btn" onclick="selectAll()">
+                    <i class="bi bi-check-all"></i> 전체 선택
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-light select-all-btn" onclick="deselectAll()">
+                    <i class="bi bi-x-lg"></i> 전체 해제
+                </button>
+                <span class="badge bg-primary ms-2" id="selectedCount">0개 선택</span>
+            </div>
         </div>
-        <div id="supplierInfo" class="collapse show">
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">공급처명</label>
-                        <input type="text" name="supplier_name" class="form-control" 
-                               value="{% if quote %}{{ quote.supplier_name }}{% elif supplier %}{{ supplier.name }}{% endif %}">
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">대표자</label>
-                        <input type="text" name="supplier_ceo" class="form-control" 
-                               value="{% if quote %}{{ quote.supplier_ceo }}{% elif supplier %}{{ supplier.ceo }}{% endif %}">
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">주소</label>
-                    <input type="text" name="supplier_address" class="form-control" 
-                           value="{% if quote %}{{ quote.supplier_address }}{% elif supplier %}{{ supplier.address }}{% endif %}">
-                </div>
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">TEL</label>
-                        <input type="text" name="supplier_tel" class="form-control" 
-                               value="{% if quote %}{{ quote.supplier_tel }}{% elif supplier %}{{ supplier.tel }}{% endif %}">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">FAX</label>
-                        <input type="text" name="supplier_fax" class="form-control" 
-                               value="{% if quote %}{{ quote.supplier_fax }}{% elif supplier %}{{ supplier.fax }}{% endif %}">
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">담당자</label>
-                        <input type="text" name="supplier_manager" class="form-control" 
-                               value="{% if quote %}{{ quote.supplier_manager }}{% elif supplier %}{{ supplier.manager_name }}{% endif %}">
-                    </div>
-                </div>
+        <div class="card-body p-0">
+            <div class="product-table">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>제품코드</th>
+                            <th>가스명</th>
+                            <th>제품명</th>
+                            <th>End User</th>
+                            <th>용기</th>
+                            <th>충전량</th>
+                            <th>통화</th>
+                            <th class="text-end">단가(/kg)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in products %}
+                        <tr class="product-row">
+                            <td>
+                                <input type="checkbox" name="products" value="{{ p.pk }}" 
+                                       class="product-checkbox" onchange="updateCount()">
+                            </td>
+                            <td><code>{{ p.trade_condition_no }}</code></td>
+                            <td>{{ p.gas_name|default:'-' }}</td>
+                            <td>{{ p.display_name|default:'-' }}</td>
+                            <td><small>{{ p.customer_user_name|default:'-' }}</small></td>
+                            <td>{{ p.cylinder_capacity|default:'-' }}L</td>
+                            <td>{{ p.filling_weight|default:'-' }}kg</td>
+                            <td>
+                                {% if p.default_currency == 'KRW' %}
+                                <span class="badge bg-success currency-badge">₩ KRW</span>
+                                {% elif p.default_currency == 'JPY' %}
+                                <span class="badge bg-warning text-dark currency-badge">¥ JPY</span>
+                                {% elif p.default_currency == 'USD' %}
+                                <span class="badge bg-primary currency-badge">$ USD</span>
+                                {% else %}
+                                <span class="badge bg-secondary currency-badge">{{ p.default_currency }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if p.current_price_per_kg %}
+                                {{ p.current_price_per_kg|floatformat:0 }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">
+                                등록된 제품이 없습니다.
+                                <a href="{% url 'products:list' %}">제품코드 관리</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-    
-    <!-- 하단 정보 -->
-    <div class="card mt-4">
-        <div class="card-header">
-            <i class="bi bi-card-text me-2"></i>추가 정보
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">적용기간</label>
-                    <input type="text" name="valid_period" class="form-control" 
-                           value="{{ quote.valid_period|default:'' }}" 
-                           placeholder="예: 2026.01.01 ~ 2026.12.31">
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">거래조건</label>
-                    <input type="text" name="trade_terms" class="form-control" 
-                           value="{{ quote.trade_terms|default:'' }}" 
-                           placeholder="예: FOB 인천">
-                </div>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">결제계좌</label>
-                <textarea name="bank_account" class="form-control" rows="2" 
-                          placeholder="예: 국민은행 123-456-789012 (예금주: CYNOW)">{{ quote.bank_account|default:'' }}</textarea>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">비고</label>
-                <textarea name="note" class="form-control" rows="3">{{ quote.note|default:'' }}</textarea>
-            </div>
-        </div>
-    </div>
+    {% endif %}
     
     <!-- 버튼 -->
     <div class="d-flex justify-content-between mt-4">
@@ -221,8 +198,8 @@
            class="btn btn-outline-light">
             <i class="bi bi-x-lg"></i> 취소
         </a>
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-lg"></i> {% if quote %}저장{% else %}생성{% endif %}
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-check-lg"></i> {% if quote %}저장{% else %}견적서 생성{% endif %}
         </button>
     </div>
 </form>
@@ -230,18 +207,30 @@
 
 {% block extra_js %}
 <script>
-// 거래처 선택 시 자동 입력
-document.getElementById('customerSelect').addEventListener('change', function() {
-    const option = this.options[this.selectedIndex];
-    if (option.value) {
-        document.querySelector('[name="customer_address"]').value = option.dataset.address || '';
-        document.querySelector('[name="customer_ceo"]').value = option.dataset.ceo || '';
-        document.querySelector('[name="customer_tel"]').value = option.dataset.tel || '';
-        document.querySelector('[name="customer_manager"]').value = option.dataset.manager || '';
-        document.querySelector('[name="customer_manager_tel"]').value = option.dataset.managerTel || '';
-        document.querySelector('[name="customer_manager_email"]').value = option.dataset.managerEmail || '';
-    }
+function selectAll() {
+    document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = true);
+    updateCount();
+}
+
+function deselectAll() {
+    document.querySelectorAll('.product-checkbox').forEach(cb => cb.checked = false);
+    updateCount();
+}
+
+function updateCount() {
+    const count = document.querySelectorAll('.product-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count + '개 선택';
+}
+
+// 행 클릭 시 체크박스 토글
+document.querySelectorAll('.product-row').forEach(row => {
+    row.addEventListener('click', function(e) {
+        if (e.target.type !== 'checkbox') {
+            const checkbox = this.querySelector('.product-checkbox');
+            checkbox.checked = !checkbox.checked;
+            updateCount();
+        }
+    });
 });
 </script>
 {% endblock %}
-

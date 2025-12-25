@@ -17,6 +17,7 @@ from django.conf import settings
 from django.db import models
 
 from .models import Quote, QuoteItem, Customer, DocumentTemplate, CompanyInfo
+from products.models import ProductCode
 from .services.docx_generator import (
     DocxGenerator,
     QuoteDocxGenerator,
@@ -285,7 +286,7 @@ def generate_price_list(request):
 
 @login_required
 def quote_create(request):
-    """견적서 생성"""
+    """견적서 생성 - 제품코드 선택 방식"""
     if request.method == 'POST':
         # 견적번호 중복 체크
         quote_no = request.POST.get('quote_no')
@@ -293,43 +294,103 @@ def quote_create(request):
             messages.error(request, f"견적번호 {quote_no}가 이미 존재합니다.")
             return redirect('voucher:quote_create')
         
+        # 선택된 제품코드 가져오기
+        selected_products = request.POST.getlist('products')
+        if not selected_products:
+            messages.error(request, "최소 1개 이상의 제품을 선택하세요.")
+            return redirect('voucher:quote_create')
+        
+        # 자사/거래처 정보 자동 로드
+        supplier = CompanyInfo.objects.filter(is_supplier=True).first()
+        customer_id = request.POST.get('customer')
+        customer = CompanyInfo.objects.filter(pk=customer_id).first() if customer_id else None
+        
+        # 유효기간 기준 연도 계산 (적용할 단가 연도)
+        valid_until = request.POST.get('valid_until')
+        if valid_until:
+            price_year = int(valid_until.split('-')[0])
+        else:
+            price_year = date.today().year + 1  # 기본: 내년 단가
+        
         # 견적서 생성
         quote = Quote(
             quote_no=quote_no,
             title=request.POST.get('title'),
             quote_date=request.POST.get('quote_date') or date.today(),
-            valid_until=request.POST.get('valid_until') or None,
-            status=request.POST.get('status', 'DRAFT'),
-            default_currency=request.POST.get('default_currency', 'KRW'),
+            valid_until=valid_until or None,
+            status='DRAFT',
+            default_currency='KRW',  # 각 품목별로 다름
             
-            # 거래처
-            customer_id=request.POST.get('customer') or None,
-            customer_address=request.POST.get('customer_address'),
-            customer_ceo=request.POST.get('customer_ceo'),
-            customer_tel=request.POST.get('customer_tel'),
-            customer_manager=request.POST.get('customer_manager'),
-            customer_manager_tel=request.POST.get('customer_manager_tel'),
-            customer_manager_email=request.POST.get('customer_manager_email') or None,
+            # 거래처 (자동)
+            customer_id=customer.id if customer else None,
+            customer_address=customer.address if customer else '',
+            customer_ceo=customer.ceo if customer else '',
+            customer_tel=customer.tel if customer else '',
+            customer_manager=customer.manager_name if customer else '',
+            customer_manager_tel=customer.manager_tel if customer else '',
+            customer_manager_email=customer.manager_email if customer else None,
             
-            # 공급처
-            supplier_name=request.POST.get('supplier_name'),
-            supplier_address=request.POST.get('supplier_address'),
-            supplier_ceo=request.POST.get('supplier_ceo'),
-            supplier_tel=request.POST.get('supplier_tel'),
-            supplier_fax=request.POST.get('supplier_fax'),
-            supplier_manager=request.POST.get('supplier_manager'),
+            # 공급처 (자동)
+            supplier_name=supplier.name if supplier else '',
+            supplier_address=supplier.address if supplier else '',
+            supplier_ceo=supplier.ceo if supplier else '',
+            supplier_tel=supplier.tel if supplier else '',
+            supplier_fax=supplier.fax if supplier else '',
+            supplier_manager=supplier.manager_name if supplier else '',
             
             # 하단 정보
-            valid_period=request.POST.get('valid_period'),
-            trade_terms=request.POST.get('trade_terms'),
-            bank_account=request.POST.get('bank_account'),
-            note=request.POST.get('note'),
+            valid_period=f"{price_year}.01.01 ~ {price_year}.12.31",
+            trade_terms=supplier.default_trade_terms if supplier else '',
+            bank_account=f"{supplier.bank_name} {supplier.bank_account} ({supplier.bank_holder})" if supplier and supplier.bank_account else '',
+            note='',
             
             created_by=request.user,
         )
         quote.save()
         
-        messages.success(request, f"견적서 {quote.quote_no}가 생성되었습니다.")
+        # 선택된 제품들로 QuoteItem 생성
+        item_count = 0
+        for product_pk in selected_products:
+            try:
+                product = ProductCode.objects.get(pk=product_pk)
+                
+                # 해당 연도 단가 조회 (유효기간 연도 기준)
+                from django.db.models import Q
+                from datetime import datetime
+                price_start = datetime(price_year, 1, 1).date()
+                
+                price_obj = product.price_history.filter(
+                    effective_date__lte=price_start
+                ).order_by('-effective_date').first()
+                
+                if not price_obj:
+                    # 최신 단가로 대체
+                    price_obj = product.price_history.order_by('-effective_date').first()
+                
+                price_per_kg = price_obj.price_per_kg if price_obj else Decimal('0')
+                currency = product.default_currency
+                
+                # 용기 단가 계산
+                filling_weight = product.filling_weight or Decimal('0')
+                packing_price = price_per_kg * filling_weight
+                
+                QuoteItem.objects.create(
+                    quote=quote,
+                    product_code=product.trade_condition_no,
+                    product_name=product.display_name or product.gas_name or '',
+                    gas_name=product.gas_name or '',
+                    specification=f"{product.cylinder_capacity or ''}L" if product.cylinder_capacity else '',
+                    quantity=1,
+                    unit='EA',
+                    unit_price=packing_price,
+                    currency=currency,
+                    note=f"End User: {product.customer_user_name or ''}" if product.customer_user_name else '',
+                )
+                item_count += 1
+            except ProductCode.DoesNotExist:
+                continue
+        
+        messages.success(request, f"견적서 {quote.quote_no}가 생성되었습니다. (품목 {item_count}개)")
         return redirect('voucher:quote_detail', pk=quote.pk)
     
     # 견적번호 자동 생성
@@ -338,24 +399,20 @@ def quote_create(request):
     # 자사 정보 가져오기
     supplier = CompanyInfo.objects.filter(is_supplier=True).first()
     
-    # 거래처 목록 (JSON 포함)
+    # 거래처 목록
     customers = CompanyInfo.objects.filter(is_customer=True, is_supplier=False).order_by('name')
-    customers_json = json.dumps([{
-        'id': c.id,
-        'code': c.code,
-        'name': c.name,
-        'address': c.address or '',
-        'ceo': c.ceo or '',
-        'tel': c.tel or '',
-        'fax': c.fax or '',
-        'manager_name': c.manager_name or '',
-        'manager_tel': c.manager_tel or '',
-        'manager_email': c.manager_email or '',
-    } for c in customers])
+    
+    # 제품코드 목록 (단가 정보 포함)
+    products = ProductCode.objects.filter(is_active=True).order_by('trade_condition_no')
+    
+    # 내년 기준 단가 계산
+    next_year = date.today().year + 1
     
     context = {
         'quote': None,
         'suggested_quote_no': suggested_quote_no,
+        'products': products,
+        'next_year': next_year,
         'today': date.today().strftime('%Y-%m-%d'),
         'status_choices': Quote.STATUS_CHOICES,
         'currency_choices': Quote.CURRENCY_CHOICES,
