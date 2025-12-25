@@ -908,13 +908,16 @@ def planned_move_list(request, customer_order_no):
 @require_POST
 def planned_move_create(request, customer_order_no):
     """
-    가발행 이동서 등록
+    가발행 이동서 등록 (일괄 생성 지원)
     """
+    import re
+    
     po = get_object_or_404(PO, customer_order_no=customer_order_no)
     
     # 폼 데이터
     planned_move_no = request.POST.get('planned_move_no', '').strip()
     planned_qty = request.POST.get('planned_qty', 0)
+    batch_count = request.POST.get('batch_count', 1)
     po_item_id = request.POST.get('po_item_id')
     trade_condition_code = request.POST.get('trade_condition_code', '')
     gas_name = request.POST.get('gas_name', '')
@@ -926,20 +929,16 @@ def planned_move_create(request, customer_order_no):
         messages.error(request, '이동서번호를 입력해주세요.')
         return redirect('orders:planned_moves', customer_order_no=customer_order_no)
     
-    # 중복 확인 (CYNOW 내)
-    if PlannedMoveReport.objects.filter(planned_move_no=planned_move_no).exists():
-        messages.warning(request, f'이미 가발행된 번호입니다: {planned_move_no}')
-    
-    # FCMS 중복 확인
     try:
-        if FcmsRepository.check_move_no_exists(planned_move_no):
-            messages.warning(request, f'FCMS에 이미 존재하는 번호입니다: {planned_move_no}')
-    except Exception:
-        pass
+        batch_count = int(batch_count)
+        batch_count = min(max(batch_count, 1), 20)  # 1~20 제한
+    except (ValueError, TypeError):
+        batch_count = 1
     
-    # 순번 계산
-    last_seq = po.planned_moves.order_by('-sequence').first()
-    next_seq = (last_seq.sequence + 1) if last_seq else 1
+    try:
+        planned_qty = int(planned_qty) if planned_qty else 0
+    except (ValueError, TypeError):
+        planned_qty = 0
     
     # 수주품목 연결
     po_item = None
@@ -955,27 +954,66 @@ def planned_move_create(request, customer_order_no):
     planned_weight = None
     if po_item and po_item.filling_weight and planned_qty:
         try:
-            planned_weight = po_item.filling_weight * int(planned_qty)
+            planned_weight = po_item.filling_weight * planned_qty
         except (ValueError, TypeError):
             pass
     
-    # 생성
-    PlannedMoveReport.objects.create(
-        po=po,
-        planned_move_no=planned_move_no,
-        sequence=next_seq,
-        po_item=po_item,
-        trade_condition_code=trade_condition_code,
-        gas_name=gas_name,
-        planned_qty=int(planned_qty) if planned_qty else 0,
-        planned_weight=planned_weight,
-        filling_plan_date=filling_plan_date if filling_plan_date else None,
-        shipping_plan_date=shipping_plan_date if shipping_plan_date else None,
-        remarks=remarks,
-        created_by=request.user if request.user.is_authenticated else None,
-    )
+    # 순번 계산
+    last_seq = po.planned_moves.order_by('-sequence').first()
+    next_seq = (last_seq.sequence + 1) if last_seq else 1
     
-    messages.success(request, f'가발행 이동서가 등록되었습니다: {planned_move_no}')
+    # 번호 파싱 (FP25XXXXXX 형식)
+    match = re.match(r'^([A-Z]+)(\d+)$', planned_move_no)
+    if match:
+        prefix = match.group(1)
+        start_num = int(match.group(2))
+        num_len = len(match.group(2))
+    else:
+        # 파싱 실패 시 단일 생성
+        prefix = None
+        start_num = 0
+        num_len = 0
+        batch_count = 1
+    
+    created_count = 0
+    created_nos = []
+    
+    for i in range(batch_count):
+        if prefix:
+            current_no = f"{prefix}{str(start_num + i).zfill(num_len)}"
+        else:
+            current_no = planned_move_no if i == 0 else f"{planned_move_no}_{i+1}"
+        
+        # 중복 확인 (CYNOW 내)
+        if PlannedMoveReport.objects.filter(planned_move_no=current_no).exists():
+            messages.warning(request, f'이미 가발행된 번호 건너뜀: {current_no}')
+            continue
+        
+        # 생성
+        PlannedMoveReport.objects.create(
+            po=po,
+            planned_move_no=current_no,
+            sequence=next_seq + i,
+            po_item=po_item,
+            trade_condition_code=trade_condition_code,
+            gas_name=gas_name,
+            planned_qty=planned_qty,
+            planned_weight=planned_weight,
+            filling_plan_date=filling_plan_date if filling_plan_date else None,
+            shipping_plan_date=shipping_plan_date if shipping_plan_date else None,
+            remarks=remarks,
+            created_by=request.user if request.user.is_authenticated else None,
+        )
+        created_count += 1
+        created_nos.append(current_no)
+    
+    if created_count > 1:
+        messages.success(request, f'{created_count}건 가발행 완료: {created_nos[0]} ~ {created_nos[-1]}')
+    elif created_count == 1:
+        messages.success(request, f'가발행 등록: {created_nos[0]}')
+    else:
+        messages.error(request, '가발행 등록 실패')
+    
     return redirect('orders:planned_moves', customer_order_no=customer_order_no)
 
 

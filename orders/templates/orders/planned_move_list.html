@@ -147,22 +147,8 @@
                         {% csrf_token %}
                         
                         <div class="mb-3">
-                            <label class="form-label fw-bold">이동서번호 <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <input type="text" name="planned_move_no" id="planned_move_no"
-                                       class="form-control form-control-lg" 
-                                       value="{{ next_no }}"
-                                       placeholder="FP250001" required>
-                                <button type="button" class="btn btn-outline-secondary" onclick="refreshNextNo()">
-                                    <i class="fas fa-sync-alt"></i>
-                                </button>
-                            </div>
-                            <div id="moveNoStatus" class="form-text"></div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">수주품목</label>
-                            <select name="po_item_id" id="po_item_id" class="form-select" onchange="onItemChange()">
+                            <label class="form-label fw-bold">수주품목 <span class="text-danger">*</span></label>
+                            <select name="po_item_id" id="po_item_id" class="form-select" onchange="onItemChange()" required>
                                 <option value="">-- 선택 --</option>
                                 {% for item in po.items.all %}
                                 <option value="{{ item.pk }}" 
@@ -178,20 +164,47 @@
                             </select>
                         </div>
                         
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <label class="form-label fw-bold">수량(병)</label>
-                                <input type="number" name="planned_qty" id="planned_qty"
-                                       class="form-control form-control-lg text-center" 
-                                       placeholder="수량"
-                                       min="1" onchange="calcWeight()">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">시작 이동서번호</label>
+                            <div class="input-group">
+                                <input type="text" name="planned_move_no" id="planned_move_no"
+                                       class="form-control" 
+                                       value="{{ next_no }}"
+                                       placeholder="FP250001" required>
+                                <button type="button" class="btn btn-outline-secondary" onclick="refreshNextNo()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
                             </div>
-                            <div class="col-6">
-                                <label class="form-label fw-bold">중량(kg)</label>
-                                <input type="text" id="planned_weight_display" 
-                                       class="form-control form-control-lg text-center bg-light" 
+                            <div id="moveNoStatus" class="form-text"></div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-4">
+                                <label class="form-label fw-bold">수량/건</label>
+                                <input type="number" name="planned_qty" id="planned_qty"
+                                       class="form-control text-center" 
+                                       placeholder="10"
+                                       min="1" onchange="calcTotal()" required>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label fw-bold">발행건수</label>
+                                <input type="number" name="batch_count" id="batch_count"
+                                       class="form-control text-center" 
+                                       value="1"
+                                       min="1" max="20" onchange="calcTotal()">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label fw-bold">합계</label>
+                                <input type="text" id="total_display" 
+                                       class="form-control text-center bg-light fw-bold" 
                                        readonly>
                             </div>
+                        </div>
+                        
+                        <!-- 일괄 생성 미리보기 -->
+                        <div id="batchPreview" class="mb-3 p-2 bg-light rounded small" style="display: none;">
+                            <strong>생성될 이동서:</strong>
+                            <div id="batchList" class="text-primary"></div>
                         </div>
                         
                         <div class="row mb-3">
@@ -376,6 +389,7 @@ function refreshNextNo() {
             if (data.next_no) {
                 document.getElementById('planned_move_no').value = data.next_no;
                 checkMoveNo(data.next_no);
+                calcTotal();
             }
         });
 }
@@ -401,6 +415,7 @@ function checkMoveNo(moveNo) {
 // 이동서번호 입력 시 중복 확인
 document.getElementById('planned_move_no').addEventListener('blur', function() {
     checkMoveNo(this.value);
+    calcTotal();
 });
 
 // 품목 선택 시 정보 반영
@@ -411,23 +426,55 @@ function onItemChange() {
     document.getElementById('trade_condition_code').value = option.dataset.code || '';
     document.getElementById('gas_name').value = option.dataset.gas || '';
     
-    calcWeight();
+    calcTotal();
 }
 
-// 중량 계산
-function calcWeight() {
-    const select = document.getElementById('po_item_id');
-    const option = select.options[select.selectedIndex];
+// 합계 및 미리보기 계산
+function calcTotal() {
     const qty = parseInt(document.getElementById('planned_qty').value) || 0;
-    const weight = parseFloat(option.dataset.weight) || 0;
+    const count = parseInt(document.getElementById('batch_count').value) || 1;
+    const startNo = document.getElementById('planned_move_no').value;
     
-    const totalWeight = qty * weight;
-    document.getElementById('planned_weight_display').value = totalWeight > 0 ? totalWeight.toFixed(1) + ' kg' : '';
+    const total = qty * count;
+    document.getElementById('total_display').value = total > 0 ? total + '병' : '';
+    
+    // 일괄 생성 미리보기
+    const preview = document.getElementById('batchPreview');
+    const list = document.getElementById('batchList');
+    
+    if (count > 1 && startNo) {
+        preview.style.display = 'block';
+        
+        // 번호 파싱 (FP25XXXXXX 형식)
+        const match = startNo.match(/^([A-Z]+)(\d+)$/);
+        if (match) {
+            const prefix = match[1];
+            const startNum = parseInt(match[2]);
+            const numLen = match[2].length;
+            
+            let items = [];
+            for (let i = 0; i < Math.min(count, 5); i++) {
+                items.push(prefix + String(startNum + i).padStart(numLen, '0'));
+            }
+            if (count > 5) items.push('...');
+            if (count > 5) items.push(prefix + String(startNum + count - 1).padStart(numLen, '0'));
+            
+            list.innerHTML = items.join(', ') + ` (각 ${qty}병)`;
+        } else {
+            list.innerHTML = startNo + ' ~ ' + count + '건';
+        }
+    } else {
+        preview.style.display = 'none';
+    }
 }
 
 // 초기 실행
 document.addEventListener('DOMContentLoaded', function() {
     checkMoveNo(document.getElementById('planned_move_no').value);
+    
+    // 수량, 건수 변경 시 계산
+    document.getElementById('planned_qty').addEventListener('input', calcTotal);
+    document.getElementById('batch_count').addEventListener('input', calcTotal);
 });
 </script>
 {% endblock %}
