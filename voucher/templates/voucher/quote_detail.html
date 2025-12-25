@@ -23,6 +23,10 @@
         <a href="{% url 'voucher:quote_edit' quote.pk %}" class="btn btn-primary">
             <i class="bi bi-pencil"></i> 수정
         </a>
+        <a href="{% url 'voucher:quote_delete' quote.pk %}" class="btn btn-danger"
+           onclick="return confirm('정말 삭제하시겠습니까?\n\n견적번호: {{ quote.quote_no }}\n건명: {{ quote.title }}');">
+            <i class="bi bi-trash"></i> 삭제
+        </a>
     </div>
 </div>
 

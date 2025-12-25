@@ -67,6 +67,23 @@ def quote_detail(request, pk):
 
 
 @login_required
+def quote_delete(request, pk):
+    """견적서 삭제"""
+    quote = get_object_or_404(Quote, pk=pk)
+    quote_no = quote.quote_no
+    
+    if request.method == 'POST':
+        quote.delete()
+        messages.success(request, f"견적서 {quote_no}가 삭제되었습니다.")
+        return redirect('voucher:quote_list')
+    
+    # GET 요청 시에도 삭제 (확인은 JavaScript에서)
+    quote.delete()
+    messages.success(request, f"견적서 {quote_no}가 삭제되었습니다.")
+    return redirect('voucher:quote_list')
+
+
+@login_required
 def quote_download(request, pk):
     """
     견적서 DOCX 다운로드

@@ -12,6 +12,7 @@ urlpatterns = [
     path('quote/create/', views.quote_create, name='quote_create'),
     path('quote/<int:pk>/', views.quote_detail, name='quote_detail'),
     path('quote/<int:pk>/edit/', views.quote_edit, name='quote_edit'),
+    path('quote/<int:pk>/delete/', views.quote_delete, name='quote_delete'),
     
     # 다운로드
     path('quote/<int:pk>/download/', views.quote_download, name='quote_download'),
