@@ -12,16 +12,16 @@ from voucher.models import CompanyInfo
 
 # 자사 정보
 company, created = CompanyInfo.objects.get_or_create(
-    code='CYNOW',
+    code='KDFPK',
     defaults={
-        'name': 'CYNOW Co., Ltd.',
-        'name_en': 'CYNOW Co., Ltd.',
+        'name': 'KDFPK Co., Ltd.',
+        'name_en': 'KDFPK Co., Ltd.',
         'is_supplier': True,
         'is_customer': False,
         'is_active': True,
     }
 )
-print(f"CYNOW (supplier): {'created' if created else 'exists'}")
+print(f"KDFPK (supplier): {'created' if created else 'exists'}")
 
 # KDKK 거래처
 company, created = CompanyInfo.objects.get_or_create(

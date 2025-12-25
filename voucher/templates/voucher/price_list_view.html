@@ -141,7 +141,7 @@
 <!-- 인쇄용 헤더 (화면에서는 숨김) -->
 <div class="print-header">
     <h1>{{ selected_year }}년 제품 단가표</h1>
-    <p>CYNOW Co., Ltd. | 발행일: {% now "Y년 m월 d일" %}</p>
+    <p>KDFPK Co., Ltd. | 발행일: {% now "Y년 m월 d일" %}</p>
 </div>
 
 <nav aria-label="breadcrumb" class="no-print">
@@ -268,7 +268,7 @@
     <div style="display: flex; justify-content: space-between;">
         <span>총 {{ price_items|length }}개 제품</span>
         <span>용기단가 = 단가(/kg) × 충전량(kg)</span>
-        <span>© CYNOW Co., Ltd.</span>
+        <span>© KDFPK Co., Ltd.</span>
     </div>
 </div>
 {% endblock %}

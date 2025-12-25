@@ -349,7 +349,7 @@ def build_quote_context_from_db(quote_id: int) -> Dict[str, Any]:
             'title': quote.title,
         },
         'supplier_info': {
-            'name': quote.supplier_name or 'CYNOW Co., Ltd.',
+            'name': quote.supplier_name or 'KDFPK Co., Ltd.',
             'address': quote.supplier_address or '',
             'ceo': quote.supplier_ceo or '',
             'tel': quote.supplier_tel or '',
@@ -480,7 +480,7 @@ def generate_price_list_from_products(
     footer = doc.add_paragraph(f'발행일: {date.today().strftime("%Y-%m-%d")}')
     footer.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
-    company = doc.add_paragraph('CYNOW Co., Ltd.')
+    company = doc.add_paragraph('KDFPK Co., Ltd.')
     company.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     
     # 저장
