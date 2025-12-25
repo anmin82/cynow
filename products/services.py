@@ -142,7 +142,7 @@ def generate_display_name(trade_condition_no, gas_name, capacity, valve_spec_nam
         parts.append(gas_name)
     
     if capacity:
-        parts.append(f"{capacity}kg")
+        parts.append(f"{capacity}L")
     
     if valve_spec_name:
         parts.append(valve_spec_name)
