@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="page-title">문서 템플릿 관리</h1>
-        <p class="page-subtitle">견적서, 단가표 등 DOCX 템플릿 파일 관리</p>
+        <p class="page-subtitle">견적서, 단가표 등 DOCX 템플릿을 웹에서 직접 편집</p>
     </div>
     <div class="d-flex gap-2">
         <a href="{% url 'voucher:template_test_quote' %}" class="btn btn-success">
@@ -18,130 +18,20 @@
     </div>
 </div>
 
-<!-- 업로드 폼 -->
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="bi bi-upload me-2"></i>템플릿 업로드
-    </div>
-    <div class="card-body">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label">템플릿 유형</label>
-                    <select name="template_type" class="form-select" required>
-                        <option value="QUOTE">견적서</option>
-                        <option value="PRICE_LIST">단가표</option>
-                        <option value="INVOICE">청구서</option>
-                        <option value="DELIVERY">납품서</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">템플릿명</label>
-                    <input type="text" name="name" class="form-control" placeholder="예: KDKK 견적서" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">DOCX 파일</label>
-                    <input type="file" name="template_file" class="form-control" accept=".docx" required>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-upload"></i> 업로드
-                    </button>
-                </div>
-            </div>
-            <div class="form-text mt-2">
-                <i class="bi bi-info-circle"></i>
-                템플릿 파일에는 {% verbatim %}<code>{{변수명}}</code>{% endverbatim %} 형식의 플레이스홀더를 사용하세요.
-                <a href="{% url 'voucher:template_guide' %}" target="_blank">변수 가이드 보기</a>
-            </div>
-        </form>
-    </div>
+<!-- 사용 안내 -->
+<div class="alert alert-info mb-4">
+    <i class="bi bi-lightbulb me-2"></i>
+    <strong>사용 방법:</strong> 
+    템플릿의 <strong>편집</strong> 버튼을 클릭하면 ONLYOFFICE 에디터가 열립니다. 
+    {% verbatim %}<code>{{변수명}}</code>{% endverbatim %} 형식으로 변수를 입력하면 실제 데이터로 치환됩니다.
+    <a href="{% url 'voucher:template_guide' %}" class="alert-link">변수 가이드 보기</a>
 </div>
 
 <!-- 템플릿 목록 -->
 <div class="card">
-    <div class="card-header">
-        <i class="bi bi-file-earmark-word me-2"></i>등록된 템플릿
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>유형</th>
-                        <th>템플릿명</th>
-                        <th>파일명</th>
-                        <th>기본</th>
-                        <th>상태</th>
-                        <th>수정일</th>
-                        <th class="text-center">액션</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for tpl in templates %}
-                    <tr>
-                        <td>
-                            <span class="badge bg-primary">{{ tpl.get_template_type_display }}</span>
-                        </td>
-                        <td><strong>{{ tpl.name }}</strong></td>
-                        <td>
-                            <code>{{ tpl.filename }}</code>
-                        </td>
-                        <td>
-                            {% if tpl.is_default %}
-                            <span class="badge bg-success">기본</span>
-                            {% else %}
-                            <a href="{% url 'voucher:template_set_default' tpl.pk %}" 
-                               class="btn btn-sm btn-outline-light">기본으로 설정</a>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if tpl.is_active %}
-                            <span class="badge bg-success">활성</span>
-                            {% else %}
-                            <span class="badge bg-secondary">비활성</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ tpl.updated_at|date:"Y-m-d H:i" }}</td>
-                        <td class="text-center">
-                            <div class="btn-group btn-group-sm">
-                                {% if user.is_staff %}
-                                <a href="{% url 'voucher:template_editor' tpl.filename %}" 
-                                   class="btn btn-primary" title="웹에서 편집">
-                                    <i class="bi bi-pencil-square"></i> 편집
-                                </a>
-                                {% endif %}
-                                <a href="{% url 'voucher:template_download' tpl.pk %}" 
-                                   class="btn btn-outline-light" title="다운로드">
-                                    <i class="bi bi-download"></i>
-                                </a>
-                                <a href="{% url 'voucher:template_delete' tpl.pk %}" 
-                                   class="btn btn-outline-light text-danger" title="삭제"
-                                   onclick="return confirm('정말 삭제하시겠습니까?');">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">
-                            등록된 템플릿이 없습니다.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- 파일 시스템 템플릿 -->
-<div class="card mt-4">
-    <div class="card-header">
-        <i class="bi bi-folder me-2"></i>파일 시스템 템플릿
-        <small class="text-muted">(docx_templates/ 폴더)</small>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-file-earmark-word me-2"></i>템플릿 파일</span>
+        <small class="text-muted">docx_templates/ 폴더</small>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -151,34 +41,35 @@
                         <th>파일명</th>
                         <th>크기</th>
                         <th>수정일</th>
-                        <th class="text-center">액션</th>
+                        <th class="text-center" style="width: 150px;">액션</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for file in files %}
                     <tr>
-                        <td><code>{{ file.name }}</code></td>
+                        <td>
+                            <i class="bi bi-file-earmark-word text-primary me-2"></i>
+                            <strong>{{ file.name }}</strong>
+                        </td>
                         <td>{{ file.size|filesizeformat }}</td>
                         <td>{{ file.modified|date:"Y-m-d H:i" }}</td>
                         <td class="text-center">
-                            <div class="btn-group btn-group-sm">
-                                {% if user.is_staff %}
-                                <a href="{% url 'voucher:template_editor' file.name %}" 
-                                   class="btn btn-primary" title="웹에서 편집">
-                                    <i class="bi bi-pencil-square"></i> 편집
-                                </a>
-                                {% endif %}
-                                <a href="{% url 'voucher:template_download_file' %}?name={{ file.name }}" 
-                                   class="btn btn-outline-light">
-                                    <i class="bi bi-download"></i> 다운로드
-                                </a>
-                            </div>
+                            {% if user.is_staff %}
+                            <a href="{% url 'voucher:template_editor' file.name %}" 
+                               class="btn btn-primary btn-sm">
+                                <i class="bi bi-pencil-square"></i> 편집
+                            </a>
+                            {% else %}
+                            <span class="text-muted">관리자만 편집 가능</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="text-center py-4 text-muted">
-                            파일이 없습니다.
+                        <td colspan="4" class="text-center py-5">
+                            <i class="bi bi-folder-x text-muted" style="font-size: 3rem;"></i>
+                            <p class="mt-3 text-muted">템플릿 파일이 없습니다.</p>
+                            <p class="text-muted small">docx_templates/ 폴더에 .docx 파일을 추가하세요.</p>
                         </td>
                     </tr>
                     {% endfor %}
@@ -187,5 +78,54 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
+<!-- 변수 빠른 참조 -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-code-square me-2"></i>주요 변수 (빠른 참조)
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h6 class="text-primary">공급자 정보</h6>
+{% verbatim %}
+                <code class="d-block mb-1">{{supplier_company}}</code>
+                <code class="d-block mb-1">{{supplier_address}}</code>
+                <code class="d-block mb-1">{{supplier_ceo}}</code>
+                <code class="d-block mb-1">{{supplier_tel}}</code>
+                <code class="d-block mb-1">{{supplier_manager}}</code>
+{% endverbatim %}
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-primary">수신처 정보</h6>
+{% verbatim %}
+                <code class="d-block mb-1">{{receiver_company}}</code>
+                <code class="d-block mb-1">{{receiver_address}}</code>
+                <code class="d-block mb-1">{{receiver_ceo}}</code>
+                <code class="d-block mb-1">{{receiver_tel}}</code>
+                <code class="d-block mb-1">{{receiver_manager}}</code>
+{% endverbatim %}
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-primary">견적 정보</h6>
+{% verbatim %}
+                <code class="d-block mb-1">{{quote_no}}</code>
+                <code class="d-block mb-1">{{quote_date}}</code>
+                <code class="d-block mb-1">{{quote_title}}</code>
+                <code class="d-block mb-1">{{apply_period}}</code>
+                <code class="d-block mb-1">{{payment_terms}}</code>
+{% endverbatim %}
+            </div>
+        </div>
+        <hr>
+        <h6 class="text-primary">품목 테이블 (반복)</h6>
+        <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.85rem;">{% verbatim %}{%tr for item in items %}
+  {{item.no}} | {{item.gas_name}} | {{item.product_name}} | {{item.packing}} | {{item.packing_price}}
+{%tr endfor %}{% endverbatim %}</pre>
+        <small class="text-muted">
+            <i class="bi bi-info-circle"></i>
+            테이블의 데이터 행에서 첫 번째 셀에 <code>{%tr for item in items %}</code>, 마지막 셀에 <code>{%tr endfor %}</code>를 추가하세요.
+        </small>
+    </div>
+</div>
+{% endblock %}
