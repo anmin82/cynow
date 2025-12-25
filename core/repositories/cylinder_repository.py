@@ -265,9 +265,9 @@ class CylinderRepository:
                 if 'status' in filters:
                     st = filters['status']
                     if st == '보관:미회수':
-                        conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                        conditions.append("(c.dashboard_status = '보관:미회수' OR (c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102'))")
                     elif st == '보관:회수':
-                        conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                        conditions.append("(c.dashboard_status = '보관:회수' OR (c.dashboard_status = '보관' AND c.condition_code = '102'))")
                     else:
                         conditions.append("c.dashboard_status = %s")
                         params.append(st)
@@ -290,9 +290,9 @@ class CylinderRepository:
                         or_conditions.append(f"c.dashboard_status IN ({placeholders})")
                         params.extend(normal_statuses)
                     if has_bogwan_mihoesu:
-                        or_conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                        or_conditions.append("(c.dashboard_status = '보관:미회수' OR (c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102'))")
                     if has_bogwan_hoesu:
-                        or_conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                        or_conditions.append("(c.dashboard_status = '보관:회수' OR (c.dashboard_status = '보관' AND c.condition_code = '102'))")
                     if or_conditions:
                         conditions.append(f"({' OR '.join(or_conditions)})")
                 if 'location' in filters:
@@ -429,9 +429,9 @@ class CylinderRepository:
                 if 'status' in filters:
                     st = filters['status']
                     if st == '보관:미회수':
-                        conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                        conditions.append("(c.dashboard_status = '보관:미회수' OR (c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102'))")
                     elif st == '보관:회수':
-                        conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                        conditions.append("(c.dashboard_status = '보관:회수' OR (c.dashboard_status = '보관' AND c.condition_code = '102'))")
                     else:
                         conditions.append("c.dashboard_status = %s")
                         params.append(st)
@@ -454,9 +454,9 @@ class CylinderRepository:
                         or_conditions.append(f"c.dashboard_status IN ({placeholders})")
                         params.extend(normal_statuses)
                     if has_bogwan_mihoesu:
-                        or_conditions.append("(c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102')")
+                        or_conditions.append("(c.dashboard_status = '보관:미회수' OR (c.dashboard_status = '보관' AND COALESCE(c.condition_code, '') != '102'))")
                     if has_bogwan_hoesu:
-                        or_conditions.append("(c.dashboard_status = '보관' AND c.condition_code = '102')")
+                        or_conditions.append("(c.dashboard_status = '보관:회수' OR (c.dashboard_status = '보관' AND c.condition_code = '102'))")
                     if or_conditions:
                         conditions.append(f"({' OR '.join(or_conditions)})")
                 if 'location' in filters:
