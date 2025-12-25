@@ -5,63 +5,37 @@
 
 {% block extra_css %}
 <style>
-    /* 제품코드 자동완성 드롭다운 */
-    .product-search-wrapper {
-        position: relative;
+    /* 폼 카드 스타일 */
+    .form-section {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
     }
-    .product-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        border: 1px solid #dee2e6;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        max-height: 300px;
-        overflow-y: auto;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        display: none;
+    .form-section .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        padding: 16px 20px;
     }
-    .product-dropdown.show {
-        display: block;
-    }
-    .product-dropdown-item {
-        padding: 10px 12px;
-        cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-        transition: background 0.15s;
-    }
-    .product-dropdown-item:hover {
-        background: #f8f9fa;
-    }
-    .product-dropdown-item.selected {
-        background: #e7f1ff;
-    }
-    .product-dropdown-item:last-child {
-        border-bottom: none;
-    }
-    .product-dropdown-item .code {
+    .form-section .card-header h5 {
+        margin: 0;
         font-weight: 600;
-        color: #0d6efd;
-    }
-    .product-dropdown-item .name {
-        font-size: 0.9em;
-        color: #666;
-    }
-    .product-dropdown-item .specs {
-        font-size: 0.8em;
-        color: #999;
-        margin-top: 2px;
-    }
-    .product-dropdown-item .price {
-        float: right;
-        font-weight: 500;
-        color: #28a745;
     }
     
-    /* 품목 테이블 스타일 */
+    /* 필수 입력 강조 */
+    .required-field {
+        border-left: 3px solid #dc3545;
+        padding-left: 12px;
+    }
+    
+    /* 자동입력 필드 */
+    .auto-filled {
+        background-color: #e8f4fd !important;
+        border-color: #0d6efd !important;
+    }
+    
+    /* 품목 테이블 */
     .items-table {
         font-size: 0.9rem;
     }
@@ -69,65 +43,72 @@
         background: #f8f9fa;
         font-weight: 500;
         font-size: 0.85rem;
-        padding: 8px;
+        padding: 10px 8px;
         white-space: nowrap;
+        border-bottom: 2px solid #dee2e6;
     }
     .items-table td {
         vertical-align: middle;
-        padding: 6px 8px;
+        padding: 8px;
     }
-    .items-table .form-control,
-    .items-table .form-select {
-        font-size: 0.85rem;
-    }
-    
-    /* 읽기전용 필드 스타일 */
-    .form-control[readonly] {
+    .items-table tbody tr:hover {
         background-color: #f8f9fa;
-        border-color: #e9ecef;
     }
     
-    /* 금액 계산 표시 */
-    .calculated-amount {
-        font-weight: 600;
-        color: #28a745;
-        white-space: nowrap;
+    /* 제품 선택 드롭다운 */
+    .product-select {
+        min-width: 280px;
     }
-    .calculated-weight {
-        font-size: 0.85rem;
+    
+    /* 계산 결과 표시 */
+    .calc-display {
+        background: #f0f7ff;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-top: 4px;
+    }
+    .calc-display .label {
+        font-size: 0.75rem;
         color: #666;
+    }
+    .calc-display .value {
+        font-weight: 600;
+        color: #0d6efd;
     }
     
     /* 합계 행 */
     .totals-row {
-        background: #e7f3ff !important;
+        background: linear-gradient(135deg, #e7f3ff 0%, #f0f7ff 100%) !important;
         font-weight: 600;
     }
     .totals-row td {
         border-top: 2px solid #0d6efd;
+        padding: 12px 8px;
     }
     
     /* 삭제된 행 */
     .item-form-row.deleted {
-        background-color: #fee2e2;
-        opacity: 0.6;
-    }
-    .item-form-row.deleted input,
-    .item-form-row.deleted select {
-        text-decoration: line-through;
+        background-color: #fee2e2 !important;
+        opacity: 0.5;
     }
     
-    /* 스펙 표시 */
-    .spec-display {
-        font-size: 0.75rem;
-        color: #888;
-        white-space: nowrap;
+    /* 납기 선택 */
+    .delivery-section {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 16px;
+    }
+    .delivery-section.fixed {
+        background: #fef2f2;
+        border-color: #fca5a5;
     }
     
-    /* 통화 배지 */
-    .currency-badge {
-        font-size: 0.75rem;
-        padding: 2px 6px;
+    /* 제출 버튼 */
+    .submit-btn {
+        padding: 12px 40px;
+        font-size: 1.1rem;
+        font-weight: 600;
     }
 </style>
 {% endblock %}
@@ -147,177 +128,221 @@
                     {% endif %}
                 </ol>
             </nav>
-            <h2>{% if is_edit %}수주 수정{% else %}새 수주 등록{% endif %}</h2>
+            <h2>{% if is_edit %}수주 수정{% else %}📝 새 수주 등록{% endif %}</h2>
         </div>
     </div>
 
     <form method="post" id="po-form">
         {% csrf_token %}
         
-        <!-- 기본 정보 -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>기본 정보</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.customer_order_no.label }} <span class="text-danger">*</span></label>
-                        {{ form.customer_order_no }}
-                        {% if form.customer_order_no.errors %}
-                            <div class="text-danger small">{{ form.customer_order_no.errors }}</div>
-                        {% endif %}
-                        <div class="form-text">고객이 발행한 발주서 번호 (유일한 PO 식별자)</div>
+        <div class="row">
+            <!-- 좌측: 기본 정보 -->
+            <div class="col-lg-5">
+                <!-- 고객 & PO번호 -->
+                <div class="card form-section">
+                    <div class="card-header">
+                        <h5><i class="bi bi-building me-2"></i>고객 정보</h5>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.supplier_user_code.label }} <span class="text-danger">*</span></label>
-                        {{ form.supplier_user_code }}
-                        {% if form.supplier_user_code.errors %}
-                            <div class="text-danger small">{{ form.supplier_user_code.errors }}</div>
-                        {% endif %}
+                    <div class="card-body">
+                        <!-- 고객 선택 -->
+                        <div class="mb-3 required-field">
+                            <label class="form-label fw-bold">고객사 선택 <span class="text-danger">*</span></label>
+                            {{ form.customer }}
+                            <div class="form-text">고객을 선택하면 코드와 이름이 자동 입력됩니다.</div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">고객코드</label>
+                                {{ form.supplier_user_code }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">고객명</label>
+                                {{ form.supplier_user_name }}
+                            </div>
+                        </div>
+                        
+                        <!-- PO번호 -->
+                        <div class="mb-3 required-field">
+                            <label class="form-label fw-bold">PO번호 <span class="text-danger">*</span></label>
+                            {{ form.customer_order_no }}
+                            {% if form.customer_order_no.errors %}
+                                <div class="text-danger small">{{ form.customer_order_no.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">고객이 발행한 발주서 번호</div>
+                        </div>
+                        
+                        <!-- 수주일시 -->
+                        <div class="mb-0">
+                            <label class="form-label">수주일시</label>
+                            {{ form.received_at }}
+                        </div>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.supplier_user_name.label }}</label>
-                        {{ form.supplier_user_name }}
-                        {% if form.supplier_user_name.errors %}
-                            <div class="text-danger small">{{ form.supplier_user_name.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.received_at.label }} <span class="text-danger">*</span></label>
-                        {{ form.received_at }}
-                        {% if form.received_at.errors %}
-                            <div class="text-danger small">{{ form.received_at.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">{{ form.status.label }}</label>
-                        {{ form.status }}
-                        {% if form.status.errors %}
-                            <div class="text-danger small">{{ form.status.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">{{ form.memo.label }}</label>
-                    {{ form.memo }}
-                    {% if form.memo.errors %}
-                        <div class="text-danger small">{{ form.memo.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- 수주 품목 -->
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>수주 품목</h5>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="add-item-btn">
-                    <i class="bi bi-plus-circle"></i> 품목 추가
-                </button>
-            </div>
-            <div class="card-body p-0">
-                {{ formset.management_form }}
-                
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0 items-table" id="items-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 50px;">No</th>
-                                <th style="width: 140px;">제품코드 <span class="text-danger">*</span></th>
-                                <th style="min-width: 180px;">제품명</th>
-                                <th style="width: 80px;" class="text-center">충전량</th>
-                                <th style="width: 70px;" class="text-center">수량 <span class="text-danger">*</span></th>
-                                <th style="width: 100px;" class="text-end">단가(/kg)</th>
-                                <th style="width: 85px;">통화</th>
-                                <th style="width: 110px;" class="text-end">금액</th>
-                                <th style="width: 120px;">비고</th>
-                                <th style="width: 50px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="items-tbody">
-                            {% for item_form in formset %}
-                            <tr class="item-form-row" data-form-index="{{ forloop.counter0 }}">
-                                <td>
-                                    {{ item_form.line_no }}
-                                    {{ item_form.id }}
-                                    {{ item_form.product_code_pk }}
-                                    {{ item_form.gas_name }}
-                                    {{ item_form.cylinder_spec }}
-                                    {{ item_form.valve_spec }}
-                                </td>
-                                <td>
-                                    <div class="product-search-wrapper">
-                                        {{ item_form.trade_condition_code }}
-                                        <div class="product-dropdown"></div>
-                                    </div>
-                                </td>
-                                <td>
-                                    {{ item_form.trade_condition_name }}
-                                    <div class="spec-display"></div>
-                                </td>
-                                <td class="text-center">
-                                    {{ item_form.filling_weight }}
-                                    <span class="text-muted">kg</span>
-                                </td>
-                                <td>{{ item_form.qty }}</td>
-                                <td>{{ item_form.unit_price }}</td>
-                                <td>{{ item_form.currency }}</td>
-                                <td class="text-end">
-                                    <span class="calculated-amount">-</span>
-                                    <div class="calculated-weight">-</div>
-                                </td>
-                                <td>{{ item_form.remarks }}</td>
-                                <td class="text-center">
-                                    {% if item_form.instance.pk %}
-                                        <div class="form-check">
-                                            {{ item_form.DELETE }}
-                                        </div>
-                                    {% else %}
-                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn" title="삭제">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot>
-                            <tr class="totals-row">
-                                <td colspan="4" class="text-end">합계</td>
-                                <td class="text-center" id="total-qty">0</td>
-                                <td colspan="2"></td>
-                                <td class="text-end">
-                                    <span id="total-amount">-</span>
-                                    <div class="calculated-weight" id="total-weight">-</div>
-                                </td>
-                                <td colspan="2"></td>
-                            </tr>
-                        </tfoot>
-                    </table>
                 </div>
                 
-                <div class="p-3 bg-light border-top">
-                    <small class="text-muted">
-                        <i class="bi bi-info-circle me-1"></i>
-                        제품코드 입력 시 자동완성으로 검색할 수 있습니다. 단가와 스펙 정보가 자동으로 로딩됩니다.
-                    </small>
+                <!-- 납기 정보 -->
+                <div class="card form-section">
+                    <div class="card-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <h5><i class="bi bi-calendar-check me-2"></i>납기 정보</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="delivery-section" id="delivery-section">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">납기 유형</label>
+                                {{ form.delivery_type }}
+                            </div>
+                            
+                            <div id="delivery-date-wrapper" style="display: none;">
+                                <label class="form-label fw-bold">납기일 <span class="text-danger">*</span></label>
+                                {{ form.delivery_date }}
+                                {% if form.delivery_date.errors %}
+                                    <div class="text-danger small">{{ form.delivery_date.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div id="delivery-partial-info">
+                                <div class="alert alert-info mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    <strong>분납:</strong> 익월 말까지 순차 출하됩니다.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 상태 & 메모 -->
+                <div class="card form-section">
+                    <div class="card-header" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);">
+                        <h5><i class="bi bi-gear me-2"></i>기타</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">상태</label>
+                            {{ form.status }}
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label">메모</label>
+                            {{ form.memo }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 우측: 수주 품목 -->
+            <div class="col-lg-7">
+                <div class="card form-section">
+                    <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>수주 품목</h5>
+                        <button type="button" class="btn btn-light btn-sm" id="add-item-btn">
+                            <i class="bi bi-plus-circle"></i> 품목 추가
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        {{ formset.management_form }}
+                        
+                        <div class="table-responsive">
+                            <table class="table mb-0 items-table" id="items-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">No</th>
+                                        <th>제품 선택 <span class="text-danger">*</span></th>
+                                        <th style="width: 90px;" class="text-center">수량 <span class="text-danger">*</span></th>
+                                        <th style="width: 130px;">비고</th>
+                                        <th style="width: 45px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="items-tbody">
+                                    {% for item_form in formset %}
+                                    <tr class="item-form-row" data-form-index="{{ forloop.counter0 }}">
+                                        <td>
+                                            {{ item_form.line_no }}
+                                            {{ item_form.id }}
+                                            {{ item_form.product_code_pk }}
+                                            {{ item_form.trade_condition_name }}
+                                            {{ item_form.gas_name }}
+                                            {{ item_form.cylinder_spec }}
+                                            {{ item_form.valve_spec }}
+                                            {{ item_form.filling_weight }}
+                                            {{ item_form.unit_price }}
+                                            {{ item_form.currency }}
+                                        </td>
+                                        <td>
+                                            <select name="{{ item_form.trade_condition_code.html_name }}" 
+                                                    class="form-select form-select-sm product-select"
+                                                    data-current="{{ item_form.trade_condition_code.value|default:'' }}">
+                                                <option value="">-- 제품 선택 --</option>
+                                            </select>
+                                            <div class="calc-display mt-2" style="display: none;">
+                                                <div class="row">
+                                                    <div class="col-6">
+                                                        <span class="label">충전량:</span>
+                                                        <span class="value filling-display">-</span>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <span class="label">단가:</span>
+                                                        <span class="value price-display">-</span>
+                                                    </div>
+                                                </div>
+                                                <div class="row mt-1">
+                                                    <div class="col-6">
+                                                        <span class="label">중량:</span>
+                                                        <span class="value weight-display">-</span>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <span class="label">금액:</span>
+                                                        <span class="value amount-display">-</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ item_form.qty }}</td>
+                                        <td>{{ item_form.remarks }}</td>
+                                        <td class="text-center">
+                                            {% if item_form.instance.pk %}
+                                                <div class="form-check">
+                                                    {{ item_form.DELETE }}
+                                                </div>
+                                            {% else %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn" title="삭제">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="totals-row">
+                                        <td colspan="2" class="text-end">합계</td>
+                                        <td class="text-center" id="total-qty">0</td>
+                                        <td colspan="2">
+                                            <div><span class="text-muted">금액:</span> <span id="total-amount">-</span></div>
+                                            <div><span class="text-muted">중량:</span> <span id="total-weight">-</span></div>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        
+                        <div class="p-3 bg-light border-top">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                제품을 선택하면 단가와 스펙이 자동으로 로딩됩니다.
+                            </small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 버튼 -->
-        <div class="d-flex justify-content-between mb-5">
+        <div class="d-flex justify-content-between mb-5 mt-4">
             <a href="{% if is_edit %}{% url 'orders:detail' po.customer_order_no %}{% else %}{% url 'orders:list' %}{% endif %}" 
-               class="btn btn-secondary">
-                <i class="bi bi-x-circle"></i> 취소
+               class="btn btn-secondary btn-lg">
+                <i class="bi bi-x-circle me-1"></i> 취소
             </a>
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="bi bi-check-circle"></i> {% if is_edit %}수정 완료{% else %}등록{% endif %}
+            <button type="submit" class="btn btn-primary btn-lg submit-btn">
+                <i class="bi bi-check-circle me-1"></i> {% if is_edit %}수정 완료{% else %}수주 등록{% endif %}
             </button>
         </div>
     </form>
@@ -329,42 +354,44 @@
         <td>
             <input type="hidden" name="items-__prefix__-id" id="id_items-__prefix__-id">
             <input type="hidden" name="items-__prefix__-product_code_pk" class="product-code-pk">
+            <input type="hidden" name="items-__prefix__-trade_condition_name" class="product-name">
             <input type="hidden" name="items-__prefix__-gas_name" class="gas-name">
             <input type="hidden" name="items-__prefix__-cylinder_spec" class="cylinder-spec">
             <input type="hidden" name="items-__prefix__-valve_spec" class="valve-spec">
-            <input type="number" name="items-__prefix__-line_no" class="form-control form-control-sm line-no" min="1" style="width: 60px;" value="">
+            <input type="hidden" name="items-__prefix__-filling_weight" class="filling-weight">
+            <input type="hidden" name="items-__prefix__-unit_price" class="unit-price">
+            <input type="hidden" name="items-__prefix__-currency" class="currency-value">
+            <input type="number" name="items-__prefix__-line_no" class="form-control form-control-sm line-no" min="1" style="width: 50px;" value="">
         </td>
         <td>
-            <div class="product-search-wrapper">
-                <input type="text" name="items-__prefix__-trade_condition_code" class="form-control form-control-sm product-search" placeholder="제품코드 검색..." autocomplete="off">
-                <div class="product-dropdown"></div>
+            <select name="items-__prefix__-trade_condition_code" class="form-select form-select-sm product-select">
+                <option value="">-- 제품 선택 --</option>
+            </select>
+            <div class="calc-display mt-2" style="display: none;">
+                <div class="row">
+                    <div class="col-6">
+                        <span class="label">충전량:</span>
+                        <span class="value filling-display">-</span>
+                    </div>
+                    <div class="col-6">
+                        <span class="label">단가:</span>
+                        <span class="value price-display">-</span>
+                    </div>
+                </div>
+                <div class="row mt-1">
+                    <div class="col-6">
+                        <span class="label">중량:</span>
+                        <span class="value weight-display">-</span>
+                    </div>
+                    <div class="col-6">
+                        <span class="label">금액:</span>
+                        <span class="value amount-display">-</span>
+                    </div>
+                </div>
             </div>
         </td>
         <td>
-            <input type="text" name="items-__prefix__-trade_condition_name" class="form-control form-control-sm product-name" readonly placeholder="제품명">
-            <div class="spec-display"></div>
-        </td>
-        <td class="text-center">
-            <input type="number" name="items-__prefix__-filling_weight" class="form-control form-control-sm filling-weight" readonly step="0.01" style="width: 80px;">
-            <span class="text-muted">kg</span>
-        </td>
-        <td>
-            <input type="number" name="items-__prefix__-qty" class="form-control form-control-sm qty-input" min="1" placeholder="수량" style="width: 70px;">
-        </td>
-        <td>
-            <input type="number" name="items-__prefix__-unit_price" class="form-control form-control-sm unit-price" step="0.01" placeholder="단가" style="width: 100px;">
-        </td>
-        <td>
-            <select name="items-__prefix__-currency" class="form-select form-select-sm currency-select" style="width: 90px;">
-                <option value="KRW">₩ KRW</option>
-                <option value="JPY">¥ JPY</option>
-                <option value="USD">$ USD</option>
-                <option value="CNY">¥ CNY</option>
-            </select>
-        </td>
-        <td class="text-end">
-            <span class="calculated-amount">-</span>
-            <div class="calculated-weight">-</div>
+            <input type="number" name="items-__prefix__-qty" class="form-control form-control-sm qty-input" min="1" placeholder="수량" style="width: 80px;">
         </td>
         <td>
             <input type="text" name="items-__prefix__-remarks" class="form-control form-control-sm" placeholder="비고">
@@ -381,13 +408,22 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const API_SEARCH_URL = '{% url "orders:api_search_products" %}';
+    const API_CUSTOMER_URL = '{% url "orders:api_get_customer" customer_id=0 %}'.replace('/0/', '/');
+    const API_PRODUCTS_URL = '{% url "orders:api_list_products" %}';
+    
+    const customerSelect = document.getElementById('customer-select');
+    const codeInput = document.querySelector('[name="supplier_user_code"]');
+    const nameInput = document.querySelector('[name="supplier_user_name"]');
+    const deliveryTypeSelect = document.getElementById('delivery-type-select');
+    const deliveryDateWrapper = document.getElementById('delivery-date-wrapper');
+    const deliveryPartialInfo = document.getElementById('delivery-partial-info');
+    const deliverySection = document.getElementById('delivery-section');
+    
     const itemsTbody = document.getElementById('items-tbody');
     const emptyRowTemplate = document.getElementById('empty-row-template');
     const totalFormsInput = document.querySelector('input[name="items-TOTAL_FORMS"]');
     
-    let searchTimeout = null;
-    let currentDropdown = null;
+    let productsData = [];
     
     // 통화 기호
     const currencySymbols = {
@@ -403,12 +439,108 @@ document.addEventListener('DOMContentLoaded', function() {
         return num.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
     }
     
+    // ========================================
+    // 고객 선택 시 정보 자동입력
+    // ========================================
+    if (customerSelect) {
+        customerSelect.addEventListener('change', function() {
+            const customerId = this.value;
+            if (!customerId) {
+                codeInput.value = '';
+                nameInput.value = '';
+                codeInput.classList.remove('auto-filled');
+                nameInput.classList.remove('auto-filled');
+                return;
+            }
+            
+            fetch(API_CUSTOMER_URL + customerId + '/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.code) {
+                        codeInput.value = data.code;
+                        nameInput.value = data.name;
+                        codeInput.classList.add('auto-filled');
+                        nameInput.classList.add('auto-filled');
+                    }
+                })
+                .catch(err => console.error('고객 정보 조회 실패:', err));
+        });
+        
+        // 초기 로드 시 이미 선택된 고객이 있으면 스타일 적용
+        if (customerSelect.value && codeInput.value) {
+            codeInput.classList.add('auto-filled');
+            nameInput.classList.add('auto-filled');
+        }
+    }
+    
+    // ========================================
+    // 납기 유형 변경
+    // ========================================
+    function updateDeliveryUI() {
+        const type = deliveryTypeSelect.value;
+        if (type === 'FIXED') {
+            deliveryDateWrapper.style.display = 'block';
+            deliveryPartialInfo.style.display = 'none';
+            deliverySection.classList.add('fixed');
+        } else {
+            deliveryDateWrapper.style.display = 'none';
+            deliveryPartialInfo.style.display = 'block';
+            deliverySection.classList.remove('fixed');
+        }
+    }
+    
+    if (deliveryTypeSelect) {
+        deliveryTypeSelect.addEventListener('change', updateDeliveryUI);
+        updateDeliveryUI(); // 초기 상태
+    }
+    
+    // ========================================
+    // 제품 목록 로드
+    // ========================================
+    function loadProducts() {
+        fetch(API_PRODUCTS_URL)
+            .then(response => response.json())
+            .then(products => {
+                productsData = products;
+                populateProductSelects();
+            })
+            .catch(err => console.error('제품 목록 로드 실패:', err));
+    }
+    
+    function populateProductSelects() {
+        document.querySelectorAll('.product-select').forEach(select => {
+            const currentValue = select.dataset.current || select.value;
+            select.innerHTML = '<option value="">-- 제품 선택 --</option>';
+            
+            productsData.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.code;
+                option.textContent = p.display;
+                option.dataset.product = JSON.stringify(p);
+                if (p.code === currentValue) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            // 기존 값이 있으면 계산 표시
+            if (currentValue) {
+                const row = select.closest('.item-form-row');
+                const product = productsData.find(p => p.code === currentValue);
+                if (product && row) {
+                    updateRowWithProduct(row, product);
+                }
+            }
+        });
+    }
+    
+    // ========================================
     // 품목 추가 버튼
+    // ========================================
     document.getElementById('add-item-btn').addEventListener('click', function() {
         addNewRow();
     });
     
-    // 새 행 추가
     function addNewRow() {
         const totalForms = parseInt(totalFormsInput.value);
         const templateHtml = emptyRowTemplate.innerHTML.replace(/__prefix__/g, totalForms);
@@ -429,63 +561,50 @@ document.addEventListener('DOMContentLoaded', function() {
         itemsTbody.appendChild(newRow);
         totalFormsInput.value = totalForms + 1;
         
-        // 새 행에 이벤트 바인딩
+        // 제품 드롭다운 채우기
+        const select = newRow.querySelector('.product-select');
+        select.innerHTML = '<option value="">-- 제품 선택 --</option>';
+        productsData.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.code;
+            option.textContent = p.display;
+            option.dataset.product = JSON.stringify(p);
+            select.appendChild(option);
+        });
+        
+        // 이벤트 바인딩
         initRowEvents(newRow);
         
         // 포커스
-        newRow.querySelector('.product-search').focus();
+        select.focus();
     }
     
+    // ========================================
     // 행 이벤트 초기화
+    // ========================================
     function initRowEvents(row) {
-        const searchInput = row.querySelector('.product-search');
-        const dropdown = row.querySelector('.product-dropdown');
+        const productSelect = row.querySelector('.product-select');
         const qtyInput = row.querySelector('.qty-input');
-        const unitPriceInput = row.querySelector('.unit-price');
-        const currencySelect = row.querySelector('.currency-select');
         const removeBtn = row.querySelector('.remove-row-btn');
         const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
         
-        // 제품 검색
-        if (searchInput) {
-            searchInput.addEventListener('input', function(e) {
-                const query = e.target.value.trim();
-                clearTimeout(searchTimeout);
-                
-                if (query.length < 1) {
-                    hideDropdown(dropdown);
-                    return;
+        // 제품 선택 변경
+        if (productSelect) {
+            productSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption && selectedOption.dataset.product) {
+                    const product = JSON.parse(selectedOption.dataset.product);
+                    updateRowWithProduct(row, product);
+                } else {
+                    clearRowProduct(row);
                 }
-                
-                searchTimeout = setTimeout(() => {
-                    searchProducts(query, dropdown, row);
-                }, 200);
-            });
-            
-            searchInput.addEventListener('focus', function() {
-                if (this.value.trim().length >= 1) {
-                    searchProducts(this.value.trim(), dropdown, row);
-                }
-            });
-            
-            searchInput.addEventListener('blur', function() {
-                setTimeout(() => hideDropdown(dropdown), 200);
-            });
-            
-            searchInput.addEventListener('keydown', function(e) {
-                handleDropdownNavigation(e, dropdown, row);
+                calculateRowAmount(row);
             });
         }
         
-        // 수량/단가 변경 시 금액 재계산
+        // 수량 변경
         if (qtyInput) {
             qtyInput.addEventListener('input', () => calculateRowAmount(row));
-        }
-        if (unitPriceInput) {
-            unitPriceInput.addEventListener('input', () => calculateRowAmount(row));
-        }
-        if (currencySelect) {
-            currencySelect.addEventListener('change', () => calculateRowAmount(row));
         }
         
         // 삭제 버튼
@@ -493,198 +612,96 @@ document.addEventListener('DOMContentLoaded', function() {
             removeBtn.addEventListener('click', function() {
                 row.remove();
                 updateTotals();
-                // formset 카운트는 그대로 유지 (Django가 알아서 처리)
             });
         }
         
-        // 삭제 체크박스 (기존 품목용)
+        // 삭제 체크박스
         if (deleteCheckbox) {
             deleteCheckbox.addEventListener('change', function() {
-                if (this.checked) {
-                    row.classList.add('deleted');
-                } else {
-                    row.classList.remove('deleted');
-                }
+                row.classList.toggle('deleted', this.checked);
                 updateTotals();
             });
         }
     }
     
-    // 제품 검색 API 호출
-    function searchProducts(query, dropdown, row) {
-        fetch(`${API_SEARCH_URL}?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(products => {
-                renderDropdown(products, dropdown, row);
-            })
-            .catch(err => {
-                console.error('검색 오류:', err);
-                hideDropdown(dropdown);
-            });
-    }
-    
-    // 드롭다운 렌더링
-    function renderDropdown(products, dropdown, row) {
-        if (!products.length) {
-            dropdown.innerHTML = '<div class="p-3 text-muted text-center">검색 결과가 없습니다</div>';
-            dropdown.classList.add('show');
-            currentDropdown = dropdown;
-            return;
-        }
-        
-        let html = '';
-        products.forEach((p, idx) => {
-            const priceText = p.unit_price 
-                ? `${p.currency_symbol}${formatNumber(p.unit_price)}/kg`
-                : '';
-            const specs = [p.cylinder_spec, p.valve_spec].filter(s => s).join(' / ');
-            
-            html += `
-                <div class="product-dropdown-item" data-index="${idx}" data-product='${JSON.stringify(p)}'>
-                    <span class="price">${priceText}</span>
-                    <div class="code">${p.code}</div>
-                    <div class="name">${p.name}</div>
-                    ${specs ? `<div class="specs">${specs}</div>` : ''}
-                </div>
-            `;
-        });
-        
-        dropdown.innerHTML = html;
-        dropdown.classList.add('show');
-        currentDropdown = dropdown;
-        
-        // 클릭 이벤트
-        dropdown.querySelectorAll('.product-dropdown-item').forEach(item => {
-            item.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                const product = JSON.parse(this.dataset.product);
-                selectProduct(product, row);
-                hideDropdown(dropdown);
-            });
-        });
-    }
-    
-    // 드롭다운 숨기기
-    function hideDropdown(dropdown) {
-        if (dropdown) {
-            dropdown.classList.remove('show');
-        }
-        currentDropdown = null;
-    }
-    
-    // 키보드 네비게이션
-    function handleDropdownNavigation(e, dropdown, row) {
-        if (!dropdown.classList.contains('show')) return;
-        
-        const items = dropdown.querySelectorAll('.product-dropdown-item');
-        const selected = dropdown.querySelector('.product-dropdown-item.selected');
-        let selectedIndex = selected ? parseInt(selected.dataset.index) : -1;
-        
-        switch(e.key) {
-            case 'ArrowDown':
-                e.preventDefault();
-                selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-                break;
-            case 'ArrowUp':
-                e.preventDefault();
-                selectedIndex = Math.max(selectedIndex - 1, 0);
-                break;
-            case 'Enter':
-                e.preventDefault();
-                if (selected) {
-                    const product = JSON.parse(selected.dataset.product);
-                    selectProduct(product, row);
-                    hideDropdown(dropdown);
-                }
-                return;
-            case 'Escape':
-                hideDropdown(dropdown);
-                return;
-            default:
-                return;
-        }
-        
-        items.forEach(item => item.classList.remove('selected'));
-        if (items[selectedIndex]) {
-            items[selectedIndex].classList.add('selected');
-            items[selectedIndex].scrollIntoView({ block: 'nearest' });
-        }
-    }
-    
-    // 제품 선택
-    function selectProduct(product, row) {
-        // 필드에 값 설정
+    function updateRowWithProduct(row, product) {
         row.querySelector('.product-code-pk').value = product.pk;
-        row.querySelector('.product-search').value = product.code;
         row.querySelector('.product-name').value = product.name;
-        row.querySelector('.gas-name').value = product.gas_name || '';
-        row.querySelector('.cylinder-spec').value = product.cylinder_spec || '';
-        row.querySelector('.valve-spec').value = product.valve_spec || '';
+        row.querySelector('.gas-name').value = product.gas_name;
+        row.querySelector('.cylinder-spec').value = product.cylinder_spec;
+        row.querySelector('.valve-spec').value = product.valve_spec;
+        row.querySelector('.filling-weight').value = product.filling_weight || '';
+        row.querySelector('.unit-price').value = product.unit_price || '';
+        row.querySelector('.currency-value').value = product.currency;
         
-        const fillingWeight = row.querySelector('.filling-weight');
-        if (fillingWeight) {
-            fillingWeight.value = product.filling_weight || '';
+        // 계산 표시 영역 보이기
+        const calcDisplay = row.querySelector('.calc-display');
+        if (calcDisplay) {
+            calcDisplay.style.display = 'block';
+            row.querySelector('.filling-display').textContent = 
+                product.filling_weight ? `${product.filling_weight} kg` : '-';
+            row.querySelector('.price-display').textContent = 
+                product.unit_price ? `${product.currency_symbol}${formatNumber(product.unit_price)}/kg` : '-';
         }
         
-        const unitPrice = row.querySelector('.unit-price');
-        if (unitPrice && product.unit_price) {
-            unitPrice.value = product.unit_price;
-        }
-        
-        const currency = row.querySelector('.currency-select');
-        if (currency && product.currency) {
-            currency.value = product.currency;
-        }
-        
-        // 스펙 표시
-        const specDisplay = row.querySelector('.spec-display');
-        if (specDisplay) {
-            const specs = [product.cylinder_spec, product.valve_spec].filter(s => s).join(' / ');
-            specDisplay.textContent = specs;
-        }
-        
-        // 금액 재계산
         calculateRowAmount(row);
+    }
+    
+    function clearRowProduct(row) {
+        row.querySelector('.product-code-pk').value = '';
+        row.querySelector('.product-name').value = '';
+        row.querySelector('.gas-name').value = '';
+        row.querySelector('.cylinder-spec').value = '';
+        row.querySelector('.valve-spec').value = '';
+        row.querySelector('.filling-weight').value = '';
+        row.querySelector('.unit-price').value = '';
+        row.querySelector('.currency-value').value = 'KRW';
         
-        // 수량 필드로 포커스 이동
-        const qtyInput = row.querySelector('.qty-input');
-        if (qtyInput) {
-            qtyInput.focus();
-            qtyInput.select();
+        const calcDisplay = row.querySelector('.calc-display');
+        if (calcDisplay) {
+            calcDisplay.style.display = 'none';
         }
     }
     
-    // 행 금액 계산
+    // ========================================
+    // 금액 계산
+    // ========================================
     function calculateRowAmount(row) {
         if (row.classList.contains('deleted')) return;
         
         const fillingWeight = parseFloat(row.querySelector('.filling-weight')?.value) || 0;
         const qty = parseInt(row.querySelector('.qty-input')?.value) || 0;
         const unitPrice = parseFloat(row.querySelector('.unit-price')?.value) || 0;
-        const currency = row.querySelector('.currency-select')?.value || 'KRW';
+        const currency = row.querySelector('.currency-value')?.value || 'KRW';
         
-        const amountSpan = row.querySelector('.calculated-amount');
-        const weightSpan = row.querySelector('.calculated-weight');
+        const weightDisplay = row.querySelector('.weight-display');
+        const amountDisplay = row.querySelector('.amount-display');
         
-        if (unitPrice > 0 && fillingWeight > 0 && qty > 0) {
-            const packingPrice = unitPrice * fillingWeight;
-            const amount = packingPrice * qty;
-            amountSpan.textContent = `${currencySymbols[currency] || ''}${formatNumber(amount)}`;
-        } else {
-            amountSpan.textContent = '-';
+        if (weightDisplay) {
+            if (fillingWeight > 0 && qty > 0) {
+                const totalWeight = fillingWeight * qty;
+                weightDisplay.textContent = `${formatNumber(totalWeight)} kg`;
+            } else {
+                weightDisplay.textContent = '-';
+            }
         }
         
-        if (fillingWeight > 0 && qty > 0) {
-            const totalWeight = fillingWeight * qty;
-            weightSpan.textContent = `${formatNumber(totalWeight)} kg`;
-        } else {
-            weightSpan.textContent = '-';
+        if (amountDisplay) {
+            if (unitPrice > 0 && fillingWeight > 0 && qty > 0) {
+                const packingPrice = unitPrice * fillingWeight;
+                const amount = packingPrice * qty;
+                amountDisplay.textContent = `${currencySymbols[currency] || ''}${formatNumber(amount)}`;
+            } else {
+                amountDisplay.textContent = '-';
+            }
         }
         
         updateTotals();
     }
     
+    // ========================================
     // 합계 업데이트
+    // ========================================
     function updateTotals() {
         let totalQty = 0;
         let totalWeight = 0;
@@ -694,7 +711,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const qty = parseInt(row.querySelector('.qty-input')?.value) || 0;
             const fillingWeight = parseFloat(row.querySelector('.filling-weight')?.value) || 0;
             const unitPrice = parseFloat(row.querySelector('.unit-price')?.value) || 0;
-            const currency = row.querySelector('.currency-select')?.value || 'KRW';
+            const currency = row.querySelector('.currency-value')?.value || 'KRW';
             
             totalQty += qty;
             
@@ -713,7 +730,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         document.getElementById('total-qty').textContent = formatNumber(totalQty);
         
-        // 총 금액 (통화별)
+        // 총 금액
         const amountParts = [];
         for (const [currency, amount] of Object.entries(amountsByCurrency)) {
             amountParts.push(`${currencySymbols[currency] || ''}${formatNumber(amount)} ${currency}`);
@@ -724,13 +741,15 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('total-weight').textContent = totalWeight > 0 ? `${formatNumber(totalWeight)} kg` : '-';
     }
     
-    // 기존 행들에 이벤트 바인딩
+    // ========================================
+    // 초기화
+    // ========================================
+    loadProducts();
+    
     document.querySelectorAll('.item-form-row').forEach(row => {
         initRowEvents(row);
-        calculateRowAmount(row);
     });
     
-    // 초기 합계 계산
     updateTotals();
 });
 </script>

@@ -12,7 +12,9 @@ urlpatterns = [
     path('', views.po_list, name='list'),
     path('new/', views.po_create, name='new'),
     
-    # API 엔드포인트 (제품코드 검색 등)
+    # API 엔드포인트
+    path('api/customers/<int:customer_id>/', views.api_get_customer, name='api_get_customer'),
+    path('api/products/', views.api_list_products, name='api_list_products'),
     path('api/products/search/', views.api_search_products, name='api_search_products'),
     path('api/products/<str:product_code>/', views.api_get_product, name='api_get_product'),
     

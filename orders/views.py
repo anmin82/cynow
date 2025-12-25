@@ -276,6 +276,90 @@ def check_fcms_match(request, customer_order_no):
 
 
 # ============================================
+# 고객 정보 API
+# ============================================
+
+@require_GET
+def api_get_customer(request, customer_id):
+    """
+    고객 정보 조회 API
+    
+    GET /orders/api/customers/<customer_id>/
+    """
+    from voucher.models import CompanyInfo
+    
+    try:
+        customer = CompanyInfo.objects.get(pk=customer_id, is_customer=True, is_active=True)
+        
+        return JsonResponse({
+            'id': customer.pk,
+            'code': customer.code,
+            'name': customer.name,
+            'name_en': customer.name_en or '',
+            'address': customer.address or '',
+            'tel': customer.tel or '',
+            'email': customer.email or '',
+            'manager_name': customer.manager_name or '',
+        })
+    
+    except CompanyInfo.DoesNotExist:
+        return JsonResponse({'error': '고객을 찾을 수 없습니다.'}, status=404)
+
+
+@require_GET
+def api_list_products(request):
+    """
+    전체 제품 목록 API (드롭다운용)
+    
+    GET /orders/api/products/
+    """
+    from products.models import ProductCode
+    
+    try:
+        products = ProductCode.objects.filter(
+            is_active=True
+        ).order_by('trade_condition_no')
+        
+        currency_symbols = {'KRW': '₩', 'JPY': '¥', 'USD': '$', 'CNY': '¥'}
+        
+        results = []
+        for p in products:
+            # 현재 단가 조회
+            current_price = p.get_current_price()
+            unit_price = float(current_price.price_per_kg) if current_price else None
+            
+            # 표시 텍스트 구성
+            display_text = f"{p.trade_condition_no}"
+            if p.gas_name:
+                display_text += f" - {p.gas_name}"
+            if p.cylinder_spec_name:
+                display_text += f" ({p.cylinder_spec_name}"
+                if p.valve_spec_name:
+                    display_text += f"/{p.valve_spec_name}"
+                display_text += ")"
+            
+            results.append({
+                'pk': p.selection_pattern_code,
+                'code': p.trade_condition_no,
+                'display': display_text,
+                'name': p.display_name or p.gas_name or p.trade_condition_no,
+                'gas_name': p.gas_name or '',
+                'cylinder_spec': p.cylinder_spec_name or '',
+                'valve_spec': p.valve_spec_name or '',
+                'capacity': float(p.capacity) if p.capacity else None,
+                'filling_weight': float(p.filling_weight) if p.filling_weight else None,
+                'unit_price': unit_price,
+                'currency': p.default_currency,
+                'currency_symbol': currency_symbols.get(p.default_currency, ''),
+            })
+        
+        return JsonResponse(results, safe=False)
+    
+    except (ProgrammingError, OperationalError):
+        return JsonResponse([], safe=False)
+
+
+# ============================================
 # 제품코드 검색 API (자동완성용)
 # ============================================
 

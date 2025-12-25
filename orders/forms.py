@@ -2,59 +2,89 @@
 수주 입력 폼
 
 개선:
+- 고객 선택 드롭다운 (CompanyInfo 연동)
 - ProductCode 자동완성/검색
 - 단가 자동 로딩
-- 금액 자동 계산
+- 납기 선택 (분납/지정일)
 """
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import PO, POItem
+from voucher.models import CompanyInfo
 
 
 class POForm(forms.ModelForm):
     """PO 생성/수정 폼"""
     
+    # 고객 선택 드롭다운
+    customer = forms.ModelChoiceField(
+        queryset=CompanyInfo.objects.filter(is_customer=True, is_active=True).order_by('name'),
+        required=False,
+        empty_label='-- 고객사 선택 --',
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'id': 'customer-select'
+        }),
+        label='고객사'
+    )
+    
     class Meta:
         model = PO
         fields = [
+            'customer',
             'customer_order_no',
             'supplier_user_code',
             'supplier_user_name',
             'received_at',
+            'delivery_type',
+            'delivery_date',
             'status',
             'memo',
         ]
         widgets = {
             'customer_order_no': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '예: CUST-2024-001'
+                'placeholder': '고객 PO번호 입력'
             }),
             'supplier_user_code': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '예: KDKK'
+                'readonly': 'readonly',
+                'placeholder': '고객 선택 시 자동입력'
             }),
             'supplier_user_name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '예: 케이디케이케이'
+                'readonly': 'readonly',
+                'placeholder': '고객 선택 시 자동입력'
             }),
             'received_at': forms.DateTimeInput(attrs={
                 'class': 'form-control',
                 'type': 'datetime-local'
+            }),
+            'delivery_type': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'delivery-type-select'
+            }),
+            'delivery_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'id': 'delivery-date-input'
             }),
             'status': forms.Select(attrs={
                 'class': 'form-select'
             }),
             'memo': forms.Textarea(attrs={
                 'class': 'form-control',
-                'rows': 3,
+                'rows': 2,
                 'placeholder': '메모 (선택사항)'
             }),
         }
         labels = {
-            'customer_order_no': 'PO번호(고객발주번호)',
+            'customer_order_no': 'PO번호',
             'supplier_user_code': '고객코드',
             'supplier_user_name': '고객명',
             'received_at': '수주일시',
+            'delivery_type': '납기유형',
+            'delivery_date': '납기일',
             'status': '상태',
             'memo': '메모',
         }
@@ -72,6 +102,17 @@ class POForm(forms.ModelForm):
             raise ValidationError('이미 존재하는 PO번호입니다.')
         
         return customer_order_no
+    
+    def clean(self):
+        """납기 유효성 검사"""
+        cleaned_data = super().clean()
+        delivery_type = cleaned_data.get('delivery_type')
+        delivery_date = cleaned_data.get('delivery_date')
+        
+        if delivery_type == 'FIXED' and not delivery_date:
+            self.add_error('delivery_date', '지정일 납기 시 날짜를 입력해주세요.')
+        
+        return cleaned_data
 
 
 class POItemForm(forms.ModelForm):
@@ -104,17 +145,13 @@ class POItemForm(forms.ModelForm):
             'line_no': forms.NumberInput(attrs={
                 'class': 'form-control form-control-sm line-no',
                 'min': 1,
-                'style': 'width: 60px;'
+                'style': 'width: 50px;'
             }),
-            'trade_condition_code': forms.TextInput(attrs={
-                'class': 'form-control form-control-sm product-search',
-                'placeholder': '제품코드 검색...',
-                'autocomplete': 'off'
+            'trade_condition_code': forms.Select(attrs={
+                'class': 'form-select form-select-sm product-select',
             }),
-            'trade_condition_name': forms.TextInput(attrs={
-                'class': 'form-control form-control-sm product-name',
-                'readonly': 'readonly',
-                'placeholder': '제품명'
+            'trade_condition_name': forms.HiddenInput(attrs={
+                'class': 'product-name'
             }),
             'gas_name': forms.HiddenInput(attrs={
                 'class': 'gas-name'
@@ -125,27 +162,20 @@ class POItemForm(forms.ModelForm):
             'valve_spec': forms.HiddenInput(attrs={
                 'class': 'valve-spec'
             }),
-            'filling_weight': forms.NumberInput(attrs={
-                'class': 'form-control form-control-sm filling-weight',
-                'readonly': 'readonly',
-                'step': '0.01',
-                'style': 'width: 80px;'
+            'filling_weight': forms.HiddenInput(attrs={
+                'class': 'filling-weight'
             }),
             'qty': forms.NumberInput(attrs={
                 'class': 'form-control form-control-sm qty-input',
                 'min': 1,
                 'placeholder': '수량',
-                'style': 'width: 70px;'
+                'style': 'width: 80px;'
             }),
-            'unit_price': forms.NumberInput(attrs={
-                'class': 'form-control form-control-sm unit-price',
-                'step': '0.01',
-                'placeholder': '단가',
-                'style': 'width: 100px;'
+            'unit_price': forms.HiddenInput(attrs={
+                'class': 'unit-price'
             }),
-            'currency': forms.Select(attrs={
-                'class': 'form-select form-select-sm currency-select',
-                'style': 'width: 90px;'
+            'currency': forms.HiddenInput(attrs={
+                'class': 'currency-value'
             }),
             'remarks': forms.TextInput(attrs={
                 'class': 'form-control form-control-sm',
@@ -154,12 +184,8 @@ class POItemForm(forms.ModelForm):
         }
         labels = {
             'line_no': 'No',
-            'trade_condition_code': '제품코드',
-            'trade_condition_name': '제품명',
-            'filling_weight': '충전량',
+            'trade_condition_code': '제품',
             'qty': '수량',
-            'unit_price': '단가(/kg)',
-            'currency': '통화',
             'remarks': '비고',
         }
     

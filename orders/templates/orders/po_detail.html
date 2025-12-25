@@ -187,6 +187,21 @@
                                         <th>수주일시</th>
                                         <td>{{ po.received_at|kst|date:"Y-m-d H:i" }}</td>
                                     </tr>
+                                    <tr>
+                                        <th>납기</th>
+                                        <td>
+                                            {% if po.delivery_type == 'PARTIAL' %}
+                                                <span class="badge bg-info">분납 (익월말)</span>
+                                            {% elif po.delivery_type == 'FIXED' %}
+                                                <span class="badge bg-warning text-dark">지정일</span>
+                                                {% if po.delivery_date %}
+                                                    <strong>{{ po.delivery_date|date:"Y-m-d" }}</strong> 까지
+                                                {% endif %}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>

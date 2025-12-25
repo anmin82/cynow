@@ -128,12 +128,11 @@
                             <th>PO번호</th>
                             <th>고객</th>
                             <th>수주일</th>
+                            <th>납기</th>
                             <th class="text-center">수량</th>
                             <th class="text-end">금액</th>
-                            <th class="text-center">중량</th>
                             <th>이동서가이드</th>
                             <th>상태</th>
-                            <th>FCMS</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -150,19 +149,24 @@
                                 <small class="text-muted">{{ item.po.supplier_user_code }}</small>
                             </td>
                             <td>{{ item.po.received_at|kst|date:"Y-m-d" }}</td>
+                            <td>
+                                {% if item.po.delivery_type == 'PARTIAL' %}
+                                    <span class="badge bg-info">분납</span>
+                                {% elif item.po.delivery_type == 'FIXED' %}
+                                    <span class="badge bg-warning text-dark">{{ item.po.delivery_date|date:"m/d" }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
                             <td class="text-center">
                                 <strong>{{ item.po.total_qty }}</strong>
+                                {% if item.po.total_weight %}
+                                    <div class="weight-text">{{ item.po.total_weight|floatformat:0 }}kg</div>
+                                {% endif %}
                             </td>
                             <td class="text-end">
                                 {% if item.po.total_amount_display %}
                                     <span class="amount-text">{{ item.po.total_amount_display }}</span>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if item.po.total_weight %}
-                                    <span class="weight-text">{{ item.po.total_weight|floatformat:0 }} kg</span>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
@@ -188,19 +192,6 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if item.match_status %}
-                                    {% if item.match_status.match_state == 'MATCHED' %}
-                                        <span class="badge bg-success status-badge">매칭</span>
-                                    {% elif item.match_status.match_state == 'NOT_ENTERED' %}
-                                        <span class="badge bg-warning status-badge">미입력</span>
-                                    {% elif item.match_status.match_state == 'MISMATCH' %}
-                                        <span class="badge bg-danger status-badge">불일치</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
                                 <a href="{% url 'orders:detail' item.po.customer_order_no %}" 
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-eye"></i>
@@ -209,7 +200,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="10">
+                            <td colspan="9">
                                 <div class="empty-state">
                                     <i class="bi bi-inbox"></i>
                                     <p class="mt-3 text-muted">등록된 수주가 없습니다.</p>

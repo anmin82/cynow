@@ -36,6 +36,11 @@ class PO(models.Model):
         ('COMPLETED', '완료'),
     ]
     
+    DELIVERY_TYPE_CHOICES = [
+        ('PARTIAL', '분납 (익월말까지)'),
+        ('FIXED', '지정일'),
+    ]
+    
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # ⚠️ PO 번호는 customer_order_no 단 하나
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -46,10 +51,23 @@ class PO(models.Model):
         help_text='유일한 PO 식별자 - 고객이 발행한 발주서 번호'
     )
     
+    # 고객 정보 (CompanyInfo 연동)
+    customer = models.ForeignKey(
+        'voucher.CompanyInfo',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name='고객사',
+        help_text='고객사 선택 (CompanyInfo)'
+    )
+    
+    # 텍스트 백업 (고객 선택 안 할 경우 또는 직접 입력)
     supplier_user_code = models.CharField(
         max_length=50,
         verbose_name='고객코드',
-        help_text='FCMS 거래처 코드'
+        help_text='FCMS 거래처 코드',
+        blank=True
     )
     
     supplier_user_name = models.CharField(
@@ -61,6 +79,22 @@ class PO(models.Model):
     received_at = models.DateTimeField(
         default=timezone.now,
         verbose_name='수주일시'
+    )
+    
+    # 납기 정보
+    delivery_type = models.CharField(
+        max_length=20,
+        choices=DELIVERY_TYPE_CHOICES,
+        default='PARTIAL',
+        verbose_name='납기유형',
+        help_text='분납: 익월말까지 / 지정일: 특정일 지정'
+    )
+    
+    delivery_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='납기일',
+        help_text='지정일 납기일 때만 입력'
     )
     
     status = models.CharField(
@@ -106,6 +140,21 @@ class PO(models.Model):
     
     def __str__(self):
         return f"{self.customer_order_no}"
+    
+    def sync_from_customer(self):
+        """고객 정보(CompanyInfo)에서 코드/이름 동기화"""
+        if self.customer:
+            self.supplier_user_code = self.customer.code
+            self.supplier_user_name = self.customer.name
+    
+    @property
+    def delivery_display(self):
+        """납기 표시용 문자열"""
+        if self.delivery_type == 'PARTIAL':
+            return '분납 (익월말)'
+        elif self.delivery_type == 'FIXED' and self.delivery_date:
+            return f'{self.delivery_date.strftime("%Y-%m-%d")} 까지'
+        return '-'
     
     @property
     def total_qty(self):
