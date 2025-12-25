@@ -416,7 +416,7 @@ def quote_create(request):
                     product_code=product.trade_condition_no,
                     product_name=product.display_name or product.gas_name or '',
                     gas_name=product.gas_name or '',
-                    specification=f"{product.cylinder_capacity or ''}L" if product.cylinder_capacity else '',
+                    specification=f"{product.capacity or ''}L" if product.capacity else '',
                     quantity=1,
                     unit='EA',
                     unit_price=packing_price,
