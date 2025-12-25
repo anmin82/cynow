@@ -413,15 +413,16 @@ def quote_create(request):
                 
                 QuoteItem.objects.create(
                     quote=quote,
-                    product_code=product,  # ForeignKey - pass instance
+                    product_code=product,
+                    seq=item_count + 1,
                     product_name=product.display_name or product.gas_name or '',
                     gas_name=product.gas_name or '',
-                    specification=f"{product.capacity or ''}L" if product.capacity else '',
-                    quantity=1,
-                    unit='EA',
-                    unit_price=packing_price,
+                    end_user=product.customer_user_name or '',
+                    packing=f"{product.capacity or ''}L" if product.capacity else '',
+                    filling_weight=filling_weight,
                     currency=currency,
-                    note=f"End User: {product.customer_user_name or ''}" if product.customer_user_name else '',
+                    price_per_kg=price_per_kg,
+                    packing_price=packing_price,
                 )
                 item_count += 1
             except ProductCode.DoesNotExist:
