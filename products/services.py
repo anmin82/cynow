@@ -19,35 +19,67 @@ def sync_product_codes_from_cdc():
     
     try:
         with connection.cursor() as cursor:
-            # CDC 테이블에서 제품코드 + 상세 조인 조회
+            # ma_items 테이블 존재 여부 확인
             cursor.execute("""
-                SELECT 
-                    p."SELECTION_PATTERN_CODE",
-                    TRIM(p."TRADE_CONDITION_NO") as trade_condition_no,
-                    TRIM(p."PRIMARY_STORE_USER_CODE") as primary_store_user_code,
-                    TRIM(p."CUSTOMER_USER_CODE") as customer_user_code,
-                    d."CYLINDER_SPEC_CODE",
-                    d."VALVE_SPEC_CODE",
-                    d."CAPACITY",
-                    -- 용기스펙 정보 조인
-                    cs."NAME" as cylinder_spec_name,
-                    -- 밸브스펙 정보 조인
-                    vs."NAME" as valve_spec_name,
-                    -- 아이템(가스) 정보 - ITEM_CODE로 직접 조인
-                    TRIM(p."ITEM_CODE") as item_code,
-                    COALESCE(TRIM(i."DISPLAY_NAME"), TRIM(i."NAME")) as gas_name
-                FROM "fcms_cdc"."ma_selection_patterns" p
-                LEFT JOIN "fcms_cdc"."ma_selection_pattern_details" d 
-                    ON p."SELECTION_PATTERN_CODE" = d."SELECTION_PATTERN_CODE"
-                    AND d."ROW_SEQ" = 1  -- 첫번째 상세만
-                LEFT JOIN "fcms_cdc"."ma_cylinder_specs" cs
-                    ON TRIM(d."CYLINDER_SPEC_CODE") = TRIM(cs."CYLINDER_SPEC_CODE")
-                LEFT JOIN "fcms_cdc"."ma_valve_specs" vs
-                    ON TRIM(d."VALVE_SPEC_CODE") = TRIM(vs."VALVE_SPEC_CODE")
-                LEFT JOIN "fcms_cdc"."ma_items" i
-                    ON TRIM(p."ITEM_CODE") = TRIM(i."ITEM_CODE")
-                ORDER BY p."TRADE_CONDITION_NO"
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables 
+                    WHERE table_schema = 'fcms_cdc' AND table_name = 'ma_items'
+                )
             """)
+            ma_items_exists = cursor.fetchone()[0]
+            
+            # CDC 테이블에서 제품코드 + 상세 조인 조회
+            if ma_items_exists:
+                cursor.execute("""
+                    SELECT 
+                        p."SELECTION_PATTERN_CODE",
+                        TRIM(p."TRADE_CONDITION_NO") as trade_condition_no,
+                        TRIM(p."PRIMARY_STORE_USER_CODE") as primary_store_user_code,
+                        TRIM(p."CUSTOMER_USER_CODE") as customer_user_code,
+                        d."CYLINDER_SPEC_CODE",
+                        d."VALVE_SPEC_CODE",
+                        d."CAPACITY",
+                        cs."NAME" as cylinder_spec_name,
+                        vs."NAME" as valve_spec_name,
+                        TRIM(p."ITEM_CODE") as item_code,
+                        COALESCE(TRIM(i."DISPLAY_NAME"), TRIM(i."NAME")) as gas_name
+                    FROM "fcms_cdc"."ma_selection_patterns" p
+                    LEFT JOIN "fcms_cdc"."ma_selection_pattern_details" d 
+                        ON p."SELECTION_PATTERN_CODE" = d."SELECTION_PATTERN_CODE"
+                        AND d."ROW_SEQ" = 1
+                    LEFT JOIN "fcms_cdc"."ma_cylinder_specs" cs
+                        ON TRIM(d."CYLINDER_SPEC_CODE") = TRIM(cs."CYLINDER_SPEC_CODE")
+                    LEFT JOIN "fcms_cdc"."ma_valve_specs" vs
+                        ON TRIM(d."VALVE_SPEC_CODE") = TRIM(vs."VALVE_SPEC_CODE")
+                    LEFT JOIN "fcms_cdc"."ma_items" i
+                        ON TRIM(p."ITEM_CODE") = TRIM(i."ITEM_CODE")
+                    ORDER BY p."TRADE_CONDITION_NO"
+                """)
+            else:
+                # ma_items 없이 조회 (gas_name은 NULL)
+                cursor.execute("""
+                    SELECT 
+                        p."SELECTION_PATTERN_CODE",
+                        TRIM(p."TRADE_CONDITION_NO") as trade_condition_no,
+                        TRIM(p."PRIMARY_STORE_USER_CODE") as primary_store_user_code,
+                        TRIM(p."CUSTOMER_USER_CODE") as customer_user_code,
+                        d."CYLINDER_SPEC_CODE",
+                        d."VALVE_SPEC_CODE",
+                        d."CAPACITY",
+                        cs."NAME" as cylinder_spec_name,
+                        vs."NAME" as valve_spec_name,
+                        TRIM(p."ITEM_CODE") as item_code,
+                        NULL as gas_name
+                    FROM "fcms_cdc"."ma_selection_patterns" p
+                    LEFT JOIN "fcms_cdc"."ma_selection_pattern_details" d 
+                        ON p."SELECTION_PATTERN_CODE" = d."SELECTION_PATTERN_CODE"
+                        AND d."ROW_SEQ" = 1
+                    LEFT JOIN "fcms_cdc"."ma_cylinder_specs" cs
+                        ON TRIM(d."CYLINDER_SPEC_CODE") = TRIM(cs."CYLINDER_SPEC_CODE")
+                    LEFT JOIN "fcms_cdc"."ma_valve_specs" vs
+                        ON TRIM(d."VALVE_SPEC_CODE") = TRIM(vs."VALVE_SPEC_CODE")
+                    ORDER BY p."TRADE_CONDITION_NO"
+                """)
             
             rows = cursor.fetchall()
             
