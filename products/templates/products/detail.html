@@ -90,10 +90,12 @@
                                     <span class="badge bg-primary">₩ KRW</span> 원
                                 {% elif product.default_currency == 'JPY' %}
                                     <span class="badge bg-danger">¥ JPY</span> 엔
+                                {% elif product.default_currency == 'USD' %}
+                                    <span class="badge bg-success">$ USD</span> 달러
                                 {% elif product.default_currency == 'CNY' %}
                                     <span class="badge bg-warning text-dark">¥ CNY</span> 위안
                                 {% else %}
-                                    <span class="badge bg-secondary">KRW</span>
+                                    <span class="badge bg-secondary">-</span>
                                 {% endif %}
                             </td>
                         </tr>

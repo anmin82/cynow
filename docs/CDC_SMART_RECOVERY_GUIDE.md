@@ -475,3 +475,4 @@ Get-Content C:\cynow\logs\debezium_smart_monitor_*.log -Wait
 
 
 
+
