@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ quote.quote_no }} - 제품견적{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'voucher:quote_list' %}">제품견적</a></li>
+        <li class="breadcrumb-item active">{{ quote.quote_no }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="page-title">{{ quote.quote_no }}</h1>
+        <p class="page-subtitle">{{ quote.title }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'voucher:quote_download' quote.pk %}" class="btn btn-success">
+            <i class="bi bi-download"></i> DOCX 다운로드
+        </a>
+        <a href="{% url 'voucher:quote_edit' quote.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> 수정
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 기본 정보 -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>기본 정보
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <th class="text-muted" style="width: 120px;">견적번호</th>
+                        <td><strong>{{ quote.quote_no }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">견적일자</th>
+                        <td>{{ quote.quote_date|date:"Y-m-d" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">유효기간</th>
+                        <td>{% if quote.valid_until %}{{ quote.valid_until|date:"Y-m-d" }}{% else %}-{% endif %}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">상태</th>
+                        <td>
+                            {% if quote.status == 'DRAFT' %}
+                            <span class="badge bg-secondary">작성중</span>
+                            {% elif quote.status == 'SENT' %}
+                            <span class="badge bg-primary">발송완료</span>
+                            {% elif quote.status == 'ACCEPTED' %}
+                            <span class="badge bg-success">수락</span>
+                            {% elif quote.status == 'REJECTED' %}
+                            <span class="badge bg-danger">거절</span>
+                            {% elif quote.status == 'EXPIRED' %}
+                            <span class="badge bg-warning text-dark">만료</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">기본 통화</th>
+                        <td>{{ quote.get_default_currency_display }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">작성자</th>
+                        <td>{% if quote.created_by %}{{ quote.created_by.username }}{% else %}-{% endif %}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 거래처 정보 -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-building me-2"></i>거래처 정보
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless mb-0">
+                    <tr>
+                        <th class="text-muted" style="width: 120px;">거래처명</th>
+                        <td>
+                            {% if quote.customer %}
+                            <strong>{{ quote.customer.name }}</strong>
+                            <small class="text-muted">({{ quote.customer.code }})</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">주소</th>
+                        <td>{{ quote.customer_address|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">대표자</th>
+                        <td>{{ quote.customer_ceo|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">담당자</th>
+                        <td>{{ quote.customer_manager|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">연락처</th>
+                        <td>{{ quote.customer_manager_tel|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th class="text-muted">이메일</th>
+                        <td>{{ quote.customer_manager_email|default:"-" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 품목 목록 -->
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>품목 목록</span>
+        <span class="badge bg-primary">{{ items|length }}건</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">No</th>
+                        <th>가스명</th>
+                        <th>품명</th>
+                        <th>자재코드</th>
+                        <th>End User</th>
+                        <th class="text-end">충전량</th>
+                        <th>통화</th>
+                        <th class="text-end">단가(1kg)</th>
+                        <th class="text-end">포장단가</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="text-center">{{ item.seq }}</td>
+                        <td><strong>{{ item.gas_name|default:"-" }}</strong></td>
+                        <td>{{ item.product_name|default:"-" }}</td>
+                        <td>
+                            {% if item.material_code %}
+                            <span class="badge text-bg-light border">{{ item.material_code }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ item.end_user|default:"-" }}</td>
+                        <td class="text-end">
+                            {% if item.filling_weight %}{{ item.filling_weight }}kg{% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if item.currency == 'KRW' %}
+                            <span class="badge bg-success">₩</span>
+                            {% elif item.currency == 'JPY' %}
+                            <span class="badge bg-danger">¥</span>
+                            {% elif item.currency == 'USD' %}
+                            <span class="badge bg-primary">$</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ item.currency }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if item.price_per_kg %}
+                            {{ item.price_per_kg|floatformat:2|intcomma }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if item.packing_price %}
+                            <strong>{{ item.packing_price|floatformat:0|intcomma }}</strong>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">
+                            품목이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if items %}
+                <tfoot>
+                    <tr class="table-light">
+                        <td colspan="8" class="text-end"><strong>합계</strong></td>
+                        <td class="text-end">
+                            <strong class="text-primary" style="font-size: 1.1em;">
+                                {{ quote.total_amount|floatformat:0|intcomma }}
+                            </strong>
+                            <small class="text-muted">{{ quote.default_currency }}</small>
+                        </td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 하단 정보 -->
+{% if quote.valid_period or quote.trade_terms or quote.bank_account or quote.note %}
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-card-text me-2"></i>추가 정보
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% if quote.valid_period %}
+            <div class="col-md-6 mb-3">
+                <label class="form-label text-muted">적용기간</label>
+                <p class="mb-0">{{ quote.valid_period }}</p>
+            </div>
+            {% endif %}
+            {% if quote.trade_terms %}
+            <div class="col-md-6 mb-3">
+                <label class="form-label text-muted">거래조건</label>
+                <p class="mb-0">{{ quote.trade_terms }}</p>
+            </div>
+            {% endif %}
+            {% if quote.bank_account %}
+            <div class="col-md-6 mb-3">
+                <label class="form-label text-muted">결제계좌</label>
+                <p class="mb-0">{{ quote.bank_account }}</p>
+            </div>
+            {% endif %}
+            {% if quote.note %}
+            <div class="col-12">
+                <label class="form-label text-muted">비고</label>
+                <p class="mb-0">{{ quote.note }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 하단 버튼 -->
+<div class="d-flex justify-content-between mt-4">
+    <a href="{% url 'voucher:quote_list' %}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left"></i> 목록으로
+    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'voucher:quote_download' quote.pk %}" class="btn btn-success">
+            <i class="bi bi-file-earmark-word"></i> DOCX 다운로드
+        </a>
+    </div>
+</div>
+{% endblock %}
+

@@ -819,3 +819,4 @@ psql -U postgres -d cycy_db -c "SELECT COUNT(*), MAX(__source_ts_ms) FROM fcms_c
 
 
 
+

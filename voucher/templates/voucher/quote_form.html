@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}{% if quote %}견적서 수정{% else %}새 견적서{% endif %} - CYNOW{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'voucher:quote_list' %}">제품견적</a></li>
+        <li class="breadcrumb-item active">{% if quote %}{{ quote.quote_no }} 수정{% else %}새 견적서{% endif %}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">{% if quote %}견적서 수정{% else %}새 견적서{% endif %}</h1>
+        <p class="page-subtitle">{% if quote %}{{ quote.quote_no }}{% else %}견적서 정보를 입력하세요{% endif %}</p>
+    </div>
+</div>
+
+<form method="post" id="quoteForm">
+    {% csrf_token %}
+    
+    <div class="row g-4">
+        <!-- 기본 정보 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-2"></i>기본 정보
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">견적번호 *</label>
+                        <input type="text" name="quote_no" class="form-control" 
+                               value="{{ quote.quote_no|default:suggested_quote_no }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">견적건명 *</label>
+                        <input type="text" name="title" class="form-control" 
+                               value="{{ quote.title|default:'' }}" 
+                               placeholder="예: 2026년 특수가스 납품 단가" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">견적일자</label>
+                            <input type="date" name="quote_date" class="form-control" 
+                                   value="{{ quote.quote_date|date:'Y-m-d'|default:today }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">유효기간</label>
+                            <input type="date" name="valid_until" class="form-control" 
+                                   value="{{ quote.valid_until|date:'Y-m-d'|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">상태</label>
+                            <select name="status" class="form-select">
+                                {% for code, label in status_choices %}
+                                <option value="{{ code }}" {% if quote.status == code %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">기본 통화</label>
+                            <select name="default_currency" class="form-select">
+                                {% for code, label in currency_choices %}
+                                <option value="{{ code }}" {% if quote.default_currency == code %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 거래처 정보 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-building me-2"></i>수신처 정보
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">거래처 선택</label>
+                        <select name="customer" class="form-select" id="customerSelect">
+                            <option value="">-- 거래처 선택 --</option>
+                            {% for c in customers %}
+                            <option value="{{ c.pk }}" 
+                                    data-address="{{ c.address }}"
+                                    data-ceo="{{ c.ceo }}"
+                                    data-tel="{{ c.tel }}"
+                                    data-manager="{{ c.manager_name }}"
+                                    data-manager-tel="{{ c.manager_tel }}"
+                                    data-manager-email="{{ c.manager_email }}"
+                                    {% if quote.customer_id == c.pk %}selected{% endif %}>
+                                {{ c.name }} ({{ c.code }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">주소</label>
+                        <input type="text" name="customer_address" class="form-control" 
+                               value="{{ quote.customer_address|default:'' }}">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">대표자</label>
+                            <input type="text" name="customer_ceo" class="form-control" 
+                                   value="{{ quote.customer_ceo|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">연락처</label>
+                            <input type="text" name="customer_tel" class="form-control" 
+                                   value="{{ quote.customer_tel|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">담당자명</label>
+                        <input type="text" name="customer_manager" class="form-control" 
+                               value="{{ quote.customer_manager|default:'' }}">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">담당자 연락처</label>
+                            <input type="text" name="customer_manager_tel" class="form-control" 
+                                   value="{{ quote.customer_manager_tel|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">담당자 이메일</label>
+                            <input type="email" name="customer_manager_email" class="form-control" 
+                                   value="{{ quote.customer_manager_email|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 공급처 정보 (접힌 상태) -->
+    <div class="card mt-4">
+        <div class="card-header" data-bs-toggle="collapse" data-bs-target="#supplierInfo" style="cursor: pointer;">
+            <i class="bi bi-building me-2"></i>공급처 정보 
+            <i class="bi bi-chevron-down float-end"></i>
+        </div>
+        <div id="supplierInfo" class="collapse {% if quote.supplier_name %}show{% endif %}">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">공급처명</label>
+                        <input type="text" name="supplier_name" class="form-control" 
+                               value="{{ quote.supplier_name|default:'CYNOW Co., Ltd.' }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">대표자</label>
+                        <input type="text" name="supplier_ceo" class="form-control" 
+                               value="{{ quote.supplier_ceo|default:'' }}">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">주소</label>
+                    <input type="text" name="supplier_address" class="form-control" 
+                           value="{{ quote.supplier_address|default:'' }}">
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">TEL</label>
+                        <input type="text" name="supplier_tel" class="form-control" 
+                               value="{{ quote.supplier_tel|default:'' }}">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">FAX</label>
+                        <input type="text" name="supplier_fax" class="form-control" 
+                               value="{{ quote.supplier_fax|default:'' }}">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">담당자</label>
+                        <input type="text" name="supplier_manager" class="form-control" 
+                               value="{{ quote.supplier_manager|default:'' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 하단 정보 -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <i class="bi bi-card-text me-2"></i>추가 정보
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">적용기간</label>
+                    <input type="text" name="valid_period" class="form-control" 
+                           value="{{ quote.valid_period|default:'' }}" 
+                           placeholder="예: 2026.01.01 ~ 2026.12.31">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">거래조건</label>
+                    <input type="text" name="trade_terms" class="form-control" 
+                           value="{{ quote.trade_terms|default:'' }}" 
+                           placeholder="예: FOB 인천">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">결제계좌</label>
+                <textarea name="bank_account" class="form-control" rows="2" 
+                          placeholder="예: 국민은행 123-456-789012 (예금주: CYNOW)">{{ quote.bank_account|default:'' }}</textarea>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">비고</label>
+                <textarea name="note" class="form-control" rows="3">{{ quote.note|default:'' }}</textarea>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 버튼 -->
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% if quote %}{% url 'voucher:quote_detail' quote.pk %}{% else %}{% url 'voucher:quote_list' %}{% endif %}" 
+           class="btn btn-outline-light">
+            <i class="bi bi-x-lg"></i> 취소
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> {% if quote %}저장{% else %}생성{% endif %}
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 거래처 선택 시 자동 입력
+document.getElementById('customerSelect').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    if (option.value) {
+        document.querySelector('[name="customer_address"]').value = option.dataset.address || '';
+        document.querySelector('[name="customer_ceo"]').value = option.dataset.ceo || '';
+        document.querySelector('[name="customer_tel"]').value = option.dataset.tel || '';
+        document.querySelector('[name="customer_manager"]').value = option.dataset.manager || '';
+        document.querySelector('[name="customer_manager_tel"]').value = option.dataset.managerTel || '';
+        document.querySelector('[name="customer_manager_email"]').value = option.dataset.managerEmail || '';
+    }
+});
+</script>
+{% endblock %}
+

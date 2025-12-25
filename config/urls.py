@@ -37,6 +37,7 @@ urlpatterns = [
     path('plans/', include('plans.urls')),
     path('simulation/', include('simulation.urls')),
     path('products/', include('products.urls')),  # 제품코드 관리
+    path('voucher/', include('voucher.urls')),  # 전표/견적서 생성
     
     # Policy management (staff only)
     path('core/', include('core.urls')),

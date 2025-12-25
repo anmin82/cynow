@@ -1,0 +1,388 @@
+"""
+견적서/전표 뷰
+
+DOCX 파일 생성 및 다운로드를 처리합니다.
+"""
+import os
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import FileResponse, HttpResponse, JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.conf import settings
+from django.db import models
+
+from .models import Quote, QuoteItem, Customer, DocumentTemplate
+from .services.docx_generator import (
+    DocxGenerator,
+    QuoteDocxGenerator,
+    build_quote_context_from_db,
+    generate_price_list_from_products,
+)
+
+
+@login_required
+def quote_list(request):
+    """견적서 목록"""
+    quotes = Quote.objects.select_related('customer', 'created_by').all()
+    
+    # 상태 필터
+    status = request.GET.get('status')
+    if status:
+        quotes = quotes.filter(status=status)
+    
+    # 검색
+    search = request.GET.get('q')
+    if search:
+        quotes = quotes.filter(
+            models.Q(quote_no__icontains=search) |
+            models.Q(title__icontains=search) |
+            models.Q(customer__name__icontains=search)
+        )
+    
+    context = {
+        'quotes': quotes[:50],
+        'status_choices': Quote.STATUS_CHOICES,
+    }
+    return render(request, 'voucher/quote_list.html', context)
+
+
+@login_required
+def quote_detail(request, pk):
+    """견적서 상세"""
+    quote = get_object_or_404(
+        Quote.objects.prefetch_related('items'),
+        pk=pk
+    )
+    context = {
+        'quote': quote,
+        'items': quote.items.all(),
+    }
+    return render(request, 'voucher/quote_detail.html', context)
+
+
+@login_required
+def quote_download(request, pk):
+    """
+    견적서 DOCX 다운로드
+    
+    1. DB에서 견적서 조회
+    2. 템플릿 컨텍스트 구성
+    3. DOCX 생성
+    4. FileResponse로 다운로드
+    """
+    quote = get_object_or_404(Quote.objects.prefetch_related('items'), pk=pk)
+    
+    try:
+        # 템플릿 조회
+        template = DocumentTemplate.get_default_template('QUOTE')
+        template_name = template.filename if template else 'offer_template.docx'
+        
+        # 컨텍스트 구성
+        context_data = build_quote_context_from_db(pk)
+        
+        # DOCX 생성
+        generator = QuoteDocxGenerator(template_name)
+        output_path = generator.generate_quote(
+            quote_info=context_data['quote_info'],
+            supplier_info=context_data['supplier_info'],
+            customer_info=context_data['customer_info'],
+            items=context_data['items'],
+            footer_info=context_data['footer_info'],
+            output_filename=f"견적서_{quote.quote_no}.docx"
+        )
+        
+        # 파일 응답
+        response = FileResponse(
+            open(output_path, 'rb'),
+            as_attachment=True,
+            filename=f"견적서_{quote.quote_no}.docx"
+        )
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        
+        return response
+        
+    except FileNotFoundError as e:
+        messages.error(request, f"템플릿 파일을 찾을 수 없습니다: {e}")
+        return redirect('voucher:quote_detail', pk=pk)
+    except Exception as e:
+        messages.error(request, f"문서 생성 오류: {e}")
+        return redirect('voucher:quote_detail', pk=pk)
+
+
+@login_required
+def price_list_download(request):
+    """
+    단가표 DOCX 다운로드
+    
+    쿼리 파라미터:
+    - year: 대상 년도 (기본: 현재년도)
+    """
+    year = request.GET.get('year')
+    if year:
+        try:
+            year = int(year)
+        except ValueError:
+            year = date.today().year
+    else:
+        year = date.today().year
+    
+    try:
+        # DOCX 생성
+        output_path = generate_price_list_from_products(year)
+        
+        # 파일 응답
+        filename = f"{year}년단가표_KDKK.docx"
+        response = FileResponse(
+            open(output_path, 'rb'),
+            as_attachment=True,
+            filename=filename
+        )
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        
+        return response
+        
+    except ValueError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f"문서 생성 오류: {e}"}, status=500)
+
+
+@login_required
+def generate_quote_preview(request, pk):
+    """
+    견적서 미리보기 (JSON 반환)
+    
+    DOCX 생성 전 데이터 확인용
+    """
+    quote = get_object_or_404(Quote.objects.prefetch_related('items'), pk=pk)
+    
+    context = build_quote_context_from_db(pk)
+    
+    # JSON 직렬화 가능하게 변환
+    return JsonResponse({
+        'quote_no': quote.quote_no,
+        'title': quote.title,
+        'item_count': len(context['items']),
+        'preview': context,
+    })
+
+
+# ============================================
+# API 엔드포인트 (외부 시스템 연동용)
+# ============================================
+
+@login_required
+def api_generate_docx(request):
+    """
+    API: DOCX 생성
+    
+    POST /voucher/api/generate/
+    Body (JSON):
+    {
+        "template_type": "QUOTE",
+        "quote_id": 123
+    }
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+    
+    import json
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    
+    template_type = data.get('template_type', 'QUOTE')
+    quote_id = data.get('quote_id')
+    
+    if not quote_id:
+        return JsonResponse({'error': 'quote_id required'}, status=400)
+    
+    try:
+        context = build_quote_context_from_db(quote_id)
+        
+        template = DocumentTemplate.get_default_template(template_type)
+        template_name = template.filename if template else 'offer_template.docx'
+        
+        generator = QuoteDocxGenerator(template_name)
+        output_path = generator.generate_quote(
+            quote_info=context['quote_info'],
+            supplier_info=context['supplier_info'],
+            customer_info=context['customer_info'],
+            items=context['items'],
+            footer_info=context['footer_info'],
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'file_path': str(output_path),
+            'download_url': f"/voucher/quote/{quote_id}/download/",
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ============================================
+# 단가표 직접 생성 (제품코드 DB 기반)
+# ============================================
+
+@login_required
+def generate_price_list(request):
+    """
+    단가표 생성 페이지
+    """
+    if request.method == 'POST':
+        year = request.POST.get('year')
+        try:
+            year = int(year)
+            output_path = generate_price_list_from_products(year)
+            messages.success(request, f"{year}년 단가표가 생성되었습니다: {output_path}")
+            
+            # 다운로드 리다이렉트
+            return redirect(f"/voucher/price-list/download/?year={year}")
+            
+        except ValueError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f"오류: {e}")
+    
+    current_year = date.today().year
+    years = [current_year + 1, current_year, current_year - 1]
+    
+    context = {
+        'years': years,
+    }
+    return render(request, 'voucher/price_list_form.html', context)
+
+
+# ============================================
+# 견적서 생성/수정
+# ============================================
+
+@login_required
+def quote_create(request):
+    """견적서 생성"""
+    if request.method == 'POST':
+        # 견적번호 중복 체크
+        quote_no = request.POST.get('quote_no')
+        if Quote.objects.filter(quote_no=quote_no).exists():
+            messages.error(request, f"견적번호 {quote_no}가 이미 존재합니다.")
+            return redirect('voucher:quote_create')
+        
+        # 견적서 생성
+        quote = Quote(
+            quote_no=quote_no,
+            title=request.POST.get('title'),
+            quote_date=request.POST.get('quote_date') or date.today(),
+            valid_until=request.POST.get('valid_until') or None,
+            status=request.POST.get('status', 'DRAFT'),
+            default_currency=request.POST.get('default_currency', 'KRW'),
+            
+            # 거래처
+            customer_id=request.POST.get('customer') or None,
+            customer_address=request.POST.get('customer_address'),
+            customer_ceo=request.POST.get('customer_ceo'),
+            customer_tel=request.POST.get('customer_tel'),
+            customer_manager=request.POST.get('customer_manager'),
+            customer_manager_tel=request.POST.get('customer_manager_tel'),
+            customer_manager_email=request.POST.get('customer_manager_email') or None,
+            
+            # 공급처
+            supplier_name=request.POST.get('supplier_name'),
+            supplier_address=request.POST.get('supplier_address'),
+            supplier_ceo=request.POST.get('supplier_ceo'),
+            supplier_tel=request.POST.get('supplier_tel'),
+            supplier_fax=request.POST.get('supplier_fax'),
+            supplier_manager=request.POST.get('supplier_manager'),
+            
+            # 하단 정보
+            valid_period=request.POST.get('valid_period'),
+            trade_terms=request.POST.get('trade_terms'),
+            bank_account=request.POST.get('bank_account'),
+            note=request.POST.get('note'),
+            
+            created_by=request.user,
+        )
+        quote.save()
+        
+        messages.success(request, f"견적서 {quote.quote_no}가 생성되었습니다.")
+        return redirect('voucher:quote_detail', pk=quote.pk)
+    
+    # 견적번호 자동 생성
+    suggested_quote_no = Quote().generate_quote_no()
+    
+    context = {
+        'quote': None,
+        'suggested_quote_no': suggested_quote_no,
+        'today': date.today().strftime('%Y-%m-%d'),
+        'status_choices': Quote.STATUS_CHOICES,
+        'currency_choices': Quote.CURRENCY_CHOICES,
+        'customers': Customer.objects.filter(is_active=True).order_by('name'),
+    }
+    return render(request, 'voucher/quote_form.html', context)
+
+
+@login_required
+def quote_edit(request, pk):
+    """견적서 수정"""
+    quote = get_object_or_404(Quote, pk=pk)
+    
+    if request.method == 'POST':
+        # 견적번호 중복 체크 (자기 자신 제외)
+        quote_no = request.POST.get('quote_no')
+        if Quote.objects.filter(quote_no=quote_no).exclude(pk=pk).exists():
+            messages.error(request, f"견적번호 {quote_no}가 이미 존재합니다.")
+            return redirect('voucher:quote_edit', pk=pk)
+        
+        # 업데이트
+        quote.quote_no = quote_no
+        quote.title = request.POST.get('title')
+        quote.quote_date = request.POST.get('quote_date') or date.today()
+        quote.valid_until = request.POST.get('valid_until') or None
+        quote.status = request.POST.get('status', 'DRAFT')
+        quote.default_currency = request.POST.get('default_currency', 'KRW')
+        
+        # 거래처
+        customer_id = request.POST.get('customer')
+        quote.customer_id = customer_id if customer_id else None
+        quote.customer_address = request.POST.get('customer_address')
+        quote.customer_ceo = request.POST.get('customer_ceo')
+        quote.customer_tel = request.POST.get('customer_tel')
+        quote.customer_manager = request.POST.get('customer_manager')
+        quote.customer_manager_tel = request.POST.get('customer_manager_tel')
+        customer_email = request.POST.get('customer_manager_email')
+        quote.customer_manager_email = customer_email if customer_email else None
+        
+        # 공급처
+        quote.supplier_name = request.POST.get('supplier_name')
+        quote.supplier_address = request.POST.get('supplier_address')
+        quote.supplier_ceo = request.POST.get('supplier_ceo')
+        quote.supplier_tel = request.POST.get('supplier_tel')
+        quote.supplier_fax = request.POST.get('supplier_fax')
+        quote.supplier_manager = request.POST.get('supplier_manager')
+        
+        # 하단 정보
+        quote.valid_period = request.POST.get('valid_period')
+        quote.trade_terms = request.POST.get('trade_terms')
+        quote.bank_account = request.POST.get('bank_account')
+        quote.note = request.POST.get('note')
+        
+        quote.save()
+        
+        messages.success(request, f"견적서 {quote.quote_no}가 수정되었습니다.")
+        return redirect('voucher:quote_detail', pk=quote.pk)
+    
+    context = {
+        'quote': quote,
+        'today': date.today().strftime('%Y-%m-%d'),
+        'status_choices': Quote.STATUS_CHOICES,
+        'currency_choices': Quote.CURRENCY_CHOICES,
+        'customers': Customer.objects.filter(is_active=True).order_by('name'),
+    }
+    return render(request, 'voucher/quote_form.html', context)
+

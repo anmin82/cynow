@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'devices',
     'simulation',
     'products',
+    'voucher',  # 전표/견적서 생성
 ]
 
 MIDDLEWARE = [
