@@ -92,6 +92,7 @@ class OnlyOfficeService:
                 "title": filename,
                 "url": document_url,
                 "permissions": {
+                    "chat": False,
                     "comment": True,
                     "download": True,
                     "edit": mode == 'edit',
@@ -110,7 +111,6 @@ class OnlyOfficeService:
                 },
                 "customization": {
                     "autosave": True,
-                    "chat": False,
                     "comments": True,
                     "compactHeader": True,
                     "compactToolbar": False,
