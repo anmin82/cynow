@@ -33,8 +33,9 @@ def sync_product_codes_from_cdc():
                     cs."NAME" as cylinder_spec_name,
                     -- 밸브스펙 정보 조인
                     vs."NAME" as valve_spec_name,
-                    -- 아이템(가스) 정보 - ITEM_CODE로 조회
-                    TRIM(p."ITEM_CODE") as item_code
+                    -- 아이템(가스) 정보 - ITEM_CODE로 직접 조인
+                    TRIM(p."ITEM_CODE") as item_code,
+                    COALESCE(TRIM(i."DISPLAY_NAME"), TRIM(i."NAME")) as gas_name
                 FROM "fcms_cdc"."ma_selection_patterns" p
                 LEFT JOIN "fcms_cdc"."ma_selection_pattern_details" d 
                     ON p."SELECTION_PATTERN_CODE" = d."SELECTION_PATTERN_CODE"
@@ -43,6 +44,8 @@ def sync_product_codes_from_cdc():
                     ON TRIM(d."CYLINDER_SPEC_CODE") = TRIM(cs."CYLINDER_SPEC_CODE")
                 LEFT JOIN "fcms_cdc"."ma_valve_specs" vs
                     ON TRIM(d."VALVE_SPEC_CODE") = TRIM(vs."VALVE_SPEC_CODE")
+                LEFT JOIN "fcms_cdc"."ma_items" i
+                    ON TRIM(p."ITEM_CODE") = TRIM(i."ITEM_CODE")
                 ORDER BY p."TRADE_CONDITION_NO"
             """)
             
@@ -54,10 +57,12 @@ def sync_product_codes_from_cdc():
         for row in rows:
             (selection_pattern_code, trade_condition_no, primary_store_user_code,
              customer_user_code, cylinder_spec_code, valve_spec_code, capacity,
-             cylinder_spec_name, valve_spec_name, item_code) = row
+             cylinder_spec_name, valve_spec_name, item_code, gas_name) = row
             
-            # 가스명 추출 (아이템코드에서 또는 별도 조회 필요)
-            gas_name = get_gas_name_from_item_code(item_code)
+            # gas_name이 없으면 item_code 앞부분 사용 (fallback)
+            if not gas_name and item_code:
+                # ITEM_CODE 형식: 보통 앞 몇 글자가 가스 코드
+                gas_name = item_code.strip()[:10] if item_code else None
             
             # 표시명 생성
             display_name = generate_display_name(
