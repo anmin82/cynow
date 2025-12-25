@@ -454,7 +454,6 @@ def quote_create(request):
         'status_choices': Quote.STATUS_CHOICES,
         'currency_choices': Quote.CURRENCY_CHOICES,
         'customers': customers,
-        'customers_json': customers_json,
         'supplier': supplier,
     }
     return render(request, 'voucher/quote_form.html', context)
