@@ -106,6 +106,12 @@
                         <td>{{ tpl.updated_at|date:"Y-m-d H:i" }}</td>
                         <td class="text-center">
                             <div class="btn-group btn-group-sm">
+                                {% if user.is_staff %}
+                                <a href="{% url 'voucher:template_editor' tpl.filename %}" 
+                                   class="btn btn-primary" title="웹에서 편집">
+                                    <i class="bi bi-pencil-square"></i> 편집
+                                </a>
+                                {% endif %}
                                 <a href="{% url 'voucher:template_download' tpl.pk %}" 
                                    class="btn btn-outline-light" title="다운로드">
                                     <i class="bi bi-download"></i>
@@ -155,10 +161,18 @@
                         <td>{{ file.size|filesizeformat }}</td>
                         <td>{{ file.modified|date:"Y-m-d H:i" }}</td>
                         <td class="text-center">
-                            <a href="{% url 'voucher:template_download_file' %}?name={{ file.name }}" 
-                               class="btn btn-sm btn-outline-light">
-                                <i class="bi bi-download"></i> 다운로드
-                            </a>
+                            <div class="btn-group btn-group-sm">
+                                {% if user.is_staff %}
+                                <a href="{% url 'voucher:template_editor' file.name %}" 
+                                   class="btn btn-primary" title="웹에서 편집">
+                                    <i class="bi bi-pencil-square"></i> 편집
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'voucher:template_download_file' %}?name={{ file.name }}" 
+                                   class="btn btn-outline-light">
+                                    <i class="bi bi-download"></i> 다운로드
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}

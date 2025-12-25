@@ -35,6 +35,11 @@ urlpatterns = [
     path('template/guide/', views.template_guide, name='template_guide'),
     path('template/test-quote/', views.template_test_quote, name='template_test_quote'),
     
+    # ONLYOFFICE 연동
+    path('template/edit/<str:filename>/', views.template_editor, name='template_editor'),
+    path('template/file/<str:filename>', views.template_file_serve, name='template_file_serve'),
+    path('template/callback/<str:filename>', views.template_callback, name='template_callback'),
+    
     # API
     path('api/generate/', views.api_generate_docx, name='api_generate'),
 ]

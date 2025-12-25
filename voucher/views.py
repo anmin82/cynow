@@ -22,6 +22,7 @@ from .services.docx_generator import (
     build_quote_context_from_db,
     generate_price_list_from_products,
 )
+from .services.onlyoffice import get_onlyoffice_service
 
 
 @login_required
@@ -765,3 +766,128 @@ def template_test_quote(request):
     except Exception as e:
         messages.error(request, f"견적서 생성 오류: {e}")
         return redirect('voucher:template_list')
+
+
+# ============================================
+# ONLYOFFICE 연동 (웹 에디터)
+# ============================================
+
+@login_required
+def template_editor(request, filename):
+    """
+    ONLYOFFICE 에디터로 템플릿 편집
+    
+    관리자만 접근 가능
+    """
+    # 관리자 권한 체크
+    if not request.user.is_staff:
+        messages.error(request, "템플릿 편집 권한이 없습니다.")
+        return redirect('voucher:template_list')
+    
+    # 파일 존재 확인
+    file_path = Path(settings.BASE_DIR) / 'docx_templates' / filename
+    if not file_path.exists():
+        messages.error(request, f"템플릿 파일을 찾을 수 없습니다: {filename}")
+        return redirect('voucher:template_list')
+    
+    # ONLYOFFICE 서비스
+    try:
+        service = get_onlyoffice_service()
+        editor_config = service.get_editor_config(
+            filename=filename,
+            user_id=str(request.user.id),
+            user_name=request.user.get_full_name() or request.user.username,
+            mode='edit',
+            lang='ko'
+        )
+        
+        context = {
+            'filename': filename,
+            'editor_config': json.dumps(editor_config),
+            'onlyoffice_api_url': service.get_api_js_url(),
+        }
+        return render(request, 'voucher/template_editor.html', context)
+        
+    except FileNotFoundError as e:
+        messages.error(request, str(e))
+        return redirect('voucher:template_list')
+    except Exception as e:
+        messages.error(request, f"에디터 로드 오류: {e}")
+        return redirect('voucher:template_list')
+
+
+@login_required
+def template_file_serve(request, filename):
+    """
+    템플릿 파일 서빙 (ONLYOFFICE가 다운로드)
+    
+    ONLYOFFICE Document Server가 이 URL로 파일을 가져갑니다.
+    """
+    file_path = Path(settings.BASE_DIR) / 'docx_templates' / filename
+    
+    if not file_path.exists():
+        return HttpResponse(status=404)
+    
+    response = FileResponse(
+        open(file_path, 'rb'),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    return response
+
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def template_callback(request, filename=None):
+    """
+    ONLYOFFICE 저장 콜백
+    
+    ONLYOFFICE가 문서 편집/저장 시 이 URL을 호출합니다.
+    URL에 파일명이 포함되어 있어 저장할 파일을 정확히 식별합니다.
+    
+    status 값:
+    - 0: 편집 없음
+    - 1: 문서 편집 중
+    - 2: 문서 저장 준비 완료 (파일 다운로드 필요)
+    - 3: 문서 저장 오류
+    - 4: 문서 닫힘 (변경 없음)
+    - 6: 문서 강제 저장 (forcesave)
+    - 7: 강제 저장 오류
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 1})
+    
+    try:
+        body = json.loads(request.body)
+        logger.info(f"ONLYOFFICE callback: {body}")
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 1})
+    
+    status = body.get('status')
+    
+    # 저장이 필요한 상태
+    if status in [2, 6]:
+        download_url = body.get('url')
+        
+        if download_url and filename:
+            # ONLYOFFICE에서 제공하는 URL로 파일 다운로드
+            service = get_onlyoffice_service()
+            
+            # URL 디코딩
+            import urllib.parse
+            decoded_filename = urllib.parse.unquote(filename)
+            
+            logger.info(f"Saving file: {decoded_filename} from {download_url}")
+            
+            if service.save_file_from_url(decoded_filename, download_url):
+                logger.info(f"File saved successfully: {decoded_filename}")
+                return JsonResponse({'error': 0})
+            else:
+                logger.error(f"Failed to save file: {decoded_filename}")
+                return JsonResponse({'error': 1})
+    
+    # 다른 상태는 정상 응답
+    return JsonResponse({'error': 0})
