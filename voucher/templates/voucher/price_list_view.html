@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}단가표 조회 - CYNOW{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-bar {
+        background: var(--ios-gray-6);
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    .price-table th {
+        position: sticky;
+        top: 0;
+        background: var(--ios-gray-5);
+        z-index: 1;
+    }
+    .currency-krw { color: #28a745; }
+    .currency-jpy { color: #ffc107; }
+    .currency-usd { color: #007bff; }
+    @media print {
+        .no-print { display: none !important; }
+        .filter-bar { display: none !important; }
+        body { background: white !important; }
+        .card { box-shadow: none !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="no-print">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'voucher:quote_list' %}">제품견적</a></li>
+        <li class="breadcrumb-item active">단가표 조회</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">{{ selected_year }}년 단가표</h1>
+        <p class="page-subtitle">제품별 kg당 단가 및 용기 단가</p>
+    </div>
+    <div class="no-print">
+        <button onclick="window.print()" class="btn btn-outline-light me-2">
+            <i class="bi bi-printer"></i> 인쇄
+        </button>
+        <a href="{% url 'voucher:price_list_download' %}?year={{ selected_year }}" class="btn btn-primary">
+            <i class="bi bi-file-earmark-word"></i> DOCX 다운로드
+        </a>
+    </div>
+</div>
+
+<!-- 필터 -->
+<div class="filter-bar no-print">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-auto">
+            <label class="form-label">연도</label>
+            <select name="year" class="form-select" onchange="this.form.submit()">
+                {% for y in years %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}년</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label">고객사</label>
+            <select name="customer" class="form-select" onchange="this.form.submit()">
+                <option value="">전체</option>
+                {% for c in customers %}
+                <option value="{{ c.pk }}" {% if selected_customer == c.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ c.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<!-- 단가표 -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 price-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">No</th>
+                        <th>제품코드</th>
+                        <th>가스명</th>
+                        <th>제품명</th>
+                        <th>End User</th>
+                        <th class="text-center">용기(L)</th>
+                        <th class="text-center">충전량(kg)</th>
+                        <th class="text-center">통화</th>
+                        <th class="text-end">단가(/kg)</th>
+                        <th class="text-end">용기단가</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in price_items %}
+                    <tr>
+                        <td class="text-muted">{{ forloop.counter }}</td>
+                        <td><code>{{ item.product.trade_condition_no }}</code></td>
+                        <td>{{ item.product.gas_name|default:'-' }}</td>
+                        <td>{{ item.product.display_name|default:'-' }}</td>
+                        <td><small class="text-muted">{{ item.product.customer_user_name|default:'-' }}</small></td>
+                        <td class="text-center">{{ item.product.cylinder_capacity|default:'-' }}</td>
+                        <td class="text-center">{{ item.filling_weight|floatformat:1 }}</td>
+                        <td class="text-center">
+                            {% if item.currency == 'KRW' %}
+                            <span class="badge bg-success">₩ KRW</span>
+                            {% elif item.currency == 'JPY' %}
+                            <span class="badge bg-warning text-dark">¥ JPY</span>
+                            {% elif item.currency == 'USD' %}
+                            <span class="badge bg-primary">$ USD</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ item.currency }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if item.price_per_kg %}
+                            <span class="currency-{{ item.currency|lower }}">{{ item.currency_symbol }}</span>
+                            {{ item.price_per_kg|floatformat:0 }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold">
+                            {% if item.packing_price %}
+                            <span class="currency-{{ item.currency|lower }}">{{ item.currency_symbol }}</span>
+                            {{ item.packing_price|floatformat:0 }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center py-4 text-muted">
+                            등록된 제품이 없습니다.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="text-muted mt-3 small">
+    <i class="bi bi-info-circle me-1"></i>
+    총 {{ price_items|length }}개 제품 | 용기단가 = 단가(/kg) × 충전량(kg)
+</div>
+{% endblock %}
+

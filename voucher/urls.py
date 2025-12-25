@@ -19,7 +19,7 @@ urlpatterns = [
     path('quote/<int:pk>/preview/', views.generate_quote_preview, name='quote_preview'),
     
     # 단가표
-    path('price-list/', views.generate_price_list, name='price_list'),
+    path('price-list/', views.price_list_view, name='price_list'),
     path('price-list/download/', views.price_list_download, name='price_list_download'),
     
     # 회사정보

@@ -252,32 +252,69 @@ def api_generate_docx(request):
 # ============================================
 
 @login_required
-def generate_price_list(request):
+def price_list_view(request):
     """
-    단가표 생성 페이지
+    단가표 조회 페이지 (고객별, 연도별)
     """
-    if request.method == 'POST':
-        year = request.POST.get('year')
-        try:
-            year = int(year)
-            output_path = generate_price_list_from_products(year)
-            messages.success(request, f"{year}년 단가표가 생성되었습니다: {output_path}")
-            
-            # 다운로드 리다이렉트
-            return redirect(f"/voucher/price-list/download/?year={year}")
-            
-        except ValueError as e:
-            messages.error(request, str(e))
-        except Exception as e:
-            messages.error(request, f"오류: {e}")
+    from products.models import ProductPriceHistory
     
     current_year = date.today().year
-    years = [current_year + 1, current_year, current_year - 1]
+    year = request.GET.get('year', str(current_year + 1))
+    customer_id = request.GET.get('customer', '')
+    
+    try:
+        year = int(year)
+    except ValueError:
+        year = current_year + 1
+    
+    # 고객 목록
+    customers = CompanyInfo.objects.filter(is_customer=True, is_supplier=False).order_by('name')
+    
+    # 제품 목록과 해당 연도 단가
+    products = ProductCode.objects.filter(is_active=True).order_by('trade_condition_no')
+    
+    # 단가 데이터 구성
+    from datetime import datetime
+    price_start = datetime(year, 1, 1).date()
+    
+    price_items = []
+    currency_symbols = {'KRW': '₩', 'JPY': '¥', 'USD': '$', 'CNY': '¥'}
+    
+    for product in products:
+        # 해당 연도 단가 조회
+        price_obj = product.price_history.filter(
+            effective_date__lte=price_start
+        ).order_by('-effective_date').first()
+        
+        if not price_obj:
+            price_obj = product.price_history.order_by('-effective_date').first()
+        
+        price_per_kg = price_obj.price_per_kg if price_obj else None
+        currency = product.default_currency
+        
+        # 용기 단가 계산
+        filling_weight = product.filling_weight or Decimal('0')
+        packing_price = price_per_kg * filling_weight if price_per_kg else None
+        
+        price_items.append({
+            'product': product,
+            'price_per_kg': price_per_kg,
+            'packing_price': packing_price,
+            'currency': currency,
+            'currency_symbol': currency_symbols.get(currency, ''),
+            'filling_weight': filling_weight,
+        })
+    
+    years = [current_year + 1, current_year, current_year - 1, current_year - 2]
     
     context = {
+        'price_items': price_items,
+        'selected_year': year,
+        'selected_customer': customer_id,
+        'customers': customers,
         'years': years,
     }
-    return render(request, 'voucher/price_list_form.html', context)
+    return render(request, 'voucher/price_list_view.html', context)
 
 
 # ============================================
