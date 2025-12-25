@@ -167,9 +167,21 @@ def po_create(request):
             
             po.save()
             
-            # 품목 저장
+            # 품목 저장 (line_no 자동 채우기)
             formset.instance = po
-            formset.save()
+            items = formset.save(commit=False)
+            
+            # 삭제 처리
+            for obj in formset.deleted_objects:
+                obj.delete()
+            
+            # line_no 자동 부여
+            line_no = 1
+            for item in items:
+                if not item.line_no:
+                    item.line_no = line_no
+                item.save()
+                line_no += 1
             
             messages.success(request, f'수주 {po.customer_order_no}가 생성되었습니다.')
             return redirect('orders:detail', customer_order_no=po.customer_order_no)

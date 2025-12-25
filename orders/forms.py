@@ -119,10 +119,8 @@ class POItemForm(forms.ModelForm):
             'remarks',
         ]
         widgets = {
-            'line_no': forms.NumberInput(attrs={
-                'class': 'form-control form-control-sm line-no',
-                'min': 1,
-                'style': 'width: 50px;'
+            'line_no': forms.HiddenInput(attrs={
+                'class': 'line-no'
             }),
             'trade_condition_code': forms.TextInput(attrs={
                 'class': 'form-control form-control-sm product-code-input',

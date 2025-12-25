@@ -202,6 +202,8 @@ class POItem(models.Model):
     )
     
     line_no = models.IntegerField(
+        null=True,
+        blank=True,
         verbose_name='라인번호'
     )
     

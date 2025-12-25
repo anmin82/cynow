@@ -243,7 +243,6 @@
                             <table class="table mb-0 items-table" id="items-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 45px;">No</th>
                                         <th>제품 선택 <span class="text-danger">*</span></th>
                                         <th style="width: 80px;" class="text-center">수량 <span class="text-danger">*</span></th>
                                         <th style="width: 120px;">납기</th>
@@ -254,18 +253,17 @@
                                 <tbody id="items-tbody">
                                     {% for item_form in formset %}
                                     <tr class="item-form-row" data-form-index="{{ forloop.counter0 }}">
-                                        <td>
-                                            {{ item_form.line_no }}
-                                            {{ item_form.id }}
-                                            {{ item_form.product_code_pk }}
-                                            {{ item_form.trade_condition_name }}
-                                            {{ item_form.gas_name }}
-                                            {{ item_form.cylinder_spec }}
-                                            {{ item_form.valve_spec }}
-                                            {{ item_form.filling_weight }}
-                                            {{ item_form.unit_price }}
-                                            {{ item_form.currency }}
-                                        </td>
+                                        <!-- Hidden fields -->
+                                        {{ item_form.line_no }}
+                                        {{ item_form.id }}
+                                        {{ item_form.product_code_pk }}
+                                        {{ item_form.trade_condition_name }}
+                                        {{ item_form.gas_name }}
+                                        {{ item_form.cylinder_spec }}
+                                        {{ item_form.valve_spec }}
+                                        {{ item_form.filling_weight }}
+                                        {{ item_form.unit_price }}
+                                        {{ item_form.currency }}
                                         <td>
                                             <!-- 실제 값 저장용 hidden input -->
                                             <input type="hidden" name="{{ item_form.trade_condition_code.html_name }}" 
@@ -304,7 +302,7 @@
                                 </tbody>
                                 <tfoot>
                                     <tr class="totals-row">
-                                        <td colspan="2" class="text-end">합계</td>
+                                        <td class="text-end">합계</td>
                                         <td class="text-center" id="total-qty">0</td>
                                         <td colspan="3">
                                             <span class="text-muted">금액:</span> <span id="total-amount">-</span> |
@@ -335,18 +333,17 @@
 <!-- 빈 품목 행 템플릿 -->
 <template id="empty-row-template">
     <tr class="item-form-row" data-form-index="__prefix__">
-        <td>
-            <input type="hidden" name="items-__prefix__-id" id="id_items-__prefix__-id">
-            <input type="hidden" name="items-__prefix__-product_code_pk" class="product-code-pk">
-            <input type="hidden" name="items-__prefix__-trade_condition_name" class="product-name">
-            <input type="hidden" name="items-__prefix__-gas_name" class="gas-name">
-            <input type="hidden" name="items-__prefix__-cylinder_spec" class="cylinder-spec">
-            <input type="hidden" name="items-__prefix__-valve_spec" class="valve-spec">
-            <input type="hidden" name="items-__prefix__-filling_weight" class="filling-weight">
-            <input type="hidden" name="items-__prefix__-unit_price" class="unit-price">
-            <input type="hidden" name="items-__prefix__-currency" class="currency-value">
-            <input type="number" name="items-__prefix__-line_no" class="form-control form-control-sm line-no" min="1" style="width: 45px;" value="">
-        </td>
+        <!-- Hidden fields -->
+        <input type="hidden" name="items-__prefix__-id" id="id_items-__prefix__-id">
+        <input type="hidden" name="items-__prefix__-line_no" class="line-no" value="">
+        <input type="hidden" name="items-__prefix__-product_code_pk" class="product-code-pk">
+        <input type="hidden" name="items-__prefix__-trade_condition_name" class="product-name">
+        <input type="hidden" name="items-__prefix__-gas_name" class="gas-name">
+        <input type="hidden" name="items-__prefix__-cylinder_spec" class="cylinder-spec">
+        <input type="hidden" name="items-__prefix__-valve_spec" class="valve-spec">
+        <input type="hidden" name="items-__prefix__-filling_weight" class="filling-weight">
+        <input type="hidden" name="items-__prefix__-unit_price" class="unit-price">
+        <input type="hidden" name="items-__prefix__-currency" class="currency-value">
         <td>
             <!-- 실제 값 저장용 hidden input -->
             <input type="hidden" name="items-__prefix__-trade_condition_code" class="product-code-input" value="">
