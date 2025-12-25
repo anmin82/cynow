@@ -37,8 +37,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h6 class="text-white-50">총 수주</h6>
-                            <h3 class="mb-0">{{ order_list|length }}</h3>
+                            <h6 class="opacity-75">총 수주</h6>
+                            <h3 class="mb-0">{{ stats.total }}</h3>
                         </div>
                         <i class="fas fa-file-invoice fa-2x opacity-50"></i>
                     </div>
@@ -50,19 +50,10 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h6 class="text-white-50">진행중</h6>
-                            <h3 class="mb-0">
-                                {% with in_progress=0 %}
-                                {% for item in order_list %}
-                                    {% if item.progress_percent > 0 and item.progress_percent < 100 %}
-                                        {% with in_progress=in_progress|add:1 %}{% endwith %}
-                                    {% endif %}
-                                {% endfor %}
-                                {{ in_progress }}
-                                {% endwith %}
-                            </h3>
+                            <h6 class="opacity-75">완료</h6>
+                            <h3 class="mb-0">{{ stats.completed }}</h3>
                         </div>
-                        <i class="fas fa-spinner fa-2x opacity-50"></i>
+                        <i class="fas fa-check-circle fa-2x opacity-50"></i>
                     </div>
                 </div>
             </div>
@@ -72,17 +63,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h6 class="text-white-50">FCMS 연동</h6>
-                            <h3 class="mb-0">
-                                {% with linked=0 %}
-                                {% for item in order_list %}
-                                    {% if item.arrival_count > 0 %}
-                                        {% with linked=linked|add:1 %}{% endwith %}
-                                    {% endif %}
-                                {% endfor %}
-                                {{ linked }}
-                                {% endwith %}
-                            </h3>
+                            <h6 class="opacity-75">FCMS 연동</h6>
+                            <h3 class="mb-0">{{ stats.linked }}</h3>
                         </div>
                         <i class="fas fa-link fa-2x opacity-50"></i>
                     </div>
@@ -90,21 +72,12 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-warning text-dark">
+            <div class="card bg-danger text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h6 class="text-muted">미연동</h6>
-                            <h3 class="mb-0">
-                                {% with unlinked=0 %}
-                                {% for item in order_list %}
-                                    {% if item.arrival_count == 0 %}
-                                        {% with unlinked=unlinked|add:1 %}{% endwith %}
-                                    {% endif %}
-                                {% endfor %}
-                                {{ unlinked }}
-                                {% endwith %}
-                            </h3>
+                            <h6 class="opacity-75">미연동</h6>
+                            <h3 class="mb-0">{{ stats.unlinked }}</h3>
                         </div>
                         <i class="fas fa-unlink fa-2x opacity-50"></i>
                     </div>

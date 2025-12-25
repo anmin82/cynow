@@ -579,8 +579,18 @@ def order_management_list(request):
             'orders': progress_summary.get('orders', []),
         })
     
+    # 통계 계산
+    stats = {
+        'total': len(order_list),
+        'in_progress': sum(1 for item in order_list if 0 < item['progress_percent'] < 100),
+        'completed': sum(1 for item in order_list if item['progress_percent'] >= 100),
+        'linked': sum(1 for item in order_list if item['arrival_count'] > 0),
+        'unlinked': sum(1 for item in order_list if item['arrival_count'] == 0),
+    }
+    
     context = {
         'order_list': order_list,
+        'stats': stats,
     }
     
     return render(request, 'orders/order_management.html', context)
