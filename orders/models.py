@@ -18,6 +18,7 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
+from decimal import Decimal
 
 
 class PO(models.Model):
@@ -110,6 +111,40 @@ class PO(models.Model):
     def total_qty(self):
         """총 수주 수량"""
         return sum(item.qty for item in self.items.all())
+    
+    @property
+    def total_weight(self):
+        """총 중량(kg)"""
+        total = Decimal('0')
+        for item in self.items.all():
+            if item.total_weight:
+                total += item.total_weight
+        return total if total > 0 else None
+    
+    @property
+    def total_amount(self):
+        """총 금액 (통화별 딕셔너리)"""
+        amounts = {}
+        for item in self.items.all():
+            if item.amount:
+                currency = item.currency
+                if currency not in amounts:
+                    amounts[currency] = Decimal('0')
+                amounts[currency] += item.amount
+        return amounts if amounts else None
+    
+    @property
+    def total_amount_display(self):
+        """총 금액 표시용 문자열"""
+        amounts = self.total_amount
+        if not amounts:
+            return None
+        currency_symbols = {'KRW': '₩', 'JPY': '¥', 'USD': '$', 'CNY': '¥'}
+        parts = []
+        for currency, amount in amounts.items():
+            symbol = currency_symbols.get(currency, '')
+            parts.append(f"{symbol}{amount:,.0f} {currency}")
+        return ' / '.join(parts)
 
 
 class POItem(models.Model):
@@ -117,7 +152,15 @@ class POItem(models.Model):
     수주 품목
     
     하나의 PO에 여러 품목이 포함될 수 있음
+    ProductCode와 연동하여 단가, 스펙 정보 자동 로딩
     """
+    
+    CURRENCY_CHOICES = [
+        ('KRW', '원 (₩)'),
+        ('JPY', '엔 (¥)'),
+        ('USD', '달러 ($)'),
+        ('CNY', '위안 (¥)'),
+    ]
     
     po = models.ForeignKey(
         PO,
@@ -130,10 +173,22 @@ class POItem(models.Model):
         verbose_name='라인번호'
     )
     
+    # ProductCode 연동 (개선)
+    product_code = models.ForeignKey(
+        'products.ProductCode',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='po_items',
+        verbose_name='제품코드 참조',
+        help_text='ProductCode 테이블 FK'
+    )
+    
+    # 텍스트 백업 (ProductCode가 없거나 삭제될 경우 대비)
     trade_condition_code = models.CharField(
         max_length=100,
         verbose_name='제품코드',
-        help_text='FCMS 품목 코드'
+        help_text='FCMS 품목 코드 (예: KF001)'
     )
     
     trade_condition_name = models.CharField(
@@ -142,9 +197,54 @@ class POItem(models.Model):
         verbose_name='제품명'
     )
     
+    # 스펙 정보 (ProductCode에서 가져옴, 스냅샷 저장)
+    gas_name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='가스명'
+    )
+    
+    cylinder_spec = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='용기스펙'
+    )
+    
+    valve_spec = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='밸브스펙'
+    )
+    
+    filling_weight = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='충전량(kg)'
+    )
+    
+    # 수량
     qty = models.IntegerField(
         validators=[MinValueValidator(1)],
         verbose_name='수주수량'
+    )
+    
+    # 단가 정보 (개선)
+    unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='단가(/kg)',
+        help_text='kg당 단가'
+    )
+    
+    currency = models.CharField(
+        max_length=10,
+        choices=CURRENCY_CHOICES,
+        default='KRW',
+        verbose_name='통화'
     )
     
     remarks = models.TextField(
@@ -164,6 +264,45 @@ class POItem(models.Model):
     
     def __str__(self):
         return f"{self.po.customer_order_no}-{self.line_no}"
+    
+    @property
+    def packing_price(self):
+        """용기 단가 = 단가(/kg) × 충전량(kg)"""
+        if self.unit_price and self.filling_weight:
+            return self.unit_price * self.filling_weight
+        return None
+    
+    @property
+    def amount(self):
+        """금액 = 용기단가 × 수량"""
+        packing = self.packing_price
+        if packing:
+            return packing * self.qty
+        return None
+    
+    @property
+    def total_weight(self):
+        """총 중량 = 충전량 × 수량"""
+        if self.filling_weight:
+            return self.filling_weight * self.qty
+        return None
+    
+    def sync_from_product_code(self):
+        """ProductCode에서 스펙/단가 정보 동기화"""
+        if self.product_code:
+            pc = self.product_code
+            self.trade_condition_code = pc.trade_condition_no
+            self.trade_condition_name = pc.display_name or pc.gas_name or ''
+            self.gas_name = pc.gas_name or ''
+            self.cylinder_spec = pc.cylinder_spec_name or ''
+            self.valve_spec = pc.valve_spec_name or ''
+            self.filling_weight = pc.filling_weight
+            self.currency = pc.default_currency
+            
+            # 현재 단가 가져오기
+            current_price = pc.get_current_price()
+            if current_price:
+                self.unit_price = current_price.price_per_kg
 
 
 class MoveNoGuide(models.Model):

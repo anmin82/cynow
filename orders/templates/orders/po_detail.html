@@ -1,12 +1,123 @@
 {% extends "base.html" %}
 {% load timezone_tags %}
+{% load humanize %}
 
 {% block title %}수주 상세 - {{ po.customer_order_no }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* 기본 스타일 */
+    .info-table th {
+        width: 140px;
+        background: #f8f9fa;
+        font-weight: 500;
+    }
+    
+    /* 품목 테이블 */
+    .items-table {
+        font-size: 0.9rem;
+    }
+    .items-table th {
+        background: #f8f9fa;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .items-table td {
+        vertical-align: middle;
+    }
+    
+    /* 통화 배지 */
+    .currency-badge {
+        font-size: 0.75rem;
+    }
+    .currency-krw { color: #28a745; }
+    .currency-jpy { color: #f0ad4e; }
+    .currency-usd { color: #0d6efd; }
+    
+    /* 합계 행 */
+    .totals-row {
+        background: #e7f3ff !important;
+        font-weight: 600;
+    }
+    .totals-row td {
+        border-top: 2px solid #0d6efd;
+    }
+    
+    /* 스펙 표시 */
+    .spec-text {
+        font-size: 0.8rem;
+        color: #888;
+    }
+    
+    /* 금액 표시 */
+    .amount-display {
+        font-weight: 600;
+        color: #28a745;
+    }
+    
+    /* 가이드 카드 */
+    .guide-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+    
+    /* 인쇄 스타일 */
+    @media print {
+        .no-print { display: none !important; }
+        body { 
+            background: white !important;
+            font-size: 10pt !important;
+        }
+        .card { 
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+        .card-header {
+            background: #f8f9fa !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .main-container { padding: 0 !important; }
+        .navbar, nav.breadcrumb { display: none !important; }
+        
+        .print-header {
+            display: block !important;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #333;
+        }
+        .print-header h1 {
+            font-size: 18pt;
+            margin: 0 0 5px 0;
+        }
+        .print-header p {
+            font-size: 10pt;
+            margin: 0;
+            color: #666;
+        }
+        
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+    }
+    
+    .print-header { display: none; }
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- 인쇄용 헤더 -->
+<div class="print-header">
+    <h1>수주 확인서</h1>
+    <p>KDFPK Co., Ltd. | PO: {{ po.customer_order_no }} | 발행일: {% now "Y년 m월 d일" %}</p>
+</div>
+
 <div class="container-fluid mt-4">
     <!-- 헤더 -->
-    <div class="row mb-3">
+    <div class="row mb-3 no-print">
         <div class="col">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
@@ -14,9 +125,25 @@
                     <li class="breadcrumb-item active">{{ po.customer_order_no }}</li>
                 </ol>
             </nav>
-            <h2>수주 상세</h2>
+            <div class="d-flex align-items-center gap-3">
+                <h2 class="mb-0">수주 상세</h2>
+                {% if po.status == 'DRAFT' %}
+                    <span class="badge bg-secondary fs-6">{{ po.get_status_display }}</span>
+                {% elif po.status == 'GUIDED' %}
+                    <span class="badge bg-info fs-6">{{ po.get_status_display }}</span>
+                {% elif po.status == 'MATCHED' %}
+                    <span class="badge bg-success fs-6">{{ po.get_status_display }}</span>
+                {% elif po.status == 'IN_PROGRESS' %}
+                    <span class="badge bg-primary fs-6">{{ po.get_status_display }}</span>
+                {% elif po.status == 'COMPLETED' %}
+                    <span class="badge bg-dark fs-6">{{ po.get_status_display }}</span>
+                {% endif %}
+            </div>
         </div>
         <div class="col-auto">
+            <button onclick="window.print()" class="btn btn-outline-secondary">
+                <i class="bi bi-printer"></i> 인쇄
+            </button>
             <a href="{% url 'orders:edit' po.customer_order_no %}" class="btn btn-warning">
                 <i class="bi bi-pencil"></i> 수정
             </a>
@@ -32,140 +159,221 @@
     </div>
 
     <div class="row">
-        <!-- 좌측: 수주 정보 -->
-        <div class="col-md-6">
+        <!-- 좌측: 수주 정보 + 품목 -->
+        <div class="col-lg-8">
             <!-- 기본 정보 -->
             <div class="card mb-3">
                 <div class="card-header">
-                    <h5 class="mb-0">기본 정보</h5>
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>기본 정보</h5>
                 </div>
                 <div class="card-body">
-                    <table class="table table-sm">
-                        <tbody>
-                            <tr>
-                                <th width="30%">PO번호</th>
-                                <td><strong>{{ po.customer_order_no }}</strong></td>
-                            </tr>
-                            <tr>
-                                <th>고객코드</th>
-                                <td>{{ po.supplier_user_code }}</td>
-                            </tr>
-                            <tr>
-                                <th>고객명</th>
-                                <td>{{ po.supplier_user_name }}</td>
-                            </tr>
-                            <tr>
-                                <th>수주일시</th>
-                                <td>{{ po.received_at|kst|date:"Y-m-d H:i" }}</td>
-                            </tr>
-                            <tr>
-                                <th>상태</th>
-                                <td>
-                                    {% if po.status == 'DRAFT' %}
-                                        <span class="badge bg-secondary">{{ po.get_status_display }}</span>
-                                    {% elif po.status == 'GUIDED' %}
-                                        <span class="badge bg-info">{{ po.get_status_display }}</span>
-                                    {% elif po.status == 'MATCHED' %}
-                                        <span class="badge bg-success">{{ po.get_status_display }}</span>
-                                    {% elif po.status == 'IN_PROGRESS' %}
-                                        <span class="badge bg-primary">{{ po.get_status_display }}</span>
-                                    {% elif po.status == 'COMPLETED' %}
-                                        <span class="badge bg-dark">{{ po.get_status_display }}</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>작성자</th>
-                                <td>{{ po.created_by|default:"-" }}</td>
-                            </tr>
-                            <tr>
-                                <th>생성일시</th>
-                                <td>{{ po.created_at|kst|date:"Y-m-d H:i:s" }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    {% if po.memo %}
-                    <div class="mt-3">
-                        <strong>메모:</strong>
-                        <p class="text-muted">{{ po.memo }}</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm info-table mb-0">
+                                <tbody>
+                                    <tr>
+                                        <th>PO번호</th>
+                                        <td><strong class="text-primary">{{ po.customer_order_no }}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <th>고객코드</th>
+                                        <td><code>{{ po.supplier_user_code }}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <th>고객명</th>
+                                        <td>{{ po.supplier_user_name|default:"-" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>수주일시</th>
+                                        <td>{{ po.received_at|kst|date:"Y-m-d H:i" }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm info-table mb-0">
+                                <tbody>
+                                    <tr>
+                                        <th>작성자</th>
+                                        <td>{{ po.created_by|default:"-" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>생성일시</th>
+                                        <td>{{ po.created_at|kst|date:"Y-m-d H:i:s" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>수정일시</th>
+                                        <td>{{ po.updated_at|kst|date:"Y-m-d H:i:s" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>메모</th>
+                                        <td>{{ po.memo|default:"-"|linebreaksbr }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    {% endif %}
                 </div>
             </div>
 
             <!-- 수주 품목 -->
             <div class="card mb-3">
                 <div class="card-header">
-                    <h5 class="mb-0">수주 품목</h5>
+                    <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>수주 품목</h5>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm">
-                        <thead class="table-light">
-                            <tr>
-                                <th>라인</th>
-                                <th>품목코드</th>
-                                <th>품목명</th>
-                                <th class="text-end">수량</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in items %}
-                            <tr>
-                                <td>{{ item.line_no }}</td>
-                                <td>{{ item.trade_condition_code }}</td>
-                                <td>{{ item.trade_condition_name }}</td>
-                                <td class="text-end"><strong>{{ item.qty }}</strong></td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <th colspan="3" class="text-end">합계</th>
-                                <th class="text-end">{{ po.total_qty }}</th>
-                            </tr>
-                        </tfoot>
-                    </table>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 items-table">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>제품코드</th>
+                                    <th>제품명</th>
+                                    <th>스펙</th>
+                                    <th class="text-center">충전량</th>
+                                    <th class="text-center">수량</th>
+                                    <th class="text-end">단가(/kg)</th>
+                                    <th class="text-end">용기단가</th>
+                                    <th class="text-end">금액</th>
+                                    <th class="text-center">중량</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>{{ item.line_no }}</td>
+                                    <td><code>{{ item.trade_condition_code }}</code></td>
+                                    <td>
+                                        {{ item.trade_condition_name|default:item.gas_name|default:"-" }}
+                                    </td>
+                                    <td>
+                                        <span class="spec-text">
+                                            {% if item.cylinder_spec %}{{ item.cylinder_spec }}{% endif %}
+                                            {% if item.valve_spec %} / {{ item.valve_spec }}{% endif %}
+                                            {% if not item.cylinder_spec and not item.valve_spec %}-{% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if item.filling_weight %}
+                                            {{ item.filling_weight|floatformat:1 }} kg
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center"><strong>{{ item.qty }}</strong></td>
+                                    <td class="text-end">
+                                        {% if item.unit_price %}
+                                            <span class="currency-{{ item.currency|lower }}">
+                                                {% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' %}¥{% elif item.currency == 'USD' %}${% else %}{{ item.currency }}{% endif %}
+                                            </span>
+                                            {{ item.unit_price|floatformat:0|intcomma }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if item.packing_price %}
+                                            <span class="currency-{{ item.currency|lower }}">
+                                                {% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' %}¥{% elif item.currency == 'USD' %}${% else %}{{ item.currency }}{% endif %}
+                                            </span>
+                                            {{ item.packing_price|floatformat:0|intcomma }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if item.amount %}
+                                            <span class="amount-display">
+                                                {% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' %}¥{% elif item.currency == 'USD' %}${% else %}{{ item.currency }}{% endif %}
+                                                {{ item.amount|floatformat:0|intcomma }}
+                                            </span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if item.total_weight %}
+                                            {{ item.total_weight|floatformat:1 }} kg
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted py-4">
+                                        등록된 품목이 없습니다.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="totals-row">
+                                    <td colspan="5" class="text-end">합계</td>
+                                    <td class="text-center"><strong>{{ po.total_qty }}</strong></td>
+                                    <td colspan="2"></td>
+                                    <td class="text-end">
+                                        {% if po.total_amount_display %}
+                                            <span class="amount-display">{{ po.total_amount_display }}</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if po.total_weight %}
+                                            <strong>{{ po.total_weight|floatformat:1 }} kg</strong>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 우측: 가이드 및 매칭 -->
-        <div class="col-md-6">
+        <div class="col-lg-4 no-print">
             <!-- 이동서번호 가이드 -->
             <div class="card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">이동서번호 가이드</h5>
+                    <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>이동서번호 가이드</h5>
                     <form method="post" action="{% url 'orders:generate_guide' po.customer_order_no %}" style="display: inline;">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-primary">
-                            <i class="bi bi-lightbulb"></i> 가이드 생성
+                            <i class="bi bi-plus-circle"></i> 생성
                         </button>
                     </form>
                 </div>
                 <div class="card-body">
                     {% if guides %}
-                        <div class="alert alert-info">
-                            <strong>추천 이동서번호:</strong>
-                            <h4 class="mt-2 mb-0">{{ guides.0.suggested_move_no }}</h4>
+                        <div class="text-center py-3">
+                            <div class="text-muted mb-1">추천 이동서번호</div>
+                            <div class="guide-number">{{ guides.0.suggested_move_no }}</div>
                             <small class="text-muted">
-                                생성일시: {{ guides.0.created_at|kst|date:"Y-m-d H:i" }}
+                                생성: {{ guides.0.created_at|kst|date:"Y-m-d H:i" }}
                             </small>
                         </div>
-                        <p class="text-muted small">
-                            ⚠️ 이 번호는 참고용 추천값입니다.<br>
-                            FCMS에 직접 입력 시 이 번호를 사용하거나 다른 번호를 사용할 수 있습니다.
-                        </p>
+                        <hr>
+                        <div class="alert alert-warning mb-0 small">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            이 번호는 참고용 추천값입니다.<br>
+                            FCMS에 직접 입력 시 다른 번호를 사용할 수 있습니다.
+                        </div>
                         
                         {% if guides.0.fcms_actual_move_no %}
                         <div class="mt-3">
-                            <strong>FCMS 실제 번호:</strong> {{ guides.0.fcms_actual_move_no }}
+                            <strong>FCMS 실제 번호:</strong>
+                            <code>{{ guides.0.fcms_actual_move_no }}</code>
                         </div>
                         {% endif %}
                     {% else %}
-                        <p class="text-muted">
-                            아직 이동서번호 가이드가 생성되지 않았습니다.<br>
-                            위 버튼을 클릭하여 가이드를 생성하세요.
-                        </p>
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-lightbulb" style="font-size: 2rem; opacity: 0.3;"></i>
+                            <p class="mt-2 mb-0">아직 가이드가 생성되지 않았습니다.</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -173,83 +381,91 @@
             <!-- FCMS 매칭 상태 -->
             <div class="card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">FCMS 매칭 상태</h5>
+                    <h5 class="mb-0"><i class="bi bi-link-45deg me-2"></i>FCMS 매칭</h5>
                     <form method="post" action="{% url 'orders:check_match' po.customer_order_no %}" style="display: inline;">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-secondary">
-                            <i class="bi bi-arrow-repeat"></i> 매칭 확인
+                            <i class="bi bi-arrow-repeat"></i> 확인
                         </button>
                     </form>
                 </div>
                 <div class="card-body">
                     {% if match_status %}
-                        <table class="table table-sm">
+                        <div class="text-center py-2">
+                            {% if match_status.match_state == 'MATCHED' %}
+                                <span class="badge bg-success fs-6">매칭완료</span>
+                            {% elif match_status.match_state == 'NOT_ENTERED' %}
+                                <span class="badge bg-warning fs-6">미입력</span>
+                            {% elif match_status.match_state == 'MISMATCH' %}
+                                <span class="badge bg-danger fs-6">번호불일치</span>
+                            {% endif %}
+                        </div>
+                        
+                        <table class="table table-sm mt-3 mb-0">
                             <tbody>
-                                <tr>
-                                    <th width="40%">매칭 상태</th>
-                                    <td>
-                                        {% if match_status.match_state == 'MATCHED' %}
-                                            <span class="badge bg-success">매칭완료</span>
-                                        {% elif match_status.match_state == 'NOT_ENTERED' %}
-                                            <span class="badge bg-warning">미입력</span>
-                                        {% elif match_status.match_state == 'MISMATCH' %}
-                                            <span class="badge bg-danger">번호불일치</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
                                 {% if match_status.fcms_arrival_shipping_no %}
                                 <tr>
-                                    <th>FCMS 도착출하번호</th>
-                                    <td>{{ match_status.fcms_arrival_shipping_no }}</td>
+                                    <th width="50%">도착출하번호</th>
+                                    <td><code>{{ match_status.fcms_arrival_shipping_no }}</code></td>
                                 </tr>
                                 {% endif %}
                                 {% if match_status.fcms_move_report_no %}
                                 <tr>
-                                    <th>FCMS 이동서번호</th>
-                                    <td>{{ match_status.fcms_move_report_no }}</td>
+                                    <th>이동서번호</th>
+                                    <td><code>{{ match_status.fcms_move_report_no }}</code></td>
                                 </tr>
                                 {% endif %}
                                 <tr>
                                     <th>최종 확인</th>
-                                    <td>{{ match_status.last_checked_at|kst|date:"Y-m-d H:i:s" }}</td>
+                                    <td>{{ match_status.last_checked_at|kst|date:"Y-m-d H:i" }}</td>
                                 </tr>
                             </tbody>
                         </table>
+                        
                         {% if match_status.note %}
-                        <div class="mt-2">
-                            <small class="text-muted">{{ match_status.note }}</small>
+                        <div class="mt-2 small text-muted">
+                            {{ match_status.note }}
                         </div>
                         {% endif %}
                     {% else %}
-                        <p class="text-muted">
-                            아직 FCMS 매칭을 확인하지 않았습니다.<br>
-                            위 버튼을 클릭하여 매칭 상태를 확인하세요.
-                        </p>
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-link-45deg" style="font-size: 2rem; opacity: 0.3;"></i>
+                            <p class="mt-2 mb-0">아직 매칭을 확인하지 않았습니다.</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- 진행 현황 (TODO) -->
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5 class="mb-0">진행 현황</h5>
-                </div>
+            <!-- 요약 카드 -->
+            <div class="card mb-3 bg-light">
                 <div class="card-body">
-                    <p class="text-muted">
-                        진행 현황 집계 기능은 추후 구현 예정입니다.
-                    </p>
-                    <ul class="list-unstyled">
-                        <li>• 수주수량: {{ po.total_qty }}</li>
-                        <li>• 충전지시수량: (구현 예정)</li>
-                        <li>• 충전진행수량: (구현 예정)</li>
-                        <li>• 입고수량: (구현 예정)</li>
-                        <li>• 출하수량: (구현 예정)</li>
-                    </ul>
+                    <h6 class="text-muted mb-3"><i class="bi bi-bar-chart me-2"></i>수주 요약</h6>
+                    <div class="row text-center">
+                        <div class="col-6 border-end">
+                            <div class="text-muted small">총 수량</div>
+                            <div class="fs-4 fw-bold">{{ po.total_qty }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">총 중량</div>
+                            <div class="fs-4 fw-bold">
+                                {% if po.total_weight %}
+                                    {{ po.total_weight|floatformat:0 }} kg
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% if po.total_amount_display %}
+                    <hr>
+                    <div class="text-center">
+                        <div class="text-muted small">총 금액</div>
+                        <div class="fs-5 fw-bold text-success">{{ po.total_amount_display }}</div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
-
-

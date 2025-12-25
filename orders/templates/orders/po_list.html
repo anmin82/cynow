@@ -1,84 +1,172 @@
 {% extends "base.html" %}
 {% load timezone_tags %}
+{% load humanize %}
 
 {% block title %}수주 목록{% endblock %}
 
+{% block extra_css %}
+<style>
+    .filter-bar {
+        background: #f8f9fa;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    /* 테이블 스타일 */
+    .po-table th {
+        background: #f8f9fa;
+        font-weight: 500;
+        white-space: nowrap;
+        font-size: 0.9rem;
+    }
+    .po-table td {
+        vertical-align: middle;
+    }
+    
+    /* 금액 표시 */
+    .amount-text {
+        font-weight: 500;
+        color: #28a745;
+        font-size: 0.85rem;
+    }
+    
+    /* 중량 표시 */
+    .weight-text {
+        font-size: 0.8rem;
+        color: #888;
+    }
+    
+    /* 상태 배지 */
+    .status-badge {
+        font-size: 0.75rem;
+    }
+    
+    /* PO 번호 */
+    .po-number {
+        font-weight: 600;
+        color: #0d6efd;
+    }
+    .po-number:hover {
+        text-decoration: underline;
+    }
+    
+    /* 빈 상태 */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+    }
+    .empty-state i {
+        font-size: 3rem;
+        color: #dee2e6;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
-    <div class="row mb-3">
-        <div class="col">
-            <h2>수주 목록</h2>
+    <!-- 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">수주 목록</h2>
+            <p class="text-muted mb-0">고객 수주 관리 및 이동서번호 가이드</p>
         </div>
-        <div class="col-auto">
+        <div>
             <a href="{% url 'orders:new' %}" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> 새 수주 등록
+                <i class="bi bi-plus-circle me-1"></i> 새 수주 등록
             </a>
         </div>
     </div>
 
     {% if error_message %}
     <div class="alert alert-warning">
-        {{ error_message }}
+        <i class="bi bi-exclamation-triangle me-2"></i>{{ error_message }}
     </div>
     {% endif %}
 
     <!-- 필터 -->
-    <div class="card mb-3">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">상태</label>
-                    <select name="status" class="form-select">
-                        <option value="">전체</option>
-                        {% for value, label in status_choices %}
-                        <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>
-                            {{ label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">고객코드/명</label>
-                    <input type="text" name="supplier" class="form-control" 
-                           value="{{ current_supplier }}" placeholder="검색">
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-secondary w-100">
-                        <i class="bi bi-search"></i> 검색
-                    </button>
-                </div>
-            </form>
-        </div>
+    <div class="filter-bar">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small">상태</label>
+                <select name="status" class="form-select" onchange="this.form.submit()">
+                    <option value="">전체</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">고객코드/명</label>
+                <input type="text" name="supplier" class="form-control" 
+                       value="{{ current_supplier }}" placeholder="검색어 입력...">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary w-100">
+                    <i class="bi bi-search me-1"></i> 검색
+                </button>
+            </div>
+            {% if current_status or current_supplier %}
+            <div class="col-md-2">
+                <a href="{% url 'orders:list' %}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-x-circle me-1"></i> 초기화
+                </a>
+            </div>
+            {% endif %}
+        </form>
     </div>
 
     <!-- 수주 목록 테이블 -->
     <div class="card">
-        <div class="card-body">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
+                <table class="table table-hover mb-0 po-table">
+                    <thead>
                         <tr>
                             <th>PO번호</th>
-                            <th>고객명</th>
+                            <th>고객</th>
                             <th>수주일</th>
-                            <th>수주수량</th>
-                            <th>추천이동서번호</th>
+                            <th class="text-center">수량</th>
+                            <th class="text-end">금액</th>
+                            <th class="text-center">중량</th>
+                            <th>이동서가이드</th>
                             <th>상태</th>
-                            <th>FCMS매칭</th>
-                            <th>작업</th>
+                            <th>FCMS</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in po_list %}
                         <tr>
                             <td>
-                                <a href="{% url 'orders:detail' item.po.customer_order_no %}">
-                                    <strong>{{ item.po.customer_order_no }}</strong>
+                                <a href="{% url 'orders:detail' item.po.customer_order_no %}" class="po-number">
+                                    {{ item.po.customer_order_no }}
                                 </a>
                             </td>
-                            <td>{{ item.po.supplier_user_name }}</td>
-                            <td>{{ item.po.received_at|kst|date:"Y-m-d H:i" }}</td>
-                            <td class="text-end">{{ item.po.total_qty }}</td>
+                            <td>
+                                <div>{{ item.po.supplier_user_name|default:"-" }}</div>
+                                <small class="text-muted">{{ item.po.supplier_user_code }}</small>
+                            </td>
+                            <td>{{ item.po.received_at|kst|date:"Y-m-d" }}</td>
+                            <td class="text-center">
+                                <strong>{{ item.po.total_qty }}</strong>
+                            </td>
+                            <td class="text-end">
+                                {% if item.po.total_amount_display %}
+                                    <span class="amount-text">{{ item.po.total_amount_display }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.po.total_weight %}
+                                    <span class="weight-text">{{ item.po.total_weight|floatformat:0 }} kg</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if item.guide %}
                                     <span class="badge bg-info">{{ item.guide.suggested_move_no }}</span>
@@ -88,25 +176,25 @@
                             </td>
                             <td>
                                 {% if item.po.status == 'DRAFT' %}
-                                    <span class="badge bg-secondary">{{ item.po.get_status_display }}</span>
+                                    <span class="badge bg-secondary status-badge">{{ item.po.get_status_display }}</span>
                                 {% elif item.po.status == 'GUIDED' %}
-                                    <span class="badge bg-info">{{ item.po.get_status_display }}</span>
+                                    <span class="badge bg-info status-badge">{{ item.po.get_status_display }}</span>
                                 {% elif item.po.status == 'MATCHED' %}
-                                    <span class="badge bg-success">{{ item.po.get_status_display }}</span>
+                                    <span class="badge bg-success status-badge">{{ item.po.get_status_display }}</span>
                                 {% elif item.po.status == 'IN_PROGRESS' %}
-                                    <span class="badge bg-primary">{{ item.po.get_status_display }}</span>
+                                    <span class="badge bg-primary status-badge">{{ item.po.get_status_display }}</span>
                                 {% elif item.po.status == 'COMPLETED' %}
-                                    <span class="badge bg-dark">{{ item.po.get_status_display }}</span>
+                                    <span class="badge bg-dark status-badge">{{ item.po.get_status_display }}</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if item.match_status %}
                                     {% if item.match_status.match_state == 'MATCHED' %}
-                                        <span class="badge bg-success">매칭완료</span>
+                                        <span class="badge bg-success status-badge">매칭</span>
                                     {% elif item.match_status.match_state == 'NOT_ENTERED' %}
-                                        <span class="badge bg-warning">미입력</span>
+                                        <span class="badge bg-warning status-badge">미입력</span>
                                     {% elif item.match_status.match_state == 'MISMATCH' %}
-                                        <span class="badge bg-danger">불일치</span>
+                                        <span class="badge bg-danger status-badge">불일치</span>
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted">-</span>
@@ -115,14 +203,20 @@
                             <td>
                                 <a href="{% url 'orders:detail' item.po.customer_order_no %}" 
                                    class="btn btn-sm btn-outline-primary">
-                                    상세
+                                    <i class="bi bi-eye"></i>
                                 </a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
-                                등록된 수주가 없습니다.
+                            <td colspan="10">
+                                <div class="empty-state">
+                                    <i class="bi bi-inbox"></i>
+                                    <p class="mt-3 text-muted">등록된 수주가 없습니다.</p>
+                                    <a href="{% url 'orders:new' %}" class="btn btn-primary mt-2">
+                                        <i class="bi bi-plus-circle me-1"></i> 새 수주 등록
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -131,7 +225,12 @@
             </div>
         </div>
     </div>
+    
+    {% if po_list %}
+    <div class="text-muted mt-3 small">
+        <i class="bi bi-info-circle me-1"></i>
+        총 {{ po_list|length }}건 표시 (최근 100건)
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
-
-

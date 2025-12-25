@@ -1,5 +1,10 @@
 """
 수주 입력 폼
+
+개선:
+- ProductCode 자동완성/검색
+- 단가 자동 로딩
+- 금액 자동 계산
 """
 from django import forms
 from django.core.exceptions import ValidationError
@@ -70,7 +75,15 @@ class POForm(forms.ModelForm):
 
 
 class POItemForm(forms.ModelForm):
-    """수주 품목 폼"""
+    """수주 품목 폼 (개선됨)"""
+    
+    # 제품코드 검색용 히든 필드 (product_code FK)
+    product_code_pk = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={
+            'class': 'product-code-pk'
+        })
+    )
     
     class Meta:
         model = POItem
@@ -78,39 +91,94 @@ class POItemForm(forms.ModelForm):
             'line_no',
             'trade_condition_code',
             'trade_condition_name',
+            'gas_name',
+            'cylinder_spec',
+            'valve_spec',
+            'filling_weight',
             'qty',
+            'unit_price',
+            'currency',
             'remarks',
         ]
         widgets = {
             'line_no': forms.NumberInput(attrs={
-                'class': 'form-control form-control-sm',
-                'min': 1
+                'class': 'form-control form-control-sm line-no',
+                'min': 1,
+                'style': 'width: 60px;'
             }),
             'trade_condition_code': forms.TextInput(attrs={
-                'class': 'form-control form-control-sm',
-                'placeholder': '품목코드'
+                'class': 'form-control form-control-sm product-search',
+                'placeholder': '제품코드 검색...',
+                'autocomplete': 'off'
             }),
             'trade_condition_name': forms.TextInput(attrs={
-                'class': 'form-control form-control-sm',
-                'placeholder': '품목명'
+                'class': 'form-control form-control-sm product-name',
+                'readonly': 'readonly',
+                'placeholder': '제품명'
+            }),
+            'gas_name': forms.HiddenInput(attrs={
+                'class': 'gas-name'
+            }),
+            'cylinder_spec': forms.HiddenInput(attrs={
+                'class': 'cylinder-spec'
+            }),
+            'valve_spec': forms.HiddenInput(attrs={
+                'class': 'valve-spec'
+            }),
+            'filling_weight': forms.NumberInput(attrs={
+                'class': 'form-control form-control-sm filling-weight',
+                'readonly': 'readonly',
+                'step': '0.01',
+                'style': 'width: 80px;'
             }),
             'qty': forms.NumberInput(attrs={
-                'class': 'form-control form-control-sm',
+                'class': 'form-control form-control-sm qty-input',
                 'min': 1,
-                'placeholder': '수량'
+                'placeholder': '수량',
+                'style': 'width: 70px;'
+            }),
+            'unit_price': forms.NumberInput(attrs={
+                'class': 'form-control form-control-sm unit-price',
+                'step': '0.01',
+                'placeholder': '단가',
+                'style': 'width: 100px;'
+            }),
+            'currency': forms.Select(attrs={
+                'class': 'form-select form-select-sm currency-select',
+                'style': 'width: 90px;'
             }),
             'remarks': forms.TextInput(attrs={
                 'class': 'form-control form-control-sm',
-                'placeholder': '비고 (선택)'
+                'placeholder': '비고'
             }),
         }
         labels = {
-            'line_no': '라인',
-            'trade_condition_code': '품목코드',
-            'trade_condition_name': '품목명',
+            'line_no': 'No',
+            'trade_condition_code': '제품코드',
+            'trade_condition_name': '제품명',
+            'filling_weight': '충전량',
             'qty': '수량',
+            'unit_price': '단가(/kg)',
+            'currency': '통화',
             'remarks': '비고',
         }
+    
+    def save(self, commit=True):
+        """저장 시 ProductCode FK 설정"""
+        instance = super().save(commit=False)
+        
+        # product_code_pk가 있으면 FK 설정
+        product_code_pk = self.cleaned_data.get('product_code_pk')
+        if product_code_pk:
+            from products.models import ProductCode
+            try:
+                instance.product_code = ProductCode.objects.get(pk=product_code_pk)
+            except ProductCode.DoesNotExist:
+                pass
+        
+        if commit:
+            instance.save()
+        return instance
 
 
 # Django Formset으로 여러 POItem을 한번에 처리
@@ -118,10 +186,8 @@ POItemFormSet = forms.inlineformset_factory(
     PO,
     POItem,
     form=POItemForm,
-    extra=1,  # 빈 폼 1개
+    extra=3,  # 빈 폼 3개
     can_delete=True,
     min_num=1,  # 최소 1개 라인
     validate_min=True,
 )
-
-

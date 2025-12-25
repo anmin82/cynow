@@ -5,14 +5,19 @@
 A) 고객 이메일로 받은 수주 정보 입력
 B) 이동서번호 가이드 표시
 C) 진행 현황 모니터링
+
+개선:
+- ProductCode 자동완성/검색
+- 단가 자동 로딩
+- 금액/중량 합계 표시
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.db.models import Sum
+from django.views.decorators.http import require_POST, require_GET
+from django.db.models import Sum, Q
 from django.db.utils import ProgrammingError, OperationalError
 
 from .models import PO, POItem, MoveNoGuide, FCMSMatchStatus
@@ -268,5 +273,113 @@ def check_fcms_match(request, customer_order_no):
     
     messages.info(request, 'FCMS 매칭 확인이 완료되었습니다. (CDC 조회 기능 구현 예정)')
     return redirect('orders:detail', customer_order_no=customer_order_no)
+
+
+# ============================================
+# 제품코드 검색 API (자동완성용)
+# ============================================
+
+@require_GET
+def api_search_products(request):
+    """
+    제품코드 검색 API
+    
+    GET /orders/api/products/search/?q=KF
+    
+    Returns:
+        [
+            {
+                "pk": "SEL001",
+                "code": "KF001",
+                "name": "COS 25kg CGA330",
+                "gas_name": "COS",
+                "cylinder_spec": "47L",
+                "valve_spec": "CGA330",
+                "filling_weight": 25.0,
+                "unit_price": 15000.0,
+                "currency": "KRW",
+                "currency_symbol": "₩"
+            },
+            ...
+        ]
+    """
+    from products.models import ProductCode
+    
+    q = request.GET.get('q', '').strip()
+    
+    if len(q) < 1:
+        return JsonResponse([], safe=False)
+    
+    try:
+        products = ProductCode.objects.filter(
+            is_active=True
+        ).filter(
+            Q(trade_condition_no__icontains=q) |
+            Q(gas_name__icontains=q) |
+            Q(display_name__icontains=q)
+        ).order_by('trade_condition_no')[:20]
+        
+        currency_symbols = {'KRW': '₩', 'JPY': '¥', 'USD': '$', 'CNY': '¥'}
+        
+        results = []
+        for p in products:
+            # 현재 단가 조회
+            current_price = p.get_current_price()
+            unit_price = float(current_price.price_per_kg) if current_price else None
+            
+            results.append({
+                'pk': p.selection_pattern_code,
+                'code': p.trade_condition_no,
+                'name': p.display_name or p.gas_name or p.trade_condition_no,
+                'gas_name': p.gas_name or '',
+                'cylinder_spec': p.cylinder_spec_name or '',
+                'valve_spec': p.valve_spec_name or '',
+                'capacity': float(p.capacity) if p.capacity else None,
+                'filling_weight': float(p.filling_weight) if p.filling_weight else None,
+                'unit_price': unit_price,
+                'currency': p.default_currency,
+                'currency_symbol': currency_symbols.get(p.default_currency, ''),
+            })
+        
+        return JsonResponse(results, safe=False)
+    
+    except (ProgrammingError, OperationalError):
+        return JsonResponse([], safe=False)
+
+
+@require_GET
+def api_get_product(request, product_code):
+    """
+    특정 제품코드 정보 조회 API
+    
+    GET /orders/api/products/<product_code>/
+    """
+    from products.models import ProductCode
+    
+    try:
+        p = ProductCode.objects.get(trade_condition_no=product_code, is_active=True)
+        
+        currency_symbols = {'KRW': '₩', 'JPY': '¥', 'USD': '$', 'CNY': '¥'}
+        current_price = p.get_current_price()
+        unit_price = float(current_price.price_per_kg) if current_price else None
+        
+        return JsonResponse({
+            'pk': p.selection_pattern_code,
+            'code': p.trade_condition_no,
+            'name': p.display_name or p.gas_name or p.trade_condition_no,
+            'gas_name': p.gas_name or '',
+            'cylinder_spec': p.cylinder_spec_name or '',
+            'valve_spec': p.valve_spec_name or '',
+            'capacity': float(p.capacity) if p.capacity else None,
+            'filling_weight': float(p.filling_weight) if p.filling_weight else None,
+            'unit_price': unit_price,
+            'currency': p.default_currency,
+            'currency_symbol': currency_symbols.get(p.default_currency, ''),
+        })
+    
+    except ProductCode.DoesNotExist:
+        return JsonResponse({'error': '제품코드를 찾을 수 없습니다.'}, status=404)
+    except (ProgrammingError, OperationalError):
+        return JsonResponse({'error': 'DB 오류'}, status=500)
 
 

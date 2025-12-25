@@ -12,6 +12,10 @@ urlpatterns = [
     path('', views.po_list, name='list'),
     path('new/', views.po_create, name='new'),
     
+    # API 엔드포인트 (제품코드 검색 등)
+    path('api/products/search/', views.api_search_products, name='api_search_products'),
+    path('api/products/<str:product_code>/', views.api_get_product, name='api_get_product'),
+    
     # ⚠️ customer_order_no 기반 경로는 맨 아래 배치
     path('<str:customer_order_no>/', views.po_detail, name='detail'),
     path('<str:customer_order_no>/edit/', views.po_edit, name='edit'),
