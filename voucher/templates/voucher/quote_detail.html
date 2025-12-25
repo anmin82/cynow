@@ -98,8 +98,8 @@
         }
         
         @page {
-            size: A4 portrait;
-            margin: 15mm;
+            size: A4 landscape;
+            margin: 10mm;
         }
     }
 </style>
@@ -214,35 +214,48 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table mb-0">
+                <table class="table table-sm mb-0">
                     <thead>
                         <tr>
-                            <th style="width: 50px;">No</th>
+                            <th style="width: 40px;">No</th>
+                            <th>제품코드</th>
                             <th>가스명</th>
-                            <th>규격</th>
+                            <th>용기 스펙</th>
+                            <th>밸브 스펙</th>
+                            <th class="text-center">용량(L)</th>
+                            <th class="text-center">충전량(kg)</th>
                             <th class="text-center">통화</th>
-                            <th class="text-end">단가</th>
+                            <th class="text-end">단가(/kg)</th>
+                            <th class="text-end">용기단가</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for item in items %}
                         <tr>
                             <td class="text-center">{{ forloop.counter }}</td>
-                            <td><strong>{{ item.gas_name|default:item.product_name }}</strong></td>
-                            <td>{{ item.specification|default:"-" }}</td>
+                            <td><code>{{ item.material_code|default:"-" }}</code></td>
+                            <td><strong>{{ item.gas_name|default:"-" }}</strong></td>
+                            <td><small>{{ item.cylinder_spec|default:"-" }}</small></td>
+                            <td><small>{{ item.valve_spec|default:"-" }}</small></td>
+                            <td class="text-center">{{ item.capacity|floatformat:0|default:"-" }}</td>
+                            <td class="text-center">{{ item.filling_weight|floatformat:1|default:"-" }}</td>
                             <td class="text-center">
-                                {% if item.currency == 'KRW' %}₩
-                                {% elif item.currency == 'JPY' %}¥
-                                {% elif item.currency == 'USD' %}$
-                                {% else %}{{ item.currency }}{% endif %}
+                                {% if item.currency == 'KRW' %}
+                                <span class="badge bg-success">₩</span>
+                                {% elif item.currency == 'JPY' %}
+                                <span class="badge bg-warning text-dark">¥</span>
+                                {% elif item.currency == 'USD' %}
+                                <span class="badge bg-primary">$</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ item.currency }}</span>
+                                {% endif %}
                             </td>
-                            <td class="text-end">
-                                <strong>{{ item.unit_price|floatformat:0|intcomma }}</strong>
-                            </td>
+                            <td class="text-end">{{ item.price_per_kg|floatformat:0|intcomma|default:"-" }}</td>
+                            <td class="text-end"><strong>{{ item.packing_price|floatformat:0|intcomma|default:"-" }}</strong></td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
+                            <td colspan="10" class="text-center py-4 text-muted">
                                 품목이 없습니다.
                             </td>
                         </tr>
@@ -303,28 +316,31 @@
         <table class="quote-items-table">
             <thead>
                 <tr>
-                    <th style="width: 40px;">No</th>
-                    <th>품 명</th>
-                    <th style="width: 100px;">규 격</th>
-                    <th style="width: 60px;">통화</th>
-                    <th style="width: 120px;">단 가</th>
-                    <th style="width: 80px;">비 고</th>
+                    <th style="width: 30px;">No</th>
+                    <th>제품코드</th>
+                    <th>가스명</th>
+                    <th>용기 스펙</th>
+                    <th>밸브 스펙</th>
+                    <th style="width: 50px;">용량</th>
+                    <th style="width: 60px;">충전량</th>
+                    <th style="width: 45px;">통화</th>
+                    <th style="width: 80px;">단가(/kg)</th>
+                    <th style="width: 90px;">용기단가</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
                 <tr>
                     <td class="text-center">{{ forloop.counter }}</td>
-                    <td>{{ item.gas_name|default:item.product_name }}</td>
-                    <td class="text-center">{{ item.specification|default:"-" }}</td>
-                    <td class="text-center">
-                        {% if item.currency == 'KRW' %}KRW
-                        {% elif item.currency == 'JPY' %}JPY
-                        {% elif item.currency == 'USD' %}USD
-                        {% else %}{{ item.currency }}{% endif %}
-                    </td>
-                    <td class="text-end">{{ item.unit_price|floatformat:0|intcomma }}</td>
-                    <td>{{ item.note|default:"" }}</td>
+                    <td>{{ item.material_code|default:"-" }}</td>
+                    <td>{{ item.gas_name|default:"-" }}</td>
+                    <td>{{ item.cylinder_spec|default:"-" }}</td>
+                    <td>{{ item.valve_spec|default:"-" }}</td>
+                    <td class="text-center">{{ item.capacity|floatformat:0|default:"-" }}</td>
+                    <td class="text-center">{{ item.filling_weight|floatformat:1|default:"-" }}</td>
+                    <td class="text-center">{{ item.currency }}</td>
+                    <td class="text-end">{{ item.price_per_kg|floatformat:0|intcomma|default:"-" }}</td>
+                    <td class="text-end">{{ item.packing_price|floatformat:0|intcomma|default:"-" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

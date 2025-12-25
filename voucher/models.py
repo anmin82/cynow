@@ -467,19 +467,31 @@ class QuoteItem(models.Model):
         null=True,
         verbose_name='End User'
     )
-    packing = models.CharField(
-        max_length=100,
+    cylinder_spec = models.CharField(
+        max_length=200,
         blank=True,
         null=True,
-        verbose_name='포장',
-        help_text='예: 47L, Y-1'
+        verbose_name='용기 스펙'
+    )
+    valve_spec = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='밸브 스펙'
+    )
+    capacity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name='용량 (L)'
     )
     filling_weight = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         blank=True,
         null=True,
-        verbose_name='충전중량 (kg)'
+        verbose_name='충전량 (kg)'
     )
     
     # 단가 정보
