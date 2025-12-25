@@ -65,54 +65,147 @@
     /* 인쇄 스타일 */
     @media print {
         .no-print { display: none !important; }
-        body { 
-            background: white !important;
-            font-size: 10pt !important;
-        }
-        .card { 
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
-        }
-        .card-header {
-            background: #f8f9fa !important;
+        
+        * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
-        .main-container { padding: 0 !important; }
-        .navbar, nav.breadcrumb { display: none !important; }
         
+        body { 
+            background: white !important;
+            font-size: 9pt !important;
+            line-height: 1.3 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        .container-fluid {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
+        
+        .row { margin: 0 !important; }
+        .col-lg-8 { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
+        .col-lg-4 { display: none !important; }
+        
+        .card { 
+            box-shadow: none !important;
+            border: none !important;
+            margin-bottom: 10px !important;
+        }
+        .card-header {
+            background: #333 !important;
+            color: white !important;
+            padding: 5px 10px !important;
+            font-size: 10pt !important;
+        }
+        .card-body {
+            padding: 10px !important;
+        }
+        
+        .main-container { padding: 0 !important; }
+        .navbar, nav.breadcrumb, .breadcrumb { display: none !important; }
+        
+        /* 인쇄 헤더 */
         .print-header {
             display: block !important;
             text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px double #333;
         }
         .print-header h1 {
-            font-size: 18pt;
+            font-size: 20pt;
+            font-weight: bold;
             margin: 0 0 5px 0;
         }
         .print-header p {
-            font-size: 10pt;
+            font-size: 9pt;
             margin: 0;
+            color: #333;
+        }
+        
+        /* 기본 정보 테이블 */
+        .info-table {
+            font-size: 9pt !important;
+        }
+        .info-table th {
+            width: 80px !important;
+            padding: 3px 8px !important;
+            background: #f0f0f0 !important;
+        }
+        .info-table td {
+            padding: 3px 8px !important;
+        }
+        
+        /* 품목 테이블 - 핵심 */
+        .items-table {
+            font-size: 8pt !important;
+            width: 100% !important;
+        }
+        .items-table th {
+            background: #e0e0e0 !important;
+            padding: 4px 5px !important;
+            font-size: 8pt !important;
+            white-space: nowrap !important;
+            border: 1px solid #999 !important;
+        }
+        .items-table td {
+            padding: 3px 5px !important;
+            border: 1px solid #ccc !important;
+            vertical-align: middle !important;
+        }
+        .items-table .spec-text {
+            font-size: 7pt !important;
+        }
+        
+        /* 합계 행 */
+        .totals-row {
+            background: #f5f5f5 !important;
+        }
+        .totals-row td {
+            border-top: 2px solid #333 !important;
+            font-weight: bold !important;
+        }
+        
+        /* 인쇄 푸터 */
+        .print-footer {
+            display: block !important;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+            text-align: center;
+            font-size: 8pt;
             color: #666;
         }
         
         @page {
             size: A4;
-            margin: 15mm;
+            margin: 12mm 10mm;
         }
     }
     
     .print-header { display: none; }
+    .print-footer { display: none; }
+    .print-summary { display: none; }
+    
+    @media print {
+        .print-summary { display: block !important; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- 인쇄용 헤더 -->
 <div class="print-header">
-    <h1>수주 확인서</h1>
-    <p>KDFPK Co., Ltd. | PO: {{ po.customer_order_no }} | 발행일: {% now "Y년 m월 d일" %}</p>
+    <h1>수 주 확 인 서</h1>
+    <table style="width: 100%; margin-top: 10px; font-size: 10pt;">
+        <tr>
+            <td style="text-align: left;"><strong>KDFPK Co., Ltd.</strong></td>
+            <td style="text-align: right;">발행일: {% now "Y년 m월 d일" %}</td>
+        </tr>
+    </table>
 </div>
 
 <div class="container-fluid mt-4">
@@ -227,79 +320,38 @@
                         <table class="table table-hover mb-0 items-table">
                             <thead>
                                 <tr>
-                                    <th>No</th>
-                                    <th>제품코드</th>
-                                    <th>제품명</th>
-                                    <th>스펙</th>
-                                    <th class="text-center">충전량</th>
-                                    <th class="text-center">수량</th>
-                                    <th>납기</th>
-                                    <th class="text-end">단가(/kg)</th>
-                                    <th class="text-end">금액</th>
-                                    <th class="text-center">중량</th>
+                                    <th style="width: 30px;">No</th>
+                                    <th style="width: 80px;">제품코드</th>
+                                    <th>품명/스펙</th>
+                                    <th class="text-center" style="width: 50px;">충전</th>
+                                    <th class="text-center" style="width: 50px;">수량</th>
+                                    <th style="width: 60px;">납기</th>
+                                    <th class="text-end" style="width: 80px;">단가</th>
+                                    <th class="text-end" style="width: 90px;">금액</th>
+                                    <th class="text-center" style="width: 60px;">중량</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for item in items %}
                                 <tr>
-                                    <td>{{ item.line_no }}</td>
+                                    <td class="text-center">{{ item.line_no }}</td>
                                     <td><code>{{ item.trade_condition_code }}</code></td>
                                     <td>
-                                        {{ item.trade_condition_name|default:item.gas_name|default:"-" }}
-                                    </td>
-                                    <td>
-                                        <span class="spec-text">
-                                            {% if item.cylinder_spec %}{{ item.cylinder_spec }}{% endif %}
-                                            {% if item.valve_spec %} / {{ item.valve_spec }}{% endif %}
-                                            {% if not item.cylinder_spec and not item.valve_spec %}-{% endif %}
-                                        </span>
-                                    </td>
-                                    <td class="text-center">
-                                        {% if item.filling_weight %}
-                                            {{ item.filling_weight|floatformat:1 }} kg
-                                        {% else %}
-                                            -
+                                        <strong>{{ item.trade_condition_name|default:item.gas_name|default:"-" }}</strong>
+                                        {% if item.cylinder_spec or item.valve_spec %}
+                                        <br><span class="spec-text">{{ item.cylinder_spec|default:"" }}{% if item.valve_spec %} / {{ item.valve_spec }}{% endif %}</span>
                                         {% endif %}
                                     </td>
+                                    <td class="text-center">{% if item.filling_weight %}{{ item.filling_weight|floatformat:0 }}{% else %}-{% endif %}</td>
                                     <td class="text-center"><strong>{{ item.qty }}</strong></td>
-                                    <td>
-                                        {% if item.delivery_date %}
-                                            <span class="badge bg-warning text-dark">{{ item.delivery_date|date:"m/d" }}</span>
-                                        {% else %}
-                                            <span class="text-muted">분납</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        {% if item.unit_price %}
-                                            <span class="currency-{{ item.currency|lower }}">
-                                                {% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' %}¥{% elif item.currency == 'USD' %}${% else %}{{ item.currency }}{% endif %}
-                                            </span>
-                                            {{ item.unit_price|floatformat:0|intcomma }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        {% if item.amount %}
-                                            <span class="amount-display">
-                                                {% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' %}¥{% elif item.currency == 'USD' %}${% else %}{{ item.currency }}{% endif %}
-                                                {{ item.amount|floatformat:0|intcomma }}
-                                            </span>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if item.total_weight %}
-                                            {{ item.total_weight|floatformat:1 }} kg
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
+                                    <td class="text-center">{% if item.delivery_date %}{{ item.delivery_date|date:"m/d" }}{% else %}분납{% endif %}</td>
+                                    <td class="text-end">{% if item.unit_price %}{{ item.unit_price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                    <td class="text-end"><strong>{% if item.amount %}{{ item.amount|floatformat:0|intcomma }}{% else %}-{% endif %}</strong></td>
+                                    <td class="text-center">{% if item.total_weight %}{{ item.total_weight|floatformat:0 }}{% else %}-{% endif %}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="10" class="text-center text-muted py-4">
+                                    <td colspan="9" class="text-center text-muted py-4">
                                         등록된 품목이 없습니다.
                                     </td>
                                 </tr>
@@ -307,23 +359,12 @@
                             </tbody>
                             <tfoot>
                                 <tr class="totals-row">
-                                    <td colspan="6" class="text-end">합계</td>
+                                    <td colspan="4" class="text-end">합계</td>
+                                    <td class="text-center"><strong>{{ po.total_qty }}</strong></td>
                                     <td></td>
                                     <td></td>
-                                    <td class="text-end">
-                                        {% if po.total_amount_display %}
-                                            <span class="amount-display">{{ po.total_amount_display }}</span>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if po.total_weight %}
-                                            <strong>{{ po.total_weight|floatformat:1 }} kg</strong>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
+                                    <td class="text-end"><strong>{% if po.total_amount_display %}{{ po.total_amount_display }}{% else %}-{% endif %}</strong></td>
+                                    <td class="text-center"><strong>{% if po.total_weight %}{{ po.total_weight|floatformat:0 }}{% else %}-{% endif %}</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -464,6 +505,57 @@
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- 인쇄용 요약 (화면에서는 숨김) -->
+    <div class="print-summary" style="display: none;">
+        <table style="width: 100%; margin-top: 15px; border-collapse: collapse;">
+            <tr>
+                <td style="width: 50%; vertical-align: top; padding-right: 20px;">
+                    <table style="width: 100%; font-size: 9pt; border: 1px solid #333;">
+                        <tr style="background: #f0f0f0;">
+                            <th colspan="2" style="padding: 5px; text-align: center; border-bottom: 1px solid #333;">수주 정보</th>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 8px; width: 80px; background: #f9f9f9;">PO번호</td>
+                            <td style="padding: 4px 8px; font-weight: bold;">{{ po.customer_order_no }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 8px; background: #f9f9f9;">고객</td>
+                            <td style="padding: 4px 8px;">{{ po.supplier_user_code }} / {{ po.supplier_user_name|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 8px; background: #f9f9f9;">수주일</td>
+                            <td style="padding: 4px 8px;">{{ po.received_at|date:"Y-m-d" }}</td>
+                        </tr>
+                    </table>
+                </td>
+                <td style="width: 50%; vertical-align: top;">
+                    <table style="width: 100%; font-size: 9pt; border: 1px solid #333;">
+                        <tr style="background: #f0f0f0;">
+                            <th colspan="2" style="padding: 5px; text-align: center; border-bottom: 1px solid #333;">합계</th>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 8px; width: 80px; background: #f9f9f9;">총 수량</td>
+                            <td style="padding: 4px 8px; font-weight: bold; text-align: right;">{{ po.total_qty }} 병</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 8px; background: #f9f9f9;">총 중량</td>
+                            <td style="padding: 4px 8px; font-weight: bold; text-align: right;">{% if po.total_weight %}{{ po.total_weight|floatformat:1 }} kg{% else %}-{% endif %}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 8px; background: #f9f9f9;">총 금액</td>
+                            <td style="padding: 4px 8px; font-weight: bold; text-align: right;">{% if po.total_amount_display %}{{ po.total_amount_display }}{% else %}-{% endif %}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <!-- 인쇄용 푸터 -->
+    <div class="print-footer">
+        본 수주확인서는 CYNOW 시스템에서 자동 생성되었습니다. | KDFPK Co., Ltd.
     </div>
 </div>
 
