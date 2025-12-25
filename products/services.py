@@ -19,7 +19,7 @@ def sync_product_codes_from_cdc():
     
     try:
         with connection.cursor() as cursor:
-            # CDC 테이블에서 제품코드 + 상세 + 가스명 + 충전량 조인 조회
+            # CDC 테이블에서 제품코드 + 상세 + 가스명 + 충전량 + 스펙명 조인 조회
             cursor.execute("""
                 SELECT 
                     p."SELECTION_PATTERN_CODE",
@@ -31,7 +31,9 @@ def sync_product_codes_from_cdc():
                     d."CAPACITY",
                     TRIM(p."ITEM_CODE") as item_code,
                     TRIM(i."DISPLAY_NAME") as gas_name,
-                    ax."NSGT_YORY" as filling_weight
+                    ax."NSGT_YORY" as filling_weight,
+                    COALESCE(TRIM(cs."CYLINDER_SPEC_NAME"), TRIM(d."CYLINDER_SPEC_CODE")) as cylinder_spec_name,
+                    COALESCE(TRIM(vs."VALVE_SPEC_NAME"), TRIM(d."VALVE_SPEC_CODE")) as valve_spec_name
                 FROM "fcms_cdc"."ma_selection_patterns" p
                 LEFT JOIN "fcms_cdc"."ma_selection_pattern_details" d 
                     ON p."SELECTION_PATTERN_CODE" = d."SELECTION_PATTERN_CODE"
@@ -40,6 +42,10 @@ def sync_product_codes_from_cdc():
                     ON TRIM(p."ITEM_CODE") = TRIM(i."ITEM_CODE")
                 LEFT JOIN "fcms_cdc"."mt_ax0330" ax
                     ON TRIM(p."PACKING_CODE") = TRIM(ax."NSGT_CD")
+                LEFT JOIN "fcms_cdc"."ma_cylinder_specs" cs
+                    ON TRIM(d."CYLINDER_SPEC_CODE") = TRIM(cs."CYLINDER_SPEC_CODE")
+                LEFT JOIN "fcms_cdc"."ma_valve_specs" vs
+                    ON TRIM(d."VALVE_SPEC_CODE") = TRIM(vs."VALVE_SPEC_CODE")
                 ORDER BY p."TRADE_CONDITION_NO"
             """)
             
@@ -51,11 +57,8 @@ def sync_product_codes_from_cdc():
         for row in rows:
             (selection_pattern_code, trade_condition_no, primary_store_user_code,
              customer_user_code, cylinder_spec_code, valve_spec_code, capacity,
-             item_code, gas_name, filling_weight) = row
-            
-            # 스펙명은 코드로 대체 (별도 테이블 조인 없이)
-            cylinder_spec_name = cylinder_spec_code
-            valve_spec_name = valve_spec_code
+             item_code, gas_name, filling_weight, 
+             cylinder_spec_name, valve_spec_name) = row
             
             # gas_name이 없으면 item_code 앞부분 사용 (fallback)
             if not gas_name and item_code:
