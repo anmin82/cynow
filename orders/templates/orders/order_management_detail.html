@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load order_extras %}
 
 {% block title %}수주관리표 - {{ po.customer_order_no }} - CYNOW{% endblock %}
 
@@ -16,11 +17,11 @@
                 </ol>
             </nav>
             <h2 class="mb-1">
-                <i class="fas fa-chart-line me-2 text-primary"></i>
-                {{ po.customer_order_no }} 생산 진척
+                <i class="fas fa-clipboard-list me-2 text-primary"></i>
+                {{ po.customer_order_no }}
             </h2>
             <p class="text-muted mb-0">
-                {{ po.supplier_user_code }} / {{ po.supplier_user_name }}
+                <strong>{{ po.supplier_user_code }}</strong> / {{ po.supplier_user_name }}
                 <span class="mx-2">|</span>
                 수주일: {{ po.received_at|date:"Y-m-d" }}
             </p>
@@ -44,329 +45,144 @@
         </div>
     </div>
 
-    <!-- 요약 카드 -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card border-primary">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">수주 수량</h6>
-                    <h2 class="text-primary mb-0">{{ po.total_qty }} <small class="fs-6">병</small></h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-info">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">도착출하번호</h6>
-                    <h2 class="text-info mb-0">{{ progress_summary.total_arrival_count }} <small class="fs-6">건</small></h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-success">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">충전 지시량</h6>
-                    <h2 class="text-success mb-0">{{ progress_summary.total_instruction_count }} <small class="fs-6">병</small></h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-warning">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">지시량(kg)</h6>
-                    <h2 class="text-warning mb-0">{{ progress_summary.total_instruction_quantity|floatformat:1 }} <small class="fs-6">kg</small></h2>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 수주 품목 정보 -->
-    <div class="card mb-4">
+    <!-- 제품코드별 진척 현황 (핵심) -->
+    {% for item_data in items_with_progress %}
+    <div class="card mb-4 border-start border-4 {% if item_data.remaining_qty > 0 %}border-warning{% else %}border-success{% endif %}">
         <div class="card-header bg-light">
-            <h5 class="mb-0">
-                <i class="fas fa-list me-2"></i>수주 품목
-            </h5>
-        </div>
-        <div class="card-body p-0">
-            <table class="table table-sm mb-0">
-                <thead class="table-secondary">
-                    <tr>
-                        <th>No</th>
-                        <th>제품코드</th>
-                        <th>가스명</th>
-                        <th>용기스펙</th>
-                        <th>밸브스펙</th>
-                        <th class="text-center">수량</th>
-                        <th class="text-center">충전량</th>
-                        <th>납기</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in po.items.all %}
-                    <tr>
-                        <td>{{ item.line_no }}</td>
-                        <td class="fw-bold">{{ item.trade_condition_code }}</td>
-                        <td>{{ item.gas_name|default:"-" }}</td>
-                        <td>{{ item.cylinder_spec|default:"-" }}</td>
-                        <td>{{ item.valve_spec|default:"-" }}</td>
-                        <td class="text-center fw-bold">{{ item.qty }}</td>
-                        <td class="text-center">{{ item.filling_weight|default:"-" }} kg</td>
-                        <td>{{ item.delivery_display }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="8" class="text-center text-muted">품목 정보가 없습니다.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- FCMS 도착출하번호별 진척 -->
-    <div class="card">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-industry me-2"></i>FCMS 생산 진척 현황 (도착출하번호별)
-            </h5>
-        </div>
-        <div class="card-body">
-            {% if progress_summary.orders %}
-                {% for order in progress_summary.orders %}
-                <div class="card mb-3 border-start border-4 border-primary">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="badge bg-primary me-2">{{ forloop.counter }}</span>
-                            <strong>{{ order.arrival_shipping_no }}</strong>
-                            {% if order.order_date %}
-                            <small class="text-muted ms-2">{{ order.order_date|date:"Y-m-d" }}</small>
-                            {% endif %}
-                        </div>
-                        <div>
-                            {% if order.filled_count %}
-                                <span class="badge bg-success">충전완료 {{ order.filled_count }}병</span>
-                            {% endif %}
-                            <span class="badge bg-secondary">{{ order.trade_condition_code }}</span>
-                        </div>
-                    </div>
-                    
-                    {% if order.items %}
-                    <div class="card-body p-0">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 150px;">품목명</th>
-                                    <th style="width: 100px;">포장명</th>
-                                    <th style="width: 80px;" class="text-center">지시량</th>
-                                    <th style="width: 60px;" class="text-center">횟수</th>
-                                    <th style="width: 80px;">이동서</th>
-                                    <th style="width: 80px;" class="text-center">충전계획</th>
-                                    <th style="width: 80px;" class="text-center">입고계획</th>
-                                    <th style="width: 80px;" class="text-center">출하계획</th>
-                                    <th style="width: 80px;" class="text-center">지정납기</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in order.items %}
-                                <tr>
-                                    <td>
-                                        <i class="fas fa-flask text-primary me-1"></i>
-                                        {{ item.item_name|default:"-" }}
-                                    </td>
-                                    <td><small>{{ item.packing_name|default:"-" }}</small></td>
-                                    <td class="text-center">
-                                        {% if item.instruction_quantity %}
-                                            {{ item.instruction_quantity|floatformat:1 }}kg
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center fw-bold text-primary">
-                                        {{ item.instruction_count|default:0 }}
-                                    </td>
-                                    <td>
-                                        {% if item.move_report_no %}
-                                            <code class="text-success">{{ item.move_report_no }}</code>
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if item.filling_plan_date %}
-                                            <span class="badge bg-info">{{ item.filling_plan_date|date:"m/d" }}</span>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if item.warehousing_plan_date %}
-                                            <span class="badge bg-secondary">{{ item.warehousing_plan_date|date:"m/d" }}</span>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if item.shipping_plan_date %}
-                                            <span class="badge bg-success">{{ item.shipping_plan_date|date:"m/d" }}</span>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if item.designation_delivery_date %}
-                                            <span class="badge bg-danger">{{ item.designation_delivery_date|date:"m/d" }}</span>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                <!-- 비고 행 (있는 경우만) -->
-                                {% if item.sales_remarks or item.business_remarks or item.production_remarks or item.order_remarks %}
-                                <tr class="table-light">
-                                    <td colspan="9" class="py-1">
-                                        <small>
-                                            {% if item.sales_remarks %}
-                                                <span class="badge bg-primary me-1">영업</span>{{ item.sales_remarks }}
-                                            {% endif %}
-                                            {% if item.business_remarks %}
-                                                <span class="badge bg-warning text-dark me-1">사업</span>{{ item.business_remarks }}
-                                            {% endif %}
-                                            {% if item.production_remarks %}
-                                                <span class="badge bg-success me-1">생산</span>{{ item.production_remarks }}
-                                            {% endif %}
-                                            {% if item.order_remarks %}
-                                                <span class="badge bg-secondary me-1">주문</span>{{ item.order_remarks }}
-                                            {% endif %}
-                                        </small>
-                                    </td>
-                                </tr>
-                                {% endif %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="card-body text-muted text-center">
-                        <i class="fas fa-info-circle me-1"></i>
-                        품목 상세 정보가 없습니다.
-                    </div>
+            <div class="row align-items-center">
+                <div class="col">
+                    <span class="badge bg-primary fs-6 me-2">{{ item_data.item.trade_condition_code }}</span>
+                    <strong>{{ item_data.item.gas_name|default:"" }}</strong>
+                    {% if item_data.item.cylinder_spec %}
+                        <small class="text-muted ms-2">({{ item_data.item.cylinder_spec }} {{ item_data.item.valve_spec|default:"" }})</small>
                     {% endif %}
                 </div>
-                {% endfor %}
-            {% else %}
-                <div class="text-center py-5 text-muted">
-                    <i class="fas fa-unlink fa-3x mb-3"></i>
-                    <p>FCMS에서 연결된 도착출하번호가 없습니다.</p>
-                    <p class="small">
-                        이 PO번호(<strong>{{ po.customer_order_no }}</strong>)가 
-                        FCMS에 입력되면 자동으로 연동됩니다.
-                    </p>
-                    <form action="{% url 'orders:sync_progress' po.customer_order_no %}" method="post" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-primary">
-                            <i class="fas fa-sync-alt me-1"></i>다시 동기화
-                        </button>
-                    </form>
+                <div class="col-auto">
+                    <span class="badge {% if item_data.remaining_qty > 0 %}bg-warning text-dark{% else %}bg-success{% endif %} fs-6 me-2">
+                        수주: <strong>{{ item_data.ordered_qty }}</strong>병
+                    </span>
+                    <span class="badge bg-info fs-6 me-2">
+                        발행: <strong>{{ item_data.issued_qty }}</strong>병
+                    </span>
+                    {% if item_data.remaining_qty > 0 %}
+                    <span class="badge bg-danger fs-6">
+                        잔여: <strong>{{ item_data.remaining_qty }}</strong>병
+                    </span>
+                    {% else %}
+                    <span class="badge bg-success fs-6">
+                        <i class="fas fa-check me-1"></i>완료
+                    </span>
+                    {% endif %}
                 </div>
-            {% endif %}
+            </div>
+            <div class="mt-2">
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar {% if item_data.progress_percent >= 100 %}bg-success{% elif item_data.progress_percent >= 50 %}bg-info{% else %}bg-warning{% endif %}" 
+                         style="width: {{ item_data.progress_percent }}%;" 
+                         title="{{ item_data.progress_percent }}% 발행됨"></div>
+                </div>
+                <small class="text-muted">발행률: {{ item_data.progress_percent }}%</small>
+            </div>
         </div>
-    </div>
-
-    <!-- 저장된 진척 데이터 (FCMSProductionProgress) -->
-    {% if po.production_progress.exists %}
-    <div class="card mt-4">
-        <div class="card-header bg-secondary text-white">
-            <h5 class="mb-0">
-                <i class="fas fa-database me-2"></i>저장된 진척 데이터
-            </h5>
-        </div>
+        
+        {% if item_data.orders %}
         <div class="card-body p-0">
-            <table class="table table-sm mb-0">
-                <thead class="table-light">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-dark">
                     <tr>
-                        <th>도착출하번호</th>
-                        <th>이동서</th>
-                        <th>품목명</th>
-                        <th class="text-center">지시</th>
-                        <th class="text-center">완료</th>
-                        <th style="width: 100px;">진척률</th>
-                        <th class="text-center">충전</th>
-                        <th class="text-center">입고</th>
-                        <th class="text-center">출하</th>
-                        <th class="text-center">납기</th>
-                        <th>동기화</th>
+                        <th style="width: 130px;">이동서번호</th>
+                        <th style="width: 80px;" class="text-center">지시수량</th>
+                        <th style="width: 100px;">주문일</th>
+                        <th style="width: 100px;">납기</th>
+                        <th>비고</th>
+                        <th style="width: 100px;" class="text-center">상태</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for progress in po.production_progress.all %}
+                    {% for order in item_data.orders %}
                     <tr>
-                        <td><code>{{ progress.arrival_shipping_no }}</code></td>
                         <td>
-                            {% if progress.move_report_no %}
-                                <code class="text-success">{{ progress.move_report_no }}</code>
+                            <code class="text-success fw-bold fs-6">{{ order.arrival_shipping_no }}</code>
+                        </td>
+                        <td class="text-center">
+                            <span class="fw-bold">{{ order.instruction_count }}</span>병
+                            {% if order.instruction_quantity %}
+                            <br><small class="text-muted">{{ order.instruction_quantity }}kg</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.order_date %}
+                                {{ order.order_date|date:"m/d" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.delivery_date %}
+                                <span class="badge bg-danger">{{ order.delivery_date|date:"m/d" }}</span>
                             {% else %}
                                 <span class="text-muted">-</span>
                             {% endif %}
                         </td>
-                        <td>{{ progress.item_name|default:"-" }}</td>
-                        <td class="text-center">{{ progress.instruction_count }}</td>
-                        <td class="text-center text-success fw-bold">{{ progress.filled_count }}</td>
                         <td>
-                            <div class="progress" style="height: 18px;">
-                                <div class="progress-bar {% if progress.is_completed %}bg-success{% else %}bg-primary{% endif %}"
-                                     style="width: {{ progress.progress_percent }}%;">
-                                    {{ progress.progress_percent }}%
-                                </div>
-                            </div>
-                        </td>
-                        <td class="text-center">
-                            {% if progress.filling_plan_date %}
-                                <span class="badge bg-info">{{ progress.filling_plan_date|date:"m/d" }}</span>
-                            {% else %}-{% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if progress.warehousing_plan_date %}
-                                <span class="badge bg-secondary">{{ progress.warehousing_plan_date|date:"m/d" }}</span>
-                            {% else %}-{% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if progress.shipping_plan_date %}
-                                <span class="badge bg-success">{{ progress.shipping_plan_date|date:"m/d" }}</span>
-                            {% else %}-{% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if progress.designation_delivery_date %}
-                                <span class="badge bg-danger">{{ progress.designation_delivery_date|date:"m/d" }}</span>
-                            {% else %}-{% endif %}
-                        </td>
-                        <td>
-                            <small class="text-muted">{{ progress.synced_at|date:"m/d H:i" }}</small>
-                        </td>
-                    </tr>
-                    <!-- 비고 행 -->
-                    {% if progress.sales_remarks or progress.business_remarks or progress.production_remarks %}
-                    <tr class="table-warning">
-                        <td colspan="11" class="py-1">
-                            <small>
-                                {% if progress.sales_remarks %}
-                                    <span class="badge bg-primary me-1">영업</span>{{ progress.sales_remarks }}
-                                {% endif %}
-                                {% if progress.business_remarks %}
-                                    <span class="badge bg-warning text-dark me-1">사업</span>{{ progress.business_remarks }}
-                                {% endif %}
-                                {% if progress.production_remarks %}
-                                    <span class="badge bg-success me-1">생산</span>{{ progress.production_remarks }}
-                                {% endif %}
+                            <small class="text-muted">
+                                {{ order.order_remarks|default:"" }}
                             </small>
                         </td>
+                        <td class="text-center">
+                            <span class="badge bg-info">FCMS등록</span>
+                        </td>
                     </tr>
-                    {% endif %}
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-secondary">
+                    <tr>
+                        <td class="text-end fw-bold">합계</td>
+                        <td class="text-center fw-bold text-primary">{{ item_data.issued_qty }}병</td>
+                        <td colspan="4"></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
+        {% else %}
+        <div class="card-body bg-light-subtle text-center py-4">
+            <i class="fas fa-unlink fa-2x text-muted mb-2"></i>
+            <p class="mb-2 text-muted">FCMS에 등록된 이동서가 없습니다</p>
+            <a href="{% url 'orders:planned_moves' po.customer_order_no %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus me-1"></i>가발행 이동서 등록
+            </a>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
+    {% empty %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+            <h5>등록된 품목이 없습니다</h5>
+            <a href="{% url 'orders:edit' po.customer_order_no %}" class="btn btn-primary mt-2">
+                <i class="fas fa-edit me-1"></i>수주 수정
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- 안내 -->
+    <div class="card mt-4 bg-light">
+        <div class="card-body py-3">
+            <h6 class="text-muted mb-2"><i class="fas fa-info-circle me-1"></i>진행 흐름</h6>
+            <div class="d-flex align-items-center flex-wrap">
+                <span class="badge bg-secondary me-1">수주등록</span>
+                <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                <span class="badge bg-primary me-1">가발행</span>
+                <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                <span class="badge bg-info me-1">FCMS입력</span>
+                <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                <span class="badge bg-warning text-dark me-1">충전</span>
+                <i class="fas fa-arrow-right mx-2 text-muted"></i>
+                <span class="badge bg-success me-1">입고/출하</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -376,10 +192,5 @@
 .progress {
     border-radius: 8px;
 }
-.progress-bar {
-    border-radius: 8px;
-    font-size: 11px;
-}
 </style>
 {% endblock %}
-

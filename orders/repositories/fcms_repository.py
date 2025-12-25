@@ -314,39 +314,47 @@ class FcmsRepository:
     @staticmethod
     def get_production_summary_by_customer_order_no(customer_order_no: str) -> Dict[str, Any]:
         """
-        고객주문번호(PO번호)별 생산 진척 요약 조회
-        
-        TR_ORDERS 테이블에서 CUSTOMER_ORDER_NO로 검색
-        (모든 정보가 TR_ORDERS에 포함)
+        고객주문번호(PO번호)별 생산 진척 요약 조회 (제품코드별 그룹화)
         
         Args:
             customer_order_no: PO번호(고객발주번호)
         
         Returns:
             {
-                'total_arrival_count': 도착출하번호 개수,
-                'total_instruction_count': 총 지시수량,
-                'total_instruction_quantity': 총 지시량(kg),
-                'orders': [주문별 상세]
+                'customer_order_no': PO번호,
+                'products': {
+                    'KF001': {
+                        'trade_condition_code': 'KF001',
+                        'item_name': 'COS',
+                        'total_instruction_count': 30,
+                        'orders': [이동서 목록]
+                    }
+                }
             }
         """
         orders = FcmsRepository.get_orders_by_customer_order_no(customer_order_no)
         
-        total_instruction_count = 0
-        total_instruction_quantity = Decimal('0')
-        
-        # TR_ORDERS에 이미 품목 정보가 포함되어 있으므로 직접 집계
+        # 제품코드(TRADE_CONDITION_CODE)별 그룹화
+        products = {}
         for order in orders:
-            total_instruction_count += order.get('instruction_count', 0) or 0
-            if order.get('instruction_quantity'):
-                total_instruction_quantity += Decimal(str(order['instruction_quantity']))
+            trade_code = order.get('trade_condition_code', 'UNKNOWN') or 'UNKNOWN'
+            
+            if trade_code not in products:
+                products[trade_code] = {
+                    'trade_condition_code': trade_code,
+                    'item_name': order.get('item_name', ''),
+                    'packing_name': order.get('packing_name', ''),
+                    'total_instruction_count': 0,
+                    'orders': [],
+                }
+            
+            products[trade_code]['orders'].append(order)
+            products[trade_code]['total_instruction_count'] += order.get('instruction_count', 0) or 0
         
         return {
             'customer_order_no': customer_order_no,
+            'products': products,
             'total_arrival_count': len(orders),
-            'total_instruction_count': total_instruction_count,
-            'total_instruction_quantity': total_instruction_quantity,
-            'orders': orders,
         }
     
     @staticmethod

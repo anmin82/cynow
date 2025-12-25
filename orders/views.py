@@ -560,37 +560,61 @@ def order_management_detail(request, customer_order_no):
     """
     수주관리표 상세 (단일 수주의 생산 진척)
     
-    해당 PO번호에 연결된 모든 ARRIVAL_SHIPPING_NO와 
-    각각의 품목별 생산 진척 상태를 상세히 표시
+    핵심 구조:
+    - PO 품목(제품코드)별 수주수량과 발행현황 비교
+    - 각 제품코드 아래에 FCMS 이동서 목록
+    - 각 이동서의 진척 상태 (충전/입고/출하)
     """
     po = get_object_or_404(PO, customer_order_no=customer_order_no)
     
-    # FCMS에서 해당 PO의 상세 진척 조회
+    # FCMS에서 해당 PO의 상세 진척 조회 (제품코드별 그룹화)
     try:
         progress_summary = FcmsRepository.get_production_summary_by_customer_order_no(
             customer_order_no
         )
     except Exception as e:
         progress_summary = {
+            'customer_order_no': customer_order_no,
+            'products': {},
             'total_arrival_count': 0,
-            'total_instruction_count': 0,
-            'total_instruction_quantity': 0,
-            'orders': [],
         }
     
-    # 각 도착출하번호별 충전 진척도 조회
-    for order in progress_summary.get('orders', []):
-        try:
-            filling_progress = FcmsRepository.get_filling_progress_by_arrival_shipping_no(
-                order['arrival_shipping_no']
-            )
-            order['filled_count'] = filling_progress.get('filled_count', 0)
-        except Exception:
-            order['filled_count'] = 0
+    # PO 품목별 진척률 계산
+    items_with_progress = []
+    products_data = progress_summary.get('products', {})
+    
+    for item in po.items.all():
+        item_data = {
+            'item': item,
+            'ordered_qty': item.qty,
+            'issued_qty': 0,
+            'filled_qty': 0,
+            'warehoused_qty': 0,
+            'shipped_qty': 0,
+            'remaining_qty': item.qty,
+            'progress_percent': 0,
+            'orders': [],
+        }
+        
+        # 해당 제품코드의 FCMS 데이터가 있는 경우
+        if item.trade_condition_code in products_data:
+            product_info = products_data[item.trade_condition_code]
+            item_data['issued_qty'] = product_info.get('total_instruction_count', 0)
+            item_data['orders'] = product_info.get('orders', [])
+            
+            # 잔여수량 계산
+            item_data['remaining_qty'] = max(0, item.qty - item_data['issued_qty'])
+            
+            # 진척률 계산 (발행 기준)
+            if item.qty > 0:
+                item_data['progress_percent'] = min(100, int(item_data['issued_qty'] / item.qty * 100))
+        
+        items_with_progress.append(item_data)
     
     context = {
         'po': po,
         'progress_summary': progress_summary,
+        'items_with_progress': items_with_progress,
     }
     
     return render(request, 'orders/order_management_detail.html', context)
