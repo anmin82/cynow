@@ -413,7 +413,7 @@ def quote_create(request):
                 
                 QuoteItem.objects.create(
                     quote=quote,
-                    product_code=product.trade_condition_no,
+                    product_code=product,  # ForeignKey - pass instance
                     product_name=product.display_name or product.gas_name or '',
                     gas_name=product.gas_name or '',
                     specification=f"{product.capacity or ''}L" if product.capacity else '',
