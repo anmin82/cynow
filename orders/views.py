@@ -864,10 +864,24 @@ def planned_move_list(request, customer_order_no):
     # 가발행 목록
     planned_moves = po.planned_moves.all()
     
-    # 수주 잔량 계산
-    total_order_qty = po.total_qty  # 수주 수량
-    total_planned_qty = sum(pm.planned_qty for pm in planned_moves)  # 가발행 수량
-    remaining_qty = total_order_qty - total_planned_qty  # 잔량
+    # 제품코드별 진척 계산
+    items_progress = []
+    for item in po.items.all():
+        # 해당 제품코드의 가발행 수량 합계
+        item_planned = sum(
+            pm.planned_qty for pm in planned_moves 
+            if pm.trade_condition_code == item.trade_condition_code
+        )
+        remaining = item.qty - item_planned
+        progress = int(item_planned / item.qty * 100) if item.qty > 0 else 0
+        
+        items_progress.append({
+            'item': item,
+            'order_qty': item.qty,
+            'planned_qty': item_planned,
+            'remaining_qty': remaining,
+            'progress': min(progress, 100),
+        })
     
     # FCMS 최신 번호 및 다음 번호 추천
     try:
@@ -882,9 +896,7 @@ def planned_move_list(request, customer_order_no):
     context = {
         'po': po,
         'planned_moves': planned_moves,
-        'total_order_qty': total_order_qty,
-        'total_planned_qty': total_planned_qty,
-        'remaining_qty': remaining_qty,
+        'items_progress': items_progress,
         'latest_no': latest_no,
         'next_no': next_no,
         'year_range': year_range,
