@@ -80,41 +80,43 @@
         <i class="bi bi-lightbulb me-2"></i>빠른 참조
     </div>
     <div class="card-body">
+{% verbatim %}
         <h5>공급처 변수</h5>
-        <code>{{ "{{supplier_company}}" }}</code>
-        <code>{{ "{{supplier_address}}" }}</code>
-        <code>{{ "{{supplier_ceo}}" }}</code>
-        <code>{{ "{{supplier_tel}}" }}</code>
-        <code>{{ "{{supplier_fax}}" }}</code>
-        <code>{{ "{{supplier_manager}}" }}</code>
-        <code>{{ "{{supplier_manager_phone}}" }}</code>
-        <code>{{ "{{supplier_manager_email}}" }}</code>
+        <code>{{supplier_company}}</code>
+        <code>{{supplier_address}}</code>
+        <code>{{supplier_ceo}}</code>
+        <code>{{supplier_tel}}</code>
+        <code>{{supplier_fax}}</code>
+        <code>{{supplier_manager}}</code>
+        <code>{{supplier_manager_phone}}</code>
+        <code>{{supplier_manager_email}}</code>
         
         <h5 class="mt-4">수신처 변수</h5>
-        <code>{{ "{{receiver_company}}" }}</code>
-        <code>{{ "{{receiver_address}}" }}</code>
-        <code>{{ "{{receiver_ceo}}" }}</code>
-        <code>{{ "{{receiver_tel1}}" }}</code>
-        <code>{{ "{{receiver_manager}}" }}</code>
-        <code>{{ "{{receiver_manager_phone}}" }}</code>
-        <code>{{ "{{receiver_manager_email}}" }}</code>
+        <code>{{receiver_company}}</code>
+        <code>{{receiver_address}}</code>
+        <code>{{receiver_ceo}}</code>
+        <code>{{receiver_tel1}}</code>
+        <code>{{receiver_manager}}</code>
+        <code>{{receiver_manager_phone}}</code>
+        <code>{{receiver_manager_email}}</code>
         
         <h5 class="mt-4">견적 정보</h5>
-        <code>{{ "{{quote_date}}" }}</code>
-        <code>{{ "{{quote_no}}" }}</code>
-        <code>{{ "{{quote_title}}" }}</code>
+        <code>{{quote_date}}</code>
+        <code>{{quote_no}}</code>
+        <code>{{quote_title}}</code>
         
         <h5 class="mt-4">품목 테이블 (반복)</h5>
-        <pre class="mt-2" style="background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px;">{% verbatim %}{%tr for item in items %}
+        <pre class="mt-2" style="background: #1e1e1e; color: #d4d4d4; padding: 1rem; border-radius: 8px;">{%tr for item in items %}
   {{item.no}} | {{item.gas_name}} | {{item.product_name}} | {{item.material_code}} | 
   {{item.end_user}} | {{item.packing}} | {{item.filling_weight}} | 
   {{item.currency}} | {{item.price_per_kg}} | {{item.packing_price}}
-{%tr endfor %}{% endverbatim %}</pre>
+{%tr endfor %}</pre>
         
         <h5 class="mt-4">하단 정보</h5>
-        <code>{{ "{{apply_period}}" }}</code>
-        <code>{{ "{{payment_terms}}" }}</code>
-        <code>{{ "{{doc_date}}" }}</code>
+        <code>{{apply_period}}</code>
+        <code>{{payment_terms}}</code>
+        <code>{{doc_date}}</code>
+{% endverbatim %}
     </div>
 </div>
 {% endblock %}
