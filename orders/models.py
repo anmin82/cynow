@@ -299,7 +299,7 @@ class POItem(models.Model):
         verbose_name = '수주품목'
         verbose_name_plural = '수주품목'
         ordering = ['po', 'line_no']
-        unique_together = [['po', 'line_no']]
+        # unique_together 제거 - line_no는 자동 부여되므로 중복 허용
         indexes = [
             models.Index(fields=['trade_condition_code']),
         ]
