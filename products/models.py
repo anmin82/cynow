@@ -108,12 +108,12 @@ class ProductCode(models.Model):
     
     # CYNOW 용기종류 매핑
     cylinder_type_key = models.CharField(
-        max_length=32, 
+        max_length=200, 
         blank=True, 
         null=True,
         db_index=True,
         verbose_name='용기종류키',
-        help_text='CYNOW 대시보드 용기종류 MD5 해시'
+        help_text='CYNOW 대시보드 용기종류 그룹 키'
     )
     
     # CYNOW 추가 정보
