@@ -817,13 +817,24 @@ def template_editor(request, filename):
         return redirect('voucher:template_list')
 
 
-@login_required
 def template_file_serve(request, filename):
     """
     템플릿 파일 서빙 (ONLYOFFICE가 다운로드)
     
     ONLYOFFICE Document Server가 이 URL로 파일을 가져갑니다.
+    
+    주의: 이 뷰는 @login_required가 없습니다.
+    ONLYOFFICE 서버가 직접 파일을 요청하기 때문입니다.
+    보안은 JWT 토큰으로 처리됩니다.
     """
+    # 파일명 검증 (보안: 경로 조작 방지)
+    if '..' in filename or '/' in filename or '\\' in filename:
+        return HttpResponse(status=403)
+    
+    # docx 파일만 허용
+    if not filename.endswith('.docx'):
+        return HttpResponse(status=403)
+    
     file_path = Path(settings.BASE_DIR) / 'docx_templates' / filename
     
     if not file_path.exists():
