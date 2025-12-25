@@ -358,8 +358,8 @@ def quote_create(request):
             status='DRAFT',
             default_currency='KRW',  # 각 품목별로 다름
             
-            # 거래처 (자동)
-            customer_id=customer.id if customer else None,
+            # 거래처 (자동) - customer FK는 사용 안 함, 정보만 저장
+            customer=None,  # CompanyInfo와 Customer 모델이 다름
             customer_address=customer.address if customer else '',
             customer_ceo=customer.ceo if customer else '',
             customer_tel=customer.tel if customer else '',
