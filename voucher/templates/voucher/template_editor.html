@@ -4,85 +4,129 @@
 
 {% block extra_css %}
 <style>
-    /* 에디터 전체 화면 */
-    .editor-container {
+    /* 풀스크린 모달 */
+    .editor-modal {
         position: fixed;
-        top: 44px; /* 네비게이션 높이 */
+        top: 0;
         left: 0;
-        right: 0;
-        bottom: 0;
-        background: #fff;
-        z-index: 1000;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
     }
     
-    .editor-toolbar {
+    .editor-modal-header {
         height: 50px;
-        background: var(--ios-card-bg);
-        border-bottom: 1px solid var(--ios-separator);
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         display: flex;
         align-items: center;
         padding: 0 20px;
+        gap: 15px;
+        flex-shrink: 0;
+        border-bottom: 1px solid #0f3460;
+    }
+    
+    .editor-modal-header .filename {
+        flex: 1;
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
         gap: 10px;
     }
     
-    .editor-toolbar h5 {
-        margin: 0;
-        flex: 1;
+    .editor-modal-header .filename i {
+        color: #4fc3f7;
     }
     
-    .editor-frame {
-        position: absolute;
-        top: 50px;
-        left: 0;
-        right: 0;
-        bottom: 0;
+    .editor-modal-header .badge {
+        background: #00c853;
+        font-size: 0.75rem;
+    }
+    
+    .editor-modal-header .btn-close-editor {
+        background: #e74c3c;
+        color: #fff;
         border: none;
+        padding: 8px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+    
+    .editor-modal-header .btn-close-editor:hover {
+        background: #c0392b;
+    }
+    
+    .editor-modal-body {
+        flex: 1;
+        background: #fff;
+        overflow: hidden;
+    }
+    
+    #onlyoffice-editor {
+        width: 100%;
+        height: 100%;
+    }
+    
+    #onlyoffice-editor iframe {
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important;
     }
     
     /* 로딩 상태 */
     .editor-loading {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        background: #f5f5f5;
     }
     
     .editor-loading .spinner-border {
         width: 3rem;
         height: 3rem;
+        color: #3498db;
     }
     
-    /* 메인 컨테이너 숨김 */
-    .main-container {
-        display: none;
+    .editor-loading p {
+        margin-top: 1rem;
+        color: #666;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- 에디터 컨테이너 -->
-<div class="editor-container">
-    <!-- 툴바 -->
-    <div class="editor-toolbar">
-        <a href="{% url 'voucher:template_list' %}" class="btn btn-sm btn-outline-light">
-            <i class="bi bi-arrow-left"></i> 돌아가기
-        </a>
-        <h5>
-            <i class="bi bi-file-earmark-word text-primary"></i>
-            {{ filename }}
-        </h5>
-        <span class="badge bg-success">편집 모드</span>
-        <small class="text-muted">변경사항은 자동 저장됩니다</small>
+<!-- 풀스크린 모달 에디터 -->
+<div class="editor-modal" id="editorModal">
+    <!-- 헤더 -->
+    <div class="editor-modal-header">
+        <div class="filename">
+            <i class="bi bi-file-earmark-word"></i>
+            <span>{{ filename }}</span>
+        </div>
+        <span class="badge">편집 모드</span>
+        <span style="color: #aaa; font-size: 0.85rem;">자동 저장됨</span>
+        <button class="btn-close-editor" onclick="closeEditor()">
+            <i class="bi bi-x-lg"></i> 닫기
+        </button>
     </div>
     
-    <!-- ONLYOFFICE 에디터 -->
-    <div id="onlyoffice-editor" class="editor-frame">
-        <div class="editor-loading">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">로딩중...</span>
+    <!-- 에디터 본문 -->
+    <div class="editor-modal-body">
+        <div id="onlyoffice-editor">
+            <div class="editor-loading">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">로딩중...</span>
+                </div>
+                <p>ONLYOFFICE 에디터 로딩중...</p>
             </div>
-            <p class="mt-3 text-muted">ONLYOFFICE 에디터 로딩중...</p>
         </div>
     </div>
 </div>
@@ -93,6 +137,20 @@
 <script src="{{ onlyoffice_api_url }}"></script>
 
 <script>
+// 에디터 닫기
+function closeEditor() {
+    if (confirm('편집을 종료하시겠습니까? 변경사항은 자동 저장됩니다.')) {
+        window.location.href = "{% url 'voucher:template_list' %}";
+    }
+}
+
+// ESC 키로 닫기
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeEditor();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     // 에디터 설정
     const editorConfig = {{ editor_config|safe }};
@@ -107,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('onlyoffice-editor').innerHTML = `
             <div class="editor-loading">
                 <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
-                <p class="mt-3 text-danger">ONLYOFFICE API를 로드할 수 없습니다.</p>
+                <p class="text-danger">ONLYOFFICE API를 로드할 수 없습니다.</p>
                 <p class="text-muted">ONLYOFFICE Document Server 연결을 확인하세요.</p>
                 <p><code>{{ onlyoffice_api_url }}</code></p>
                 <a href="{% url 'voucher:template_list' %}" class="btn btn-primary mt-3">
@@ -128,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('onlyoffice-editor').innerHTML = `
             <div class="editor-loading">
                 <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
-                <p class="mt-3 text-danger">에디터를 로드할 수 없습니다.</p>
+                <p class="text-danger">에디터를 로드할 수 없습니다.</p>
                 <p class="text-muted">${error.message}</p>
                 <a href="{% url 'voucher:template_list' %}" class="btn btn-primary mt-3">
                     목록으로 돌아가기
