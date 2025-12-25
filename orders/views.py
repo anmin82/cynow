@@ -553,15 +553,21 @@ def order_management_list(request):
             )
         except Exception as e:
             progress_summary = {
+                'customer_order_no': po.customer_order_no,
+                'products': {},
                 'total_arrival_count': 0,
-                'total_instruction_count': 0,
-                'total_instruction_quantity': 0,
-                'orders': [],
             }
+        
+        # 제품코드별 합계 계산 (새 구조)
+        products_data = progress_summary.get('products', {})
+        instruction_count = 0
+        arrival_count = progress_summary.get('total_arrival_count', 0)
+        
+        for trade_code, product_info in products_data.items():
+            instruction_count += product_info.get('total_instruction_count', 0)
         
         # 진척률 계산
         order_qty = po.total_qty
-        instruction_count = progress_summary.get('total_instruction_count', 0)
         
         if order_qty > 0:
             progress_percent = round((instruction_count / order_qty) * 100, 1)
@@ -572,11 +578,10 @@ def order_management_list(request):
         order_list.append({
             'po': po,
             'order_qty': order_qty,
-            'arrival_count': progress_summary.get('total_arrival_count', 0),
+            'arrival_count': arrival_count,
             'instruction_count': instruction_count,
-            'instruction_quantity': progress_summary.get('total_instruction_quantity', 0),
             'progress_percent': progress_percent,
-            'orders': progress_summary.get('orders', []),
+            'products': products_data,
         })
     
     # 통계 계산
