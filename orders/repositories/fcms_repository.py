@@ -205,7 +205,8 @@ class FcmsRepository:
         Returns:
             연결된 FCMS 주문 리스트 (ARRIVAL_SHIPPING_NO별)
         """
-        query = '''
+        # 먼저 JOIN 쿼리 시도 (취소 이동서 제외)
+        query_with_join = '''
             SELECT 
                 o."ARRIVAL_SHIPPING_NO",
                 o."CUSTOMER_ORDER_NO",
@@ -222,7 +223,7 @@ class FcmsRepository:
                 o."FILLING_THRESHOLD",
                 o."DELIVERY_DATE",
                 o."MOVE_REPORT_REMARKS",
-                m."PROGRESS_CODE"
+                COALESCE(m."PROGRESS_CODE", '') as progress_code
             FROM fcms_cdc.tr_orders o
             LEFT JOIN fcms_cdc.tr_move_reports m 
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
@@ -231,32 +232,65 @@ class FcmsRepository:
             ORDER BY o."ARRIVAL_SHIPPING_NO"
         '''
         
+        # Fallback 쿼리 (JOIN 없이)
+        query_simple = '''
+            SELECT 
+                "ARRIVAL_SHIPPING_NO",
+                "CUSTOMER_ORDER_NO",
+                "SUPPLIER_USER_CODE",
+                "SUPPLIER_USER_NAME",
+                "ORDER_DATE",
+                "TRADE_CONDITION_CODE",
+                "ORDER_REMARKS",
+                "SELECTION_PATTERN_CODE",
+                "ITEM_NAME",
+                "PACKING_NAME",
+                "INSTRUCTION_QUANTITY",
+                "INSTRUCTION_COUNT",
+                "FILLING_THRESHOLD",
+                "DELIVERY_DATE",
+                "MOVE_REPORT_REMARKS"
+            FROM fcms_cdc.tr_orders
+            WHERE TRIM("CUSTOMER_ORDER_NO") = %s
+            ORDER BY "ARRIVAL_SHIPPING_NO"
+        '''
+        
+        def parse_rows(rows, has_progress=True):
+            result = []
+            for row in rows:
+                result.append({
+                    'arrival_shipping_no': row[0].strip() if row[0] else '',
+                    'customer_order_no': row[1].strip() if row[1] else '',
+                    'supplier_user_code': row[2].strip() if row[2] else '',
+                    'supplier_user_name': row[3].strip() if row[3] else '',
+                    'order_date': row[4],
+                    'trade_condition_code': row[5].strip() if row[5] else '',
+                    'order_remarks': row[6].strip() if row[6] else '',
+                    'selection_pattern_code': row[7].strip() if row[7] else '',
+                    'item_name': row[8].strip() if row[8] else '',
+                    'packing_name': row[9].strip() if row[9] else '',
+                    'instruction_quantity': float(row[10]) if row[10] else None,
+                    'instruction_count': int(row[11]) if row[11] else 0,
+                    'filling_threshold': float(row[12]) if row[12] else None,
+                    'delivery_date': row[13],
+                    'move_report_remarks': row[14].strip() if row[14] else '',
+                    'progress_code': row[15].strip() if has_progress and len(row) > 15 and row[15] else '',
+                })
+            return result
+        
         try:
             with connection.cursor() as cursor:
-                cursor.execute(query, [customer_order_no])
-                rows = cursor.fetchall()
-                
-                return [
-                    {
-                        'arrival_shipping_no': row[0].strip() if row[0] else '',
-                        'customer_order_no': row[1].strip() if row[1] else '',
-                        'supplier_user_code': row[2].strip() if row[2] else '',
-                        'supplier_user_name': row[3].strip() if row[3] else '',
-                        'order_date': row[4],
-                        'trade_condition_code': row[5].strip() if row[5] else '',
-                        'order_remarks': row[6].strip() if row[6] else '',
-                        'selection_pattern_code': row[7].strip() if row[7] else '',
-                        'item_name': row[8].strip() if row[8] else '',
-                        'packing_name': row[9].strip() if row[9] else '',
-                        'instruction_quantity': float(row[10]) if row[10] else None,
-                        'instruction_count': int(row[11]) if row[11] else 0,
-                        'filling_threshold': float(row[12]) if row[12] else None,
-                        'delivery_date': row[13],
-                        'move_report_remarks': row[14].strip() if row[14] else '',
-                        'progress_code': row[15].strip() if row[15] else '',
-                    }
-                    for row in rows
-                ]
+                # JOIN 쿼리 시도
+                try:
+                    cursor.execute(query_with_join, [customer_order_no])
+                    rows = cursor.fetchall()
+                    return parse_rows(rows, has_progress=True)
+                except Exception as join_error:
+                    logger.warning(f"JOIN 쿼리 실패, 단순 쿼리로 fallback: {join_error}")
+                    # Fallback: 단순 쿼리
+                    cursor.execute(query_simple, [customer_order_no])
+                    rows = cursor.fetchall()
+                    return parse_rows(rows, has_progress=False)
         except Exception as e:
             logger.warning(f"고객주문번호별 FCMS 주문 조회 실패: {e}")
             return []
@@ -371,7 +405,7 @@ class FcmsRepository:
         Returns:
             [{customer_order_no, arrival_count, total_instruction_count, ...}]
         """
-        query = '''
+        query_with_join = '''
             SELECT 
                 TRIM(o."CUSTOMER_ORDER_NO") as customer_order_no,
                 COUNT(DISTINCT o."ARRIVAL_SHIPPING_NO") as arrival_count,
@@ -389,21 +423,44 @@ class FcmsRepository:
             LIMIT 500
         '''
         
+        query_simple = '''
+            SELECT 
+                TRIM("CUSTOMER_ORDER_NO") as customer_order_no,
+                COUNT(DISTINCT "ARRIVAL_SHIPPING_NO") as arrival_count,
+                COALESCE(SUM("INSTRUCTION_COUNT"), 0) as total_instruction_count,
+                MIN("ORDER_DATE") as first_order_date,
+                MAX("ORDER_DATE") as last_order_date
+            FROM fcms_cdc.tr_orders
+            WHERE "CUSTOMER_ORDER_NO" IS NOT NULL
+              AND TRIM("CUSTOMER_ORDER_NO") != ''
+            GROUP BY TRIM("CUSTOMER_ORDER_NO")
+            ORDER BY MAX("ORDER_DATE") DESC
+            LIMIT 500
+        '''
+        
+        def parse_rows(rows):
+            return [
+                {
+                    'customer_order_no': row[0],
+                    'arrival_count': int(row[1]) if row[1] else 0,
+                    'total_instruction_count': int(row[2]) if row[2] else 0,
+                    'first_order_date': row[3],
+                    'last_order_date': row[4],
+                }
+                for row in rows
+            ]
+        
         try:
             with connection.cursor() as cursor:
-                cursor.execute(query)
-                rows = cursor.fetchall()
-                
-                return [
-                    {
-                        'customer_order_no': row[0],
-                        'arrival_count': int(row[1]) if row[1] else 0,
-                        'total_instruction_count': int(row[2]) if row[2] else 0,
-                        'first_order_date': row[3],
-                        'last_order_date': row[4],
-                    }
-                    for row in rows
-                ]
+                try:
+                    cursor.execute(query_with_join)
+                    rows = cursor.fetchall()
+                    return parse_rows(rows)
+                except Exception as join_error:
+                    logger.warning(f"JOIN 쿼리 실패, 단순 쿼리로 fallback: {join_error}")
+                    cursor.execute(query_simple)
+                    rows = cursor.fetchall()
+                    return parse_rows(rows)
         except Exception as e:
             logger.warning(f"전체 고객주문번호 진척 조회 실패: {e}")
             return []
