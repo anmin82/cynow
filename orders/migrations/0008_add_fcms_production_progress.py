@@ -23,7 +23,19 @@ class Migration(migrations.Migration):
                 ('instruction_count', models.IntegerField(default=0, help_text='TR_ORDER_INFORMATIONS.INSTRUCTION_COUNT', verbose_name='지시횟수(병)')),
                 ('filling_threshold', models.DecimalField(blank=True, decimal_places=2, help_text='TR_ORDER_INFORMATIONS.FILLING_THRESHOLD', max_digits=10, null=True, verbose_name='충전임계값')),
                 ('filled_count', models.IntegerField(default=0, help_text='이동서 상세 기준 충전 완료 병 수', verbose_name='충전완료(병)')),
+                # 이동서번호
+                ('move_report_no', models.CharField(blank=True, help_text='TR_ORDER_INFORMATIONS.MOVE_REPORT_NO', max_length=50, verbose_name='이동서번호')),
+                # 일정 정보
+                ('designation_delivery_date', models.DateField(blank=True, help_text='TR_ORDER_INFORMATIONS.DESIGNATION_DELIVERY_DATE', null=True, verbose_name='지정납기일')),
+                ('filling_plan_date', models.DateField(blank=True, help_text='TR_ORDER_INFORMATIONS.FILLING_PLAN_DATE', null=True, verbose_name='충전계획일')),
+                ('warehousing_plan_date', models.DateField(blank=True, help_text='TR_ORDER_INFORMATIONS.WAREHOUSING_PLAN_DATE', null=True, verbose_name='입고계획일')),
+                ('shipping_plan_date', models.DateField(blank=True, help_text='TR_ORDER_INFORMATIONS.SHIPPING_PLAN_DATE', null=True, verbose_name='출하계획일')),
+                # 부서별 비고
                 ('order_remarks', models.TextField(blank=True, help_text='TR_ORDER_INFORMATIONS.ORDER_REMARKS', verbose_name='주문비고')),
+                ('sales_remarks', models.TextField(blank=True, help_text='TR_ORDER_INFORMATIONS.SALES_REMARKS', verbose_name='영업비고')),
+                ('business_remarks', models.TextField(blank=True, help_text='TR_ORDER_INFORMATIONS.BUSINESS_REMARKS', verbose_name='사업비고')),
+                ('production_remarks', models.TextField(blank=True, help_text='TR_ORDER_INFORMATIONS.PRODUCTION_REMARKS', verbose_name='생산비고')),
+                # FCMS 원본 ID
                 ('fcms_order_id', models.IntegerField(blank=True, help_text='TR_ORDERS.ID', null=True, verbose_name='FCMS주문ID')),
                 ('fcms_order_info_id', models.IntegerField(blank=True, help_text='TR_ORDER_INFORMATIONS.ID', null=True, verbose_name='FCMS주문상세ID')),
                 ('synced_at', models.DateTimeField(auto_now=True, verbose_name='동기화일시')),

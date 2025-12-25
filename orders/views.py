@@ -632,7 +632,19 @@ def sync_fcms_progress(request, customer_order_no):
                     instruction_count=item.get('instruction_count', 0),
                     filling_threshold=item.get('filling_threshold'),
                     filled_count=filling_progress.get('filled_count', 0),
+                    # 이동서번호
+                    move_report_no=item.get('move_report_no', ''),
+                    # 일정 정보
+                    designation_delivery_date=item.get('designation_delivery_date'),
+                    filling_plan_date=item.get('filling_plan_date'),
+                    warehousing_plan_date=item.get('warehousing_plan_date'),
+                    shipping_plan_date=item.get('shipping_plan_date'),
+                    # 부서별 비고
                     order_remarks=item.get('order_remarks', ''),
+                    sales_remarks=item.get('sales_remarks', ''),
+                    business_remarks=item.get('business_remarks', ''),
+                    production_remarks=item.get('production_remarks', ''),
+                    # FCMS 원본 ID
                     fcms_order_id=order.get('id'),
                     fcms_order_info_id=item.get('id'),
                 )

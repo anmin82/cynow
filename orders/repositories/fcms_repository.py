@@ -156,7 +156,15 @@ class FcmsRepository:
                 oi.filling_threshold,
                 TRIM(oi.order_remarks) as order_remarks,
                 TRIM(oi.trade_condition_code) as trade_condition_code,
-                TRIM(oi.selection_pattern_code) as selection_pattern_code
+                TRIM(oi.selection_pattern_code) as selection_pattern_code,
+                TRIM(oi.move_report_no) as move_report_no,
+                oi.designation_delivery_date,
+                oi.filling_plan_date,
+                oi.warehousing_plan_date,
+                oi.shipping_plan_date,
+                TRIM(oi.sales_remarks) as sales_remarks,
+                TRIM(oi.business_remarks) as business_remarks,
+                TRIM(oi.production_remarks) as production_remarks
             FROM fcms_cdc.tr_order_informations oi
             WHERE oi.order_id = %s
             ORDER BY oi.id
@@ -179,6 +187,16 @@ class FcmsRepository:
                         'order_remarks': row[7],
                         'trade_condition_code': row[8],
                         'selection_pattern_code': row[9],
+                        # 일정 정보
+                        'move_report_no': row[10],
+                        'designation_delivery_date': row[11],
+                        'filling_plan_date': row[12],
+                        'warehousing_plan_date': row[13],
+                        'shipping_plan_date': row[14],
+                        # 부서별 비고
+                        'sales_remarks': row[15],
+                        'business_remarks': row[16],
+                        'production_remarks': row[17],
                     }
                     for row in rows
                 ]

@@ -152,13 +152,15 @@
                         <table class="table table-sm table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 200px;">품목명</th>
-                                    <th style="width: 150px;">포장명</th>
-                                    <th style="width: 120px;">거래조건코드</th>
-                                    <th style="width: 80px;" class="text-center">지시량(kg)</th>
-                                    <th style="width: 80px;" class="text-center">지시횟수</th>
-                                    <th style="width: 80px;" class="text-center">임계값</th>
-                                    <th>비고</th>
+                                    <th style="width: 150px;">품목명</th>
+                                    <th style="width: 100px;">포장명</th>
+                                    <th style="width: 80px;" class="text-center">지시량</th>
+                                    <th style="width: 60px;" class="text-center">횟수</th>
+                                    <th style="width: 80px;">이동서</th>
+                                    <th style="width: 80px;" class="text-center">충전계획</th>
+                                    <th style="width: 80px;" class="text-center">입고계획</th>
+                                    <th style="width: 80px;" class="text-center">출하계획</th>
+                                    <th style="width: 80px;" class="text-center">지정납기</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -168,13 +170,10 @@
                                         <i class="fas fa-flask text-primary me-1"></i>
                                         {{ item.item_name|default:"-" }}
                                     </td>
-                                    <td>{{ item.packing_name|default:"-" }}</td>
-                                    <td>
-                                        <code>{{ item.trade_condition_code|default:"-" }}</code>
-                                    </td>
+                                    <td><small>{{ item.packing_name|default:"-" }}</small></td>
                                     <td class="text-center">
                                         {% if item.instruction_quantity %}
-                                            {{ item.instruction_quantity|floatformat:1 }}
+                                            {{ item.instruction_quantity|floatformat:1 }}kg
                                         {% else %}
                                             -
                                         {% endif %}
@@ -182,17 +181,63 @@
                                     <td class="text-center fw-bold text-primary">
                                         {{ item.instruction_count|default:0 }}
                                     </td>
+                                    <td>
+                                        {% if item.move_report_no %}
+                                            <code class="text-success">{{ item.move_report_no }}</code>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-center">
-                                        {% if item.filling_threshold %}
-                                            {{ item.filling_threshold|floatformat:1 }}
+                                        {% if item.filling_plan_date %}
+                                            <span class="badge bg-info">{{ item.filling_plan_date|date:"m/d" }}</span>
                                         {% else %}
                                             -
                                         {% endif %}
                                     </td>
-                                    <td>
-                                        <small class="text-muted">{{ item.order_remarks|default:"-"|truncatechars:30 }}</small>
+                                    <td class="text-center">
+                                        {% if item.warehousing_plan_date %}
+                                            <span class="badge bg-secondary">{{ item.warehousing_plan_date|date:"m/d" }}</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if item.shipping_plan_date %}
+                                            <span class="badge bg-success">{{ item.shipping_plan_date|date:"m/d" }}</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if item.designation_delivery_date %}
+                                            <span class="badge bg-danger">{{ item.designation_delivery_date|date:"m/d" }}</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
                                     </td>
                                 </tr>
+                                <!-- 비고 행 (있는 경우만) -->
+                                {% if item.sales_remarks or item.business_remarks or item.production_remarks or item.order_remarks %}
+                                <tr class="table-light">
+                                    <td colspan="9" class="py-1">
+                                        <small>
+                                            {% if item.sales_remarks %}
+                                                <span class="badge bg-primary me-1">영업</span>{{ item.sales_remarks }}
+                                            {% endif %}
+                                            {% if item.business_remarks %}
+                                                <span class="badge bg-warning text-dark me-1">사업</span>{{ item.business_remarks }}
+                                            {% endif %}
+                                            {% if item.production_remarks %}
+                                                <span class="badge bg-success me-1">생산</span>{{ item.production_remarks }}
+                                            {% endif %}
+                                            {% if item.order_remarks %}
+                                                <span class="badge bg-secondary me-1">주문</span>{{ item.order_remarks }}
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -237,20 +282,30 @@
                 <thead class="table-light">
                     <tr>
                         <th>도착출하번호</th>
+                        <th>이동서</th>
                         <th>품목명</th>
-                        <th>포장명</th>
-                        <th class="text-center">지시횟수</th>
-                        <th class="text-center">충전완료</th>
-                        <th style="width: 150px;">진척률</th>
-                        <th>동기화일시</th>
+                        <th class="text-center">지시</th>
+                        <th class="text-center">완료</th>
+                        <th style="width: 100px;">진척률</th>
+                        <th class="text-center">충전</th>
+                        <th class="text-center">입고</th>
+                        <th class="text-center">출하</th>
+                        <th class="text-center">납기</th>
+                        <th>동기화</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for progress in po.production_progress.all %}
                     <tr>
                         <td><code>{{ progress.arrival_shipping_no }}</code></td>
+                        <td>
+                            {% if progress.move_report_no %}
+                                <code class="text-success">{{ progress.move_report_no }}</code>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td>{{ progress.item_name|default:"-" }}</td>
-                        <td>{{ progress.packing_name|default:"-" }}</td>
                         <td class="text-center">{{ progress.instruction_count }}</td>
                         <td class="text-center text-success fw-bold">{{ progress.filled_count }}</td>
                         <td>
@@ -261,10 +316,48 @@
                                 </div>
                             </div>
                         </td>
+                        <td class="text-center">
+                            {% if progress.filling_plan_date %}
+                                <span class="badge bg-info">{{ progress.filling_plan_date|date:"m/d" }}</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if progress.warehousing_plan_date %}
+                                <span class="badge bg-secondary">{{ progress.warehousing_plan_date|date:"m/d" }}</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if progress.shipping_plan_date %}
+                                <span class="badge bg-success">{{ progress.shipping_plan_date|date:"m/d" }}</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if progress.designation_delivery_date %}
+                                <span class="badge bg-danger">{{ progress.designation_delivery_date|date:"m/d" }}</span>
+                            {% else %}-{% endif %}
+                        </td>
                         <td>
-                            <small class="text-muted">{{ progress.synced_at|date:"Y-m-d H:i" }}</small>
+                            <small class="text-muted">{{ progress.synced_at|date:"m/d H:i" }}</small>
                         </td>
                     </tr>
+                    <!-- 비고 행 -->
+                    {% if progress.sales_remarks or progress.business_remarks or progress.production_remarks %}
+                    <tr class="table-warning">
+                        <td colspan="11" class="py-1">
+                            <small>
+                                {% if progress.sales_remarks %}
+                                    <span class="badge bg-primary me-1">영업</span>{{ progress.sales_remarks }}
+                                {% endif %}
+                                {% if progress.business_remarks %}
+                                    <span class="badge bg-warning text-dark me-1">사업</span>{{ progress.business_remarks }}
+                                {% endif %}
+                                {% if progress.production_remarks %}
+                                    <span class="badge bg-success me-1">생산</span>{{ progress.production_remarks }}
+                                {% endif %}
+                            </small>
+                        </td>
+                    </tr>
+                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

@@ -574,11 +574,70 @@ class FCMSProductionProgress(models.Model):
         help_text='이동서 상세 기준 충전 완료 병 수'
     )
     
-    # 비고
+    # 이동서번호 (TR_ORDER_INFORMATIONS에서)
+    move_report_no = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name='이동서번호',
+        help_text='TR_ORDER_INFORMATIONS.MOVE_REPORT_NO'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 일정 정보 (중요!)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    designation_delivery_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='지정납기일',
+        help_text='TR_ORDER_INFORMATIONS.DESIGNATION_DELIVERY_DATE'
+    )
+    
+    filling_plan_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='충전계획일',
+        help_text='TR_ORDER_INFORMATIONS.FILLING_PLAN_DATE'
+    )
+    
+    warehousing_plan_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='입고계획일',
+        help_text='TR_ORDER_INFORMATIONS.WAREHOUSING_PLAN_DATE'
+    )
+    
+    shipping_plan_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='출하계획일',
+        help_text='TR_ORDER_INFORMATIONS.SHIPPING_PLAN_DATE'
+    )
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 부서별 비고 (전달사항)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     order_remarks = models.TextField(
         blank=True,
         verbose_name='주문비고',
         help_text='TR_ORDER_INFORMATIONS.ORDER_REMARKS'
+    )
+    
+    sales_remarks = models.TextField(
+        blank=True,
+        verbose_name='영업비고',
+        help_text='TR_ORDER_INFORMATIONS.SALES_REMARKS'
+    )
+    
+    business_remarks = models.TextField(
+        blank=True,
+        verbose_name='사업비고',
+        help_text='TR_ORDER_INFORMATIONS.BUSINESS_REMARKS'
+    )
+    
+    production_remarks = models.TextField(
+        blank=True,
+        verbose_name='생산비고',
+        help_text='TR_ORDER_INFORMATIONS.PRODUCTION_REMARKS'
     )
     
     # FCMS 원본 데이터 ID
