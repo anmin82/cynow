@@ -101,7 +101,7 @@
                             <th style="width: 70px;" class="text-center">도착출하</th>
                             <th style="width: 200px;">진척도</th>
                             <th style="width: 80px;" class="text-center">상태</th>
-                            <th style="width: 70px;" class="text-center">작업</th>
+                            <th style="width: 85px;" class="text-center">작업</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -164,11 +164,11 @@
                             </td>
                             <td class="text-center">
                                 <a href="{% url 'orders:management_detail' item.po.customer_order_no %}" 
-                                   class="btn btn-sm btn-primary px-2 py-1" title="진척상세">
+                                   class="btn btn-sm btn-primary" title="진척상세">
                                     <i class="fas fa-chart-line"></i>
                                 </a>
                                 <a href="{% url 'orders:detail' item.po.customer_order_no %}" 
-                                   class="btn btn-sm btn-dark px-2 py-1" title="수주정보">
+                                   class="btn btn-sm btn-dark" title="수주정보">
                                     <i class="fas fa-file-alt"></i>
                                 </a>
                             </td>
