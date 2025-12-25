@@ -32,8 +32,8 @@ def sync_product_codes_from_cdc():
                     TRIM(p."ITEM_CODE") as item_code,
                     TRIM(i."DISPLAY_NAME") as gas_name,
                     ax."NSGT_YORY" as filling_weight,
-                    COALESCE(TRIM(cs."CYLINDER_SPEC_NAME"), TRIM(d."CYLINDER_SPEC_CODE")) as cylinder_spec_name,
-                    COALESCE(TRIM(vs."VALVE_SPEC_NAME"), TRIM(d."VALVE_SPEC_CODE")) as valve_spec_name
+                    COALESCE(TRIM(cs."NAME"), TRIM(d."CYLINDER_SPEC_CODE")) as cylinder_spec_name,
+                    COALESCE(TRIM(vs."NAME"), TRIM(d."VALVE_SPEC_CODE")) as valve_spec_name
                 FROM "fcms_cdc"."ma_selection_patterns" p
                 LEFT JOIN "fcms_cdc"."ma_selection_pattern_details" d 
                     ON p."SELECTION_PATTERN_CODE" = d."SELECTION_PATTERN_CODE"
