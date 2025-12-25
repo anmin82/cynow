@@ -626,14 +626,12 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'history:history' %}">조회</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'orders:list' %}">수주</a>
-                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="salesDropdown" role="button" data-bs-toggle="dropdown">
                             판매
                         </a>
                         <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'orders:list' %}"><i class="bi bi-cart-check me-2"></i>수주</a></li>
                             <li><a class="dropdown-item" href="{% url 'voucher:quote_list' %}"><i class="bi bi-file-earmark-text me-2"></i>제품견적</a></li>
                             <li><a class="dropdown-item" href="{% url 'voucher:price_list' %}"><i class="bi bi-currency-dollar me-2"></i>단가표</a></li>
                             <li><hr class="dropdown-divider"></li>
