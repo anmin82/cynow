@@ -114,20 +114,20 @@ def sync_product_codes_from_cdc():
 
 
 def get_gas_name_from_item_code(item_code):
-    """아이템코드로 가스명 조회"""
+    """아이템코드로 가스명 조회 (DISPLAY_NAME 사용)"""
     if not item_code:
         return None
     
     try:
         with connection.cursor() as cursor:
             cursor.execute("""
-                SELECT "NAME" 
+                SELECT COALESCE("DISPLAY_NAME", "NAME") 
                 FROM "fcms_cdc"."ma_items" 
                 WHERE TRIM("ITEM_CODE") = %s
                 LIMIT 1
             """, [item_code.strip()])
             row = cursor.fetchone()
-            return row[0] if row else None
+            return row[0].strip() if row and row[0] else None
     except:
         return None
 
