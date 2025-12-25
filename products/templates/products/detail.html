@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static humanize %}
 
 {% block title %}{{ product.trade_condition_no }} - 제품코드 상세{% endblock %}
 
@@ -149,7 +149,7 @@
                             <div class="text-end">
                                 <h3 class="mb-0">
                                     {% if current_price.currency == 'JPY' %}¥{% elif current_price.currency == 'USD' %}${% elif current_price.currency == 'CNY' %}¥{% else %}₩{% endif %}
-                                    {{ current_price.price_per_kg|floatformat:0 }}
+                                    {{ current_price.price_per_kg|floatformat:0|intcomma }}
                                 </h3>
                                 <small>
                                     {% if current_price.currency == 'JPY' %}円/kg
@@ -202,10 +202,10 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-end">
-                                        {% if price.currency == 'JPY' %}¥{{ price.price_per_kg|floatformat:0 }}/kg
-                                        {% elif price.currency == 'USD' %}${{ price.price_per_kg|floatformat:0 }}/kg
-                                        {% elif price.currency == 'CNY' %}¥{{ price.price_per_kg|floatformat:0 }}/kg
-                                        {% else %}₩{{ price.price_per_kg|floatformat:0 }}/kg{% endif %}
+                                        {% if price.currency == 'JPY' %}¥{{ price.price_per_kg|floatformat:0|intcomma }}/kg
+                                        {% elif price.currency == 'USD' %}${{ price.price_per_kg|floatformat:0|intcomma }}/kg
+                                        {% elif price.currency == 'CNY' %}¥{{ price.price_per_kg|floatformat:0|intcomma }}/kg
+                                        {% else %}₩{{ price.price_per_kg|floatformat:0|intcomma }}/kg{% endif %}
                                     </td>
                                     <td><small>{{ price.note|default:"-" }}</small></td>
                                     {% if user.is_authenticated %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}단가표 조회 - CYNOW{% endblock %}
 
@@ -115,7 +116,7 @@
                         <td class="text-end">
                             {% if item.price_per_kg %}
                             <span class="currency-{{ item.currency|lower }}">{{ item.currency_symbol }}</span>
-                            {{ item.price_per_kg|floatformat:0 }}
+                            {{ item.price_per_kg|floatformat:0|intcomma }}
                             {% else %}
                             <span class="text-muted">-</span>
                             {% endif %}
@@ -123,7 +124,7 @@
                         <td class="text-end fw-bold">
                             {% if item.packing_price %}
                             <span class="currency-{{ item.currency|lower }}">{{ item.currency_symbol }}</span>
-                            {{ item.packing_price|floatformat:0 }}
+                            {{ item.packing_price|floatformat:0|intcomma }}
                             {% else %}
                             <span class="text-muted">-</span>
                             {% endif %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static humanize %}
 
 {% block title %}제품코드 관리{% endblock %}
 
@@ -170,7 +170,7 @@
                                         {% else %}
                                             <span class="badge bg-primary me-1">₩</span>
                                         {% endif %}
-                                        <strong>{{ price|floatformat:0 }}</strong>
+                                        <strong>{{ price|floatformat:0|intcomma }}</strong>
                                         <small class="text-muted">/kg</small>
                                     {% else %}
                                         <span class="text-muted">-</span>

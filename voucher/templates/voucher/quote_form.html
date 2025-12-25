@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load humanize %}
 
 {% block title %}{% if quote %}견적서 수정{% else %}새 견적서{% endif %} - CYNOW{% endblock %}
 
@@ -167,7 +168,7 @@
                             </td>
                             <td class="text-end">
                                 {% if p.current_price_per_kg %}
-                                {{ p.current_price_per_kg|floatformat:0 }}
+                                {{ p.current_price_per_kg|floatformat:0|intcomma }}
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
