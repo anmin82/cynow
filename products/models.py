@@ -98,6 +98,13 @@ class ProductCode(models.Model):
         null=True,
         verbose_name='밸브스펙명'
     )
+    filling_weight = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        blank=True, 
+        null=True,
+        verbose_name='충전량 (kg)'
+    )
     
     # CYNOW 용기종류 매핑
     cylinder_type_key = models.CharField(

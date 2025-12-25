@@ -48,6 +48,16 @@
                             <td>{{ product.capacity|default:"-" }} L</td>
                         </tr>
                         <tr>
+                            <th class="text-muted">충전량</th>
+                            <td>
+                                {% if product.filling_weight %}
+                                    <strong>{{ product.filling_weight|floatformat:0 }} kg</strong>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
                             <th class="text-muted">밸브 스펙</th>
                             <td>{{ product.valve_spec_name|default:"-" }}</td>
                         </tr>
