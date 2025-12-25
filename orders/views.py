@@ -718,11 +718,12 @@ def sync_all_fcms_progress(request):
     """
     모든 수주의 FCMS 생산 진척 정보 일괄 동기화
     """
-    # 진행중인 수주만 동기화 (완료된 건은 제외)
-    pos = PO.objects.exclude(status='COMPLETED')
+    # 모든 수주 동기화
+    pos = PO.objects.all()
     
     total_synced = 0
     matched_count = 0
+    completed_count = 0
     error_count = 0
     
     for po in pos:
@@ -735,9 +736,12 @@ def sync_all_fcms_progress(request):
             FCMSProductionProgress.objects.filter(po=po).delete()
             
             sync_count = 0
+            total_ordered = 0
+            total_issued = 0
             products_data = progress_summary.get('products', {})
             
             for trade_code, product_info in products_data.items():
+                total_issued += product_info.get('total_instruction_count', 0)
                 for order in product_info.get('orders', []):
                     FCMSProductionProgress.objects.create(
                         po=po,
@@ -759,26 +763,41 @@ def sync_all_fcms_progress(request):
             
             total_synced += sync_count
             
-            # 상태 업데이트
-            if sync_count > 0 and po.status in ('DRAFT', 'IN_PROGRESS', 'GUIDED'):
-                po.status = 'MATCHED'
-                po.save(update_fields=['status'])
-                matched_count += 1
+            # 수주량 계산
+            total_ordered = sum(item.qty for item in po.items.all())
+            
+            # 상태 자동 업데이트
+            if sync_count > 0:
+                if total_ordered > 0 and total_issued >= total_ordered:
+                    # 수주량 이상 발행되면 완료
+                    if po.status != 'COMPLETED':
+                        po.status = 'COMPLETED'
+                        po.save(update_fields=['status'])
+                        completed_count += 1
+                elif po.status in ('DRAFT', 'IN_PROGRESS', 'GUIDED'):
+                    po.status = 'MATCHED'
+                    po.save(update_fields=['status'])
+                    matched_count += 1
                 
         except Exception as e:
             error_count += 1
             print(f"[Sync Error] {po.customer_order_no}: {e}")
     
+    result_parts = [f'{len(pos)}건 수주']
+    if matched_count > 0:
+        result_parts.append(f'{matched_count}건 매칭')
+    if completed_count > 0:
+        result_parts.append(f'{completed_count}건 완료')
+    result_parts.append(f'{total_synced}건 이동서')
     if error_count > 0:
-        messages.warning(
-            request, 
-            f'FCMS 동기화 완료: {len(pos)}건 중 {matched_count}건 매칭, {total_synced}건 이동서, {error_count}건 오류'
-        )
+        result_parts.append(f'{error_count}건 오류')
+    
+    result_msg = ', '.join(result_parts)
+    
+    if error_count > 0:
+        messages.warning(request, f'FCMS 동기화 완료: {result_msg}')
     else:
-        messages.success(
-            request, 
-            f'FCMS 전체 동기화 완료: {len(pos)}건 수주, {matched_count}건 매칭, {total_synced}건 이동서'
-        )
+        messages.success(request, f'FCMS 전체 동기화 완료: {result_msg}')
     
     return redirect('orders:management')
 
