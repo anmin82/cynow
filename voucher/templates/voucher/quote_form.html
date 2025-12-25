@@ -157,7 +157,7 @@
                             <td>{{ p.gas_name|default:'-' }}</td>
                             <td><small>{{ p.cylinder_spec_name|default:'-' }}</small></td>
                             <td><small>{{ p.valve_spec_name|default:'-' }}</small></td>
-                            <td>{{ p.cylinder_capacity|default:'-' }}</td>
+                            <td>{{ p.capacity|floatformat:0|default:'-' }}</td>
                             <td>{{ p.filling_weight|default:'-' }}</td>
                             <td>
                                 {% if p.default_currency == 'KRW' %}
