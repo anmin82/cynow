@@ -796,6 +796,7 @@ def sync_all_fcms_progress(request):
                 
         except Exception as e:
             error_count += 1
+            last_error = f"{po.customer_order_no}: {str(e)[:100]}"
             print(f"[Sync Error] {po.customer_order_no}: {e}")
     
     result_parts = [f'{len(pos)}건 수주']
@@ -811,6 +812,8 @@ def sync_all_fcms_progress(request):
     
     if error_count > 0:
         messages.warning(request, f'FCMS 동기화 완료: {result_msg}')
+        if 'last_error' in locals():
+            messages.error(request, f'마지막 오류: {last_error}')
     else:
         messages.success(request, f'FCMS 전체 동기화 완료: {result_msg}')
     
