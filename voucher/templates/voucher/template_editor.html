@@ -97,28 +97,45 @@ document.addEventListener('DOMContentLoaded', function() {
     // 에디터 설정
     const editorConfig = {{ editor_config|safe }};
     
+    console.log('ONLYOFFICE Config:', editorConfig);
+    console.log('Document URL:', editorConfig.document?.url);
+    console.log('Callback URL:', editorConfig.editorConfig?.callbackUrl);
+    
+    // DocsAPI 존재 확인
+    if (typeof DocsAPI === 'undefined') {
+        console.error('DocsAPI가 로드되지 않았습니다!');
+        document.getElementById('onlyoffice-editor').innerHTML = `
+            <div class="editor-loading">
+                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
+                <p class="mt-3 text-danger">ONLYOFFICE API를 로드할 수 없습니다.</p>
+                <p class="text-muted">ONLYOFFICE Document Server 연결을 확인하세요.</p>
+                <p><code>{{ onlyoffice_api_url }}</code></p>
+                <a href="{% url 'voucher:template_list' %}" class="btn btn-primary mt-3">
+                    목록으로 돌아가기
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
     // ONLYOFFICE 에디터 초기화
     try {
+        console.log('DocsAPI.DocEditor 초기화 시도...');
         new DocsAPI.DocEditor("onlyoffice-editor", editorConfig);
+        console.log('DocsAPI.DocEditor 초기화 완료');
     } catch (error) {
         console.error('ONLYOFFICE 에디터 로드 오류:', error);
         document.getElementById('onlyoffice-editor').innerHTML = `
             <div class="editor-loading">
                 <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
                 <p class="mt-3 text-danger">에디터를 로드할 수 없습니다.</p>
-                <p class="text-muted">ONLYOFFICE Document Server가 실행 중인지 확인하세요.</p>
+                <p class="text-muted">${error.message}</p>
                 <a href="{% url 'voucher:template_list' %}" class="btn btn-primary mt-3">
                     목록으로 돌아가기
                 </a>
             </div>
         `;
     }
-});
-
-// 페이지 떠날 때 경고
-window.addEventListener('beforeunload', function(e) {
-    // 사용자에게 저장 확인
-    // ONLYOFFICE는 자동 저장하므로 실제로는 필요 없지만 안전을 위해
 });
 </script>
 {% endblock %}
