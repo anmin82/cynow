@@ -696,22 +696,7 @@ def sync_fcms_progress(request, customer_order_no):
                 instruction_quantity=order.get('instruction_quantity'),
                 instruction_count=order.get('instruction_count', 0),
                 filling_threshold=order.get('filling_threshold'),
-                filled_count=0,  # TODO: 실제 충전 완료 추적 필요
-                # 이동서번호 = 도착출하번호
-                move_report_no=order.get('arrival_shipping_no', ''),
-                # 일정 정보
-                designation_delivery_date=order.get('delivery_date'),
-                filling_plan_date=None,  # TR_ORDERS에는 없음
-                warehousing_plan_date=None,
-                shipping_plan_date=None,
-                # 비고
-                order_remarks=order.get('order_remarks', ''),
-                sales_remarks='',
-                business_remarks='',
-                production_remarks=order.get('move_report_remarks', ''),
-                # FCMS 원본 ID (없음 - 직접 조회)
-                fcms_order_id=None,
-                fcms_order_info_id=None,
+                filled_count=0,
             )
             sync_count += 1
         
@@ -769,10 +754,6 @@ def sync_all_fcms_progress(request):
                         instruction_count=order.get('instruction_count', 0),
                         filling_threshold=order.get('filling_threshold'),
                         filled_count=0,
-                        move_report_no=order.get('arrival_shipping_no', ''),
-                        designation_delivery_date=order.get('delivery_date'),
-                        order_remarks=order.get('order_remarks', ''),
-                        production_remarks=order.get('move_report_remarks', ''),
                     )
                     sync_count += 1
             

@@ -693,12 +693,9 @@ class FCMSMatchStatus(models.Model):
 
 class FCMSProductionProgress(models.Model):
     """
-    FCMS 생산 진척 현황 (수주관리표용)
+    FCMS 생산 진척 현황 (수주관리표용) - 간소화 버전
     
     하나의 수주(PO)에 여러 도착출하번호(ARRIVAL_SHIPPING_NO)가 연결될 수 있음
-    각 도착출하번호별 생산 진척 정보를 저장
-    
-    TR_ORDERS, TR_ORDER_INFORMATIONS에서 조회한 데이터 캐싱
     """
     
     po = models.ForeignKey(
@@ -708,56 +705,46 @@ class FCMSProductionProgress(models.Model):
         verbose_name='수주'
     )
     
-    # FCMS 도착출하번호 (여러 개 가능)
     arrival_shipping_no = models.CharField(
         max_length=50,
-        verbose_name='도착출하번호',
-        help_text='TR_ORDERS.ARRIVAL_SHIPPING_NO'
+        verbose_name='도착출하번호'
     )
     
-    # 품목 정보 (TR_ORDER_INFORMATIONS)
     item_name = models.CharField(
         max_length=200,
         blank=True,
-        verbose_name='품목명',
-        help_text='TR_ORDER_INFORMATIONS.ITEM_NAME'
+        verbose_name='품목명'
     )
     
     packing_name = models.CharField(
         max_length=200,
         blank=True,
-        verbose_name='포장명',
-        help_text='TR_ORDER_INFORMATIONS.PACKING_NAME'
+        verbose_name='포장명'
     )
     
     trade_condition_code = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name='거래조건코드',
-        help_text='TR_ORDER_INFORMATIONS.TRADE_CONDITION_CODE'
+        verbose_name='거래조건코드'
     )
     
     selection_pattern_code = models.CharField(
         max_length=100,
         blank=True,
-        verbose_name='선택패턴코드',
-        help_text='TR_ORDER_INFORMATIONS.SELECTION_PATTERN_CODE'
+        verbose_name='선택패턴코드'
     )
     
-    # 수량 정보
     instruction_quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name='지시수량(kg)',
-        help_text='TR_ORDER_INFORMATIONS.INSTRUCTION_QUANTITY'
+        verbose_name='지시수량(kg)'
     )
     
     instruction_count = models.IntegerField(
         default=0,
-        verbose_name='지시횟수(병)',
-        help_text='TR_ORDER_INFORMATIONS.INSTRUCTION_COUNT'
+        verbose_name='지시횟수(병)'
     )
     
     filling_threshold = models.DecimalField(
@@ -765,99 +752,14 @@ class FCMSProductionProgress(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name='충전임계값',
-        help_text='TR_ORDER_INFORMATIONS.FILLING_THRESHOLD'
+        verbose_name='충전임계값'
     )
     
-    # 충전 완료 수량 (이동서 기준)
     filled_count = models.IntegerField(
         default=0,
-        verbose_name='충전완료(병)',
-        help_text='이동서 상세 기준 충전 완료 병 수'
+        verbose_name='충전완료(병)'
     )
     
-    # 이동서번호 (TR_ORDER_INFORMATIONS에서)
-    move_report_no = models.CharField(
-        max_length=50,
-        blank=True,
-        verbose_name='이동서번호',
-        help_text='TR_ORDER_INFORMATIONS.MOVE_REPORT_NO'
-    )
-    
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 일정 정보 (중요!)
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    designation_delivery_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name='지정납기일',
-        help_text='TR_ORDER_INFORMATIONS.DESIGNATION_DELIVERY_DATE'
-    )
-    
-    filling_plan_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name='충전계획일',
-        help_text='TR_ORDER_INFORMATIONS.FILLING_PLAN_DATE'
-    )
-    
-    warehousing_plan_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name='입고계획일',
-        help_text='TR_ORDER_INFORMATIONS.WAREHOUSING_PLAN_DATE'
-    )
-    
-    shipping_plan_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name='출하계획일',
-        help_text='TR_ORDER_INFORMATIONS.SHIPPING_PLAN_DATE'
-    )
-    
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 부서별 비고 (전달사항)
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    order_remarks = models.TextField(
-        blank=True,
-        verbose_name='주문비고',
-        help_text='TR_ORDER_INFORMATIONS.ORDER_REMARKS'
-    )
-    
-    sales_remarks = models.TextField(
-        blank=True,
-        verbose_name='영업비고',
-        help_text='TR_ORDER_INFORMATIONS.SALES_REMARKS'
-    )
-    
-    business_remarks = models.TextField(
-        blank=True,
-        verbose_name='사업비고',
-        help_text='TR_ORDER_INFORMATIONS.BUSINESS_REMARKS'
-    )
-    
-    production_remarks = models.TextField(
-        blank=True,
-        verbose_name='생산비고',
-        help_text='TR_ORDER_INFORMATIONS.PRODUCTION_REMARKS'
-    )
-    
-    # FCMS 원본 데이터 ID
-    fcms_order_id = models.IntegerField(
-        null=True,
-        blank=True,
-        verbose_name='FCMS주문ID',
-        help_text='TR_ORDERS.ID'
-    )
-    
-    fcms_order_info_id = models.IntegerField(
-        null=True,
-        blank=True,
-        verbose_name='FCMS주문상세ID',
-        help_text='TR_ORDER_INFORMATIONS.ID'
-    )
-    
-    # 동기화 정보
     synced_at = models.DateTimeField(
         auto_now=True,
         verbose_name='동기화일시'
