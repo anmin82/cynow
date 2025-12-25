@@ -159,26 +159,28 @@ class QuoteDocxGenerator(DocxGenerator):
     """
     견적서 전용 DOCX 생성기
     
-    템플릿 변수:
+    템플릿 변수 (KDKK 견적서 양식 기준):
     =====================================
     [공급처 정보]
-    - supplier_name: 공급처명
+    - supplier_company: 공급처명
     - supplier_address: 주소
     - supplier_ceo: 대표자
     - supplier_tel: TEL
     - supplier_fax: FAX
     - supplier_manager: 담당자명
-    - supplier_manager_tel: 담당자 연락처
+    - supplier_manager_phone: 담당자 연락처
     - supplier_manager_email: 담당자 이메일
     
     [수신처 정보]
-    - customer_name: 수신처명
-    - customer_address: 주소
-    - customer_ceo: 대표자
-    - customer_tel: 연락처
-    - customer_manager: 담당자명
-    - customer_manager_tel: 담당자 연락처
-    - customer_manager_email: 담당자 이메일
+    - receiver_company: 수신처명
+    - receiver_address: 주소
+    - receiver_ceo: 대표자
+    - receiver_tel1: 연락처1
+    - receiver_tel2: 연락처2
+    - receiver_manager: 담당자명
+    - receiver_manager_phone: 담당자 연락처
+    - receiver_manager_email: 담당자 이메일
+    - gas: 가스 (메모용)
     
     [견적 정보]
     - quote_date: 견적일자
@@ -186,14 +188,13 @@ class QuoteDocxGenerator(DocxGenerator):
     - quote_title: 견적건명
     
     [하단 공통 문구]
-    - valid_period: 적용기간
-    - trade_terms: 거래조건
-    - bank_account: 결제계좌
-    - document_date: 문서 작성일자
+    - apply_period: 적용기간
+    - payment_terms: 거래조건
+    - doc_date: 문서 작성일자
     
     [상세 품목 테이블 - items 리스트]
-    {% for item in items %}
-    - item.category: 구분
+    {%tr for item in items %}
+    - item.no: 순번
     - item.gas_name: 가스명
     - item.product_name: 품명
     - item.material_code: 자재코드
@@ -203,7 +204,7 @@ class QuoteDocxGenerator(DocxGenerator):
     - item.currency: 통화
     - item.price_per_kg: 단가(1kg)
     - item.packing_price: 포장단가
-    {% endfor %}
+    {%tr endfor %}
     =====================================
     """
     
@@ -260,26 +261,29 @@ class QuoteDocxGenerator(DocxGenerator):
             }
             processed_items.append(processed_item)
         
-        # 전체 컨텍스트 구성
+        # 전체 컨텍스트 구성 (KDKK 견적서 템플릿 변수명 기준)
         context = {
             # 공급처 정보
-            'supplier_name': supplier_info.get('name', ''),
+            'supplier_company': supplier_info.get('name', ''),
             'supplier_address': supplier_info.get('address', ''),
             'supplier_ceo': supplier_info.get('ceo', ''),
             'supplier_tel': supplier_info.get('tel', ''),
             'supplier_fax': supplier_info.get('fax', ''),
             'supplier_manager': supplier_info.get('manager', ''),
-            'supplier_manager_tel': supplier_info.get('manager_tel', ''),
+            'supplier_manager_phone': supplier_info.get('manager_tel', ''),
             'supplier_manager_email': supplier_info.get('manager_email', ''),
+            'no': '',  # 메모용
             
             # 수신처 정보
-            'customer_name': customer_info.get('name', ''),
-            'customer_address': customer_info.get('address', ''),
-            'customer_ceo': customer_info.get('ceo', ''),
-            'customer_tel': customer_info.get('tel', ''),
-            'customer_manager': customer_info.get('manager', ''),
-            'customer_manager_tel': customer_info.get('manager_tel', ''),
-            'customer_manager_email': customer_info.get('manager_email', ''),
+            'receiver_company': customer_info.get('name', ''),
+            'receiver_address': customer_info.get('address', ''),
+            'receiver_ceo': customer_info.get('ceo', ''),
+            'receiver_tel1': customer_info.get('tel', ''),
+            'receiver_tel2': customer_info.get('tel2', ''),
+            'receiver_manager': customer_info.get('manager', ''),
+            'receiver_manager_phone': customer_info.get('manager_tel', ''),
+            'receiver_manager_email': customer_info.get('manager_email', ''),
+            'gas': '',  # 메모용
             
             # 견적 정보
             'quote_date': quote_info.get('date', date.today()),
@@ -291,10 +295,9 @@ class QuoteDocxGenerator(DocxGenerator):
             'item_count': len(processed_items),
             
             # 하단 정보
-            'valid_period': (footer_info or {}).get('valid_period', ''),
-            'trade_terms': (footer_info or {}).get('trade_terms', ''),
-            'bank_account': (footer_info or {}).get('bank_account', ''),
-            'document_date': (footer_info or {}).get(
+            'apply_period': (footer_info or {}).get('valid_period', ''),
+            'payment_terms': (footer_info or {}).get('trade_terms', ''),
+            'doc_date': (footer_info or {}).get(
                 'document_date', 
                 date.today()
             ),
