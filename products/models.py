@@ -134,6 +134,7 @@ class ProductCode(models.Model):
     CURRENCY_CHOICES = [
         ('KRW', '원 (₩)'),
         ('JPY', '엔 (¥)'),
+        ('USD', '달러 ($)'),
         ('CNY', '위안 (¥)'),
     ]
     default_currency = models.CharField(
@@ -215,6 +216,7 @@ class ProductPriceHistory(models.Model):
     CURRENCY_CHOICES = [
         ('KRW', '원 (₩)'),
         ('JPY', '엔 (¥)'),
+        ('USD', '달러 ($)'),
         ('CNY', '위안 (¥)'),
     ]
     currency = models.CharField(

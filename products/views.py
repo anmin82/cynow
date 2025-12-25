@@ -136,7 +136,7 @@ def price_add(request, pk):
             return JsonResponse({'success': False, 'error': '필수 항목을 입력하세요'})
         
         # 통화 유효성 검사
-        if currency not in ['KRW', 'JPY', 'CNY']:
+        if currency not in ['KRW', 'JPY', 'USD', 'CNY']:
             currency = 'KRW'
         
         price = ProductPriceHistory.objects.create(
@@ -149,7 +149,7 @@ def price_add(request, pk):
         )
         
         # 통화별 메시지
-        currency_units = {'KRW': '원', 'JPY': '円', 'CNY': '元'}
+        currency_units = {'KRW': '원', 'JPY': '円', 'USD': '$', 'CNY': '元'}
         unit = currency_units.get(currency, '원')
         
         return JsonResponse({
