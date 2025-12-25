@@ -119,9 +119,11 @@
         </div>
         <hr>
         <h6 class="text-primary">품목 테이블 (반복)</h6>
-        <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.85rem;">{% verbatim %}{%tr for item in items %}
+{% verbatim %}
+        <pre class="bg-dark text-light p-3 rounded" style="font-size: 0.85rem;">{%tr for item in items %}
   {{item.no}} | {{item.gas_name}} | {{item.product_name}} | {{item.packing}} | {{item.packing_price}}
-{%tr endfor %}{% endverbatim %}</pre>
+{%tr endfor %}</pre>
+{% endverbatim %}
         <small class="text-muted">
             <i class="bi bi-info-circle"></i>
             테이블의 데이터 행에서 첫 번째 셀에 <code>{%tr for item in items %}</code>, 마지막 셀에 <code>{%tr endfor %}</code>를 추가하세요.
