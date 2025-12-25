@@ -43,12 +43,9 @@
         <p class="page-subtitle">제품별 kg당 단가 및 용기 단가</p>
     </div>
     <div class="no-print">
-        <button onclick="window.print()" class="btn btn-outline-light me-2">
-            <i class="bi bi-printer"></i> 인쇄
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="bi bi-printer"></i> 인쇄 / PDF 저장
         </button>
-        <a href="{% url 'voucher:price_list_download' %}?year={{ selected_year }}" class="btn btn-primary">
-            <i class="bi bi-file-earmark-word"></i> DOCX 다운로드
-        </a>
     </div>
 </div>
 
