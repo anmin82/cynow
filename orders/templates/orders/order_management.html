@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}수주관리표 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- 페이지 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">
+                <i class="fas fa-chart-bar me-2 text-primary"></i>
+                수주관리표
+            </h2>
+            <p class="text-muted mb-0">수주별 FCMS 생산 진척 현황</p>
+        </div>
+        <div>
+            <a href="{% url 'orders:list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list me-1"></i>수주 목록
+            </a>
+            <a href="{% url 'orders:new' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>신규 수주
+            </a>
+        </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-white-50">총 수주</h6>
+                            <h3 class="mb-0">{{ order_list|length }}</h3>
+                        </div>
+                        <i class="fas fa-file-invoice fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-white-50">진행중</h6>
+                            <h3 class="mb-0">
+                                {% with in_progress=0 %}
+                                {% for item in order_list %}
+                                    {% if item.progress_percent > 0 and item.progress_percent < 100 %}
+                                        {% with in_progress=in_progress|add:1 %}{% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ in_progress }}
+                                {% endwith %}
+                            </h3>
+                        </div>
+                        <i class="fas fa-spinner fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-white-50">FCMS 연동</h6>
+                            <h3 class="mb-0">
+                                {% with linked=0 %}
+                                {% for item in order_list %}
+                                    {% if item.arrival_count > 0 %}
+                                        {% with linked=linked|add:1 %}{% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ linked }}
+                                {% endwith %}
+                            </h3>
+                        </div>
+                        <i class="fas fa-link fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-muted">미연동</h6>
+                            <h3 class="mb-0">
+                                {% with unlinked=0 %}
+                                {% for item in order_list %}
+                                    {% if item.arrival_count == 0 %}
+                                        {% with unlinked=unlinked|add:1 %}{% endwith %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ unlinked }}
+                                {% endwith %}
+                            </h3>
+                        </div>
+                        <i class="fas fa-unlink fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 수주관리표 테이블 -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="orderManagementTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 120px;">PO번호</th>
+                            <th style="width: 100px;">고객</th>
+                            <th style="width: 90px;">수주일</th>
+                            <th style="width: 80px;" class="text-center">수주량</th>
+                            <th style="width: 80px;" class="text-center">지시량</th>
+                            <th style="width: 70px;" class="text-center">도착출하</th>
+                            <th style="width: 200px;">진척도</th>
+                            <th style="width: 80px;" class="text-center">상태</th>
+                            <th style="width: 100px;" class="text-center">작업</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order_list %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'orders:management_detail' item.po.customer_order_no %}" 
+                                   class="text-decoration-none fw-bold">
+                                    {{ item.po.customer_order_no }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="text-muted">{{ item.po.supplier_user_code }}</span>
+                                {% if item.po.supplier_user_name %}
+                                <br><small>{{ item.po.supplier_user_name|truncatechars:10 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.po.received_at|date:"Y-m-d" }}</td>
+                            <td class="text-center fw-bold">{{ item.order_qty }}</td>
+                            <td class="text-center">
+                                {% if item.instruction_count > 0 %}
+                                    <span class="text-primary">{{ item.instruction_count }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.arrival_count > 0 %}
+                                    <span class="badge bg-success">{{ item.arrival_count }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1" style="height: 20px;">
+                                        <div class="progress-bar {% if item.progress_percent >= 100 %}bg-success{% elif item.progress_percent >= 50 %}bg-primary{% elif item.progress_percent > 0 %}bg-warning{% else %}bg-secondary{% endif %}"
+                                             role="progressbar" 
+                                             style="width: {{ item.progress_percent }}%;"
+                                             aria-valuenow="{{ item.progress_percent }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <span class="ms-2 fw-bold" style="min-width: 45px;">
+                                        {{ item.progress_percent }}%
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                {% if item.progress_percent >= 100 %}
+                                    <span class="badge bg-success">완료</span>
+                                {% elif item.progress_percent >= 50 %}
+                                    <span class="badge bg-primary">진행중</span>
+                                {% elif item.arrival_count > 0 %}
+                                    <span class="badge bg-warning text-dark">생산중</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">대기</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'orders:management_detail' item.po.customer_order_no %}" 
+                                       class="btn btn-outline-primary" title="상세">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'orders:detail' item.po.customer_order_no %}" 
+                                       class="btn btn-outline-secondary" title="수주정보">
+                                        <i class="fas fa-file-alt"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p>등록된 수주가 없습니다.</p>
+                                <a href="{% url 'orders:new' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i>신규 수주 등록
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 범례 -->
+    <div class="mt-4">
+        <div class="card">
+            <div class="card-body py-2">
+                <small class="text-muted">
+                    <strong>범례:</strong>
+                    <span class="badge bg-success ms-2">완료</span> 진척도 100%
+                    <span class="badge bg-primary ms-2">진행중</span> 진척도 50% 이상
+                    <span class="badge bg-warning text-dark ms-2">생산중</span> FCMS 연동됨
+                    <span class="badge bg-secondary ms-2">대기</span> FCMS 미연동
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.progress {
+    border-radius: 10px;
+}
+.progress-bar {
+    border-radius: 10px;
+}
+</style>
+{% endblock %}
+

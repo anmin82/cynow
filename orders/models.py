@@ -489,3 +489,142 @@ class FCMSMatchStatus(models.Model):
         return f"{self.po.customer_order_no}: {self.get_match_state_display()}"
 
 
+class FCMSProductionProgress(models.Model):
+    """
+    FCMS 생산 진척 현황 (수주관리표용)
+    
+    하나의 수주(PO)에 여러 도착출하번호(ARRIVAL_SHIPPING_NO)가 연결될 수 있음
+    각 도착출하번호별 생산 진척 정보를 저장
+    
+    TR_ORDERS, TR_ORDER_INFORMATIONS에서 조회한 데이터 캐싱
+    """
+    
+    po = models.ForeignKey(
+        PO,
+        on_delete=models.CASCADE,
+        related_name='production_progress',
+        verbose_name='수주'
+    )
+    
+    # FCMS 도착출하번호 (여러 개 가능)
+    arrival_shipping_no = models.CharField(
+        max_length=50,
+        verbose_name='도착출하번호',
+        help_text='TR_ORDERS.ARRIVAL_SHIPPING_NO'
+    )
+    
+    # 품목 정보 (TR_ORDER_INFORMATIONS)
+    item_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='품목명',
+        help_text='TR_ORDER_INFORMATIONS.ITEM_NAME'
+    )
+    
+    packing_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='포장명',
+        help_text='TR_ORDER_INFORMATIONS.PACKING_NAME'
+    )
+    
+    trade_condition_code = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='거래조건코드',
+        help_text='TR_ORDER_INFORMATIONS.TRADE_CONDITION_CODE'
+    )
+    
+    selection_pattern_code = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='선택패턴코드',
+        help_text='TR_ORDER_INFORMATIONS.SELECTION_PATTERN_CODE'
+    )
+    
+    # 수량 정보
+    instruction_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='지시수량(kg)',
+        help_text='TR_ORDER_INFORMATIONS.INSTRUCTION_QUANTITY'
+    )
+    
+    instruction_count = models.IntegerField(
+        default=0,
+        verbose_name='지시횟수(병)',
+        help_text='TR_ORDER_INFORMATIONS.INSTRUCTION_COUNT'
+    )
+    
+    filling_threshold = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='충전임계값',
+        help_text='TR_ORDER_INFORMATIONS.FILLING_THRESHOLD'
+    )
+    
+    # 충전 완료 수량 (이동서 기준)
+    filled_count = models.IntegerField(
+        default=0,
+        verbose_name='충전완료(병)',
+        help_text='이동서 상세 기준 충전 완료 병 수'
+    )
+    
+    # 비고
+    order_remarks = models.TextField(
+        blank=True,
+        verbose_name='주문비고',
+        help_text='TR_ORDER_INFORMATIONS.ORDER_REMARKS'
+    )
+    
+    # FCMS 원본 데이터 ID
+    fcms_order_id = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name='FCMS주문ID',
+        help_text='TR_ORDERS.ID'
+    )
+    
+    fcms_order_info_id = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name='FCMS주문상세ID',
+        help_text='TR_ORDER_INFORMATIONS.ID'
+    )
+    
+    # 동기화 정보
+    synced_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name='동기화일시'
+    )
+    
+    class Meta:
+        db_table = 'fcms_production_progress'
+        verbose_name = 'FCMS생산진척'
+        verbose_name_plural = 'FCMS생산진척'
+        ordering = ['po', 'arrival_shipping_no']
+        indexes = [
+            models.Index(fields=['arrival_shipping_no']),
+            models.Index(fields=['po', 'arrival_shipping_no']),
+        ]
+    
+    def __str__(self):
+        return f"{self.po.customer_order_no}: {self.arrival_shipping_no}"
+    
+    @property
+    def progress_percent(self):
+        """진척률(%) = 충전완료 / 지시횟수"""
+        if self.instruction_count > 0:
+            return round((self.filled_count / self.instruction_count) * 100, 1)
+        return 0
+    
+    @property
+    def is_completed(self):
+        """완료 여부"""
+        return self.instruction_count > 0 and self.filled_count >= self.instruction_count
+
+

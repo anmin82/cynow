@@ -20,8 +20,9 @@ from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Sum, Q
 from django.db.utils import ProgrammingError, OperationalError
 
-from .models import PO, POItem, MoveNoGuide, FCMSMatchStatus
+from .models import PO, POItem, MoveNoGuide, FCMSMatchStatus, FCMSProductionProgress
 from .forms import POForm, POItemFormSet
+from .repositories.fcms_repository import FcmsRepository
 
 
 def po_list(request):
@@ -491,5 +492,190 @@ def api_get_product(request, product_code):
         return JsonResponse({'error': '제품코드를 찾을 수 없습니다.'}, status=404)
     except (ProgrammingError, OperationalError):
         return JsonResponse({'error': 'DB 오류'}, status=500)
+
+
+# ============================================
+# 수주관리표 (생산 진척 현황)
+# ============================================
+
+def order_management_list(request):
+    """
+    수주관리표 목록
+    
+    CYNOW PO와 FCMS CDC 데이터를 매칭하여 
+    생산 진척 현황을 종합적으로 보여주는 대시보드
+    """
+    
+    # CYNOW에 등록된 수주 조회
+    try:
+        pos = PO.objects.all().order_by('-received_at')[:100]
+    except (ProgrammingError, OperationalError):
+        pos = []
+    
+    # FCMS CDC에서 진척 정보 조회
+    order_list = []
+    for po in pos:
+        # FCMS에서 해당 PO의 생산 진척 조회
+        try:
+            progress_summary = FcmsRepository.get_production_summary_by_customer_order_no(
+                po.customer_order_no
+            )
+        except Exception as e:
+            progress_summary = {
+                'total_arrival_count': 0,
+                'total_instruction_count': 0,
+                'total_instruction_quantity': 0,
+                'orders': [],
+            }
+        
+        # 진척률 계산
+        order_qty = po.total_qty
+        instruction_count = progress_summary.get('total_instruction_count', 0)
+        
+        if order_qty > 0:
+            progress_percent = round((instruction_count / order_qty) * 100, 1)
+            progress_percent = min(progress_percent, 100)  # 100% 초과 방지
+        else:
+            progress_percent = 0
+        
+        order_list.append({
+            'po': po,
+            'order_qty': order_qty,
+            'arrival_count': progress_summary.get('total_arrival_count', 0),
+            'instruction_count': instruction_count,
+            'instruction_quantity': progress_summary.get('total_instruction_quantity', 0),
+            'progress_percent': progress_percent,
+            'orders': progress_summary.get('orders', []),
+        })
+    
+    context = {
+        'order_list': order_list,
+    }
+    
+    return render(request, 'orders/order_management.html', context)
+
+
+def order_management_detail(request, customer_order_no):
+    """
+    수주관리표 상세 (단일 수주의 생산 진척)
+    
+    해당 PO번호에 연결된 모든 ARRIVAL_SHIPPING_NO와 
+    각각의 품목별 생산 진척 상태를 상세히 표시
+    """
+    po = get_object_or_404(PO, customer_order_no=customer_order_no)
+    
+    # FCMS에서 해당 PO의 상세 진척 조회
+    try:
+        progress_summary = FcmsRepository.get_production_summary_by_customer_order_no(
+            customer_order_no
+        )
+    except Exception as e:
+        progress_summary = {
+            'total_arrival_count': 0,
+            'total_instruction_count': 0,
+            'total_instruction_quantity': 0,
+            'orders': [],
+        }
+    
+    # 각 도착출하번호별 충전 진척도 조회
+    for order in progress_summary.get('orders', []):
+        try:
+            filling_progress = FcmsRepository.get_filling_progress_by_arrival_shipping_no(
+                order['arrival_shipping_no']
+            )
+            order['filled_count'] = filling_progress.get('filled_count', 0)
+        except Exception:
+            order['filled_count'] = 0
+    
+    context = {
+        'po': po,
+        'progress_summary': progress_summary,
+    }
+    
+    return render(request, 'orders/order_management_detail.html', context)
+
+
+@require_POST
+def sync_fcms_progress(request, customer_order_no):
+    """
+    FCMS 생산 진척 정보 동기화
+    
+    CDC에서 데이터 조회하여 FCMSProductionProgress 모델에 저장
+    """
+    po = get_object_or_404(PO, customer_order_no=customer_order_no)
+    
+    try:
+        # FCMS에서 진척 정보 조회
+        progress_summary = FcmsRepository.get_production_summary_by_customer_order_no(
+            customer_order_no
+        )
+        
+        # 기존 데이터 삭제 후 재생성
+        FCMSProductionProgress.objects.filter(po=po).delete()
+        
+        sync_count = 0
+        for order in progress_summary.get('orders', []):
+            # 충전 진척도 조회
+            filling_progress = FcmsRepository.get_filling_progress_by_arrival_shipping_no(
+                order['arrival_shipping_no']
+            )
+            
+            for item in order.get('items', []):
+                FCMSProductionProgress.objects.create(
+                    po=po,
+                    arrival_shipping_no=order['arrival_shipping_no'],
+                    item_name=item.get('item_name', ''),
+                    packing_name=item.get('packing_name', ''),
+                    trade_condition_code=item.get('trade_condition_code', ''),
+                    selection_pattern_code=item.get('selection_pattern_code', ''),
+                    instruction_quantity=item.get('instruction_quantity'),
+                    instruction_count=item.get('instruction_count', 0),
+                    filling_threshold=item.get('filling_threshold'),
+                    filled_count=filling_progress.get('filled_count', 0),
+                    order_remarks=item.get('order_remarks', ''),
+                    fcms_order_id=order.get('id'),
+                    fcms_order_info_id=item.get('id'),
+                )
+                sync_count += 1
+        
+        messages.success(request, f'FCMS 생산 진척 정보가 동기화되었습니다. ({sync_count}건)')
+    except Exception as e:
+        messages.error(request, f'FCMS 동기화 실패: {e}')
+    
+    return redirect('orders:management_detail', customer_order_no=customer_order_no)
+
+
+# ============================================
+# FCMS 진척 API (AJAX용)
+# ============================================
+
+@require_GET
+def api_fcms_progress(request, customer_order_no):
+    """
+    FCMS 생산 진척 API
+    
+    GET /orders/api/fcms-progress/<customer_order_no>/
+    """
+    try:
+        progress_summary = FcmsRepository.get_production_summary_by_customer_order_no(
+            customer_order_no
+        )
+        
+        # 각 도착출하번호별 충전 진척도 추가
+        for order in progress_summary.get('orders', []):
+            filling_progress = FcmsRepository.get_filling_progress_by_arrival_shipping_no(
+                order['arrival_shipping_no']
+            )
+            order['filled_count'] = filling_progress.get('filled_count', 0)
+        
+        # Decimal을 float로 변환
+        progress_summary['total_instruction_quantity'] = float(
+            progress_summary.get('total_instruction_quantity', 0)
+        )
+        
+        return JsonResponse(progress_summary)
+    
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
