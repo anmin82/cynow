@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}회사정보 - CYNOW{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">회사정보</h1>
+        <p class="page-subtitle">자사 및 거래처 정보 관리</p>
+    </div>
+    <a href="{% url 'voucher:company_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> 회사 추가
+    </a>
+</div>
+
+<!-- 자사 정보 -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-building me-2"></i>자사 정보 (공급처)
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>회사코드</th>
+                        <th>회사명</th>
+                        <th>대표자</th>
+                        <th>전화번호</th>
+                        <th>담당자</th>
+                        <th class="text-center">액션</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in suppliers %}
+                    <tr>
+                        <td><strong>{{ company.code }}</strong></td>
+                        <td>
+                            {{ company.name }}
+                            {% if company.name_en %}
+                            <small class="text-muted d-block">{{ company.name_en }}</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ company.ceo|default:"-" }}</td>
+                        <td>{{ company.tel|default:"-" }}</td>
+                        <td>
+                            {% if company.manager_name %}
+                            {{ company.manager_name }}
+                            {% if company.manager_tel %}
+                            <small class="text-muted d-block">{{ company.manager_tel }}</small>
+                            {% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'voucher:company_edit' company.pk %}" class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-pencil"></i> 수정
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            자사 정보가 없습니다.
+                            <a href="{% url 'voucher:company_create' %}?is_supplier=1" class="btn btn-primary btn-sm ms-2">
+                                <i class="bi bi-plus-lg"></i> 자사 정보 등록
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 거래처 정보 -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-people me-2"></i>거래처 정보
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>회사코드</th>
+                        <th>회사명</th>
+                        <th>대표자</th>
+                        <th>전화번호</th>
+                        <th>담당자</th>
+                        <th>상태</th>
+                        <th class="text-center">액션</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for company in customers %}
+                    <tr>
+                        <td><strong>{{ company.code }}</strong></td>
+                        <td>
+                            {{ company.name }}
+                            {% if company.name_en %}
+                            <small class="text-muted d-block">{{ company.name_en }}</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ company.ceo|default:"-" }}</td>
+                        <td>{{ company.tel|default:"-" }}</td>
+                        <td>
+                            {% if company.manager_name %}
+                            {{ company.manager_name }}
+                            {% if company.manager_tel %}
+                            <small class="text-muted d-block">{{ company.manager_tel }}</small>
+                            {% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if company.is_active %}
+                            <span class="badge bg-success">활성</span>
+                            {% else %}
+                            <span class="badge bg-secondary">비활성</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{% url 'voucher:company_edit' company.pk %}" class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-pencil"></i> 수정
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">
+                            거래처 정보가 없습니다.
+                            <a href="{% url 'voucher:company_create' %}" class="btn btn-primary btn-sm ms-2">
+                                <i class="bi bi-plus-lg"></i> 거래처 등록
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

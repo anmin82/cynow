@@ -21,6 +21,11 @@ urlpatterns = [
     path('price-list/', views.generate_price_list, name='price_list'),
     path('price-list/download/', views.price_list_download, name='price_list_download'),
     
+    # 회사정보
+    path('companies/', views.company_list, name='company_list'),
+    path('company/create/', views.company_create, name='company_create'),
+    path('company/<int:pk>/edit/', views.company_edit, name='company_edit'),
+    
     # API
     path('api/generate/', views.api_generate_docx, name='api_generate'),
 ]

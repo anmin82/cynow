@@ -15,7 +15,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.db import models
 
-from .models import Quote, QuoteItem, Customer, DocumentTemplate
+from .models import Quote, QuoteItem, Customer, DocumentTemplate, CompanyInfo
 from .services.docx_generator import (
     DocxGenerator,
     QuoteDocxGenerator,
@@ -386,3 +386,109 @@ def quote_edit(request, pk):
     }
     return render(request, 'voucher/quote_form.html', context)
 
+
+# ============================================
+# 회사정보 관리
+# ============================================
+
+@login_required
+def company_list(request):
+    """회사정보 목록"""
+    suppliers = CompanyInfo.objects.filter(is_supplier=True).order_by('name')
+    customers = CompanyInfo.objects.filter(is_customer=True, is_supplier=False).order_by('name')
+    
+    context = {
+        'suppliers': suppliers,
+        'customers': customers,
+    }
+    return render(request, 'voucher/company_list.html', context)
+
+
+@login_required
+def company_create(request):
+    """회사 등록"""
+    if request.method == 'POST':
+        code = request.POST.get('code')
+        
+        # 중복 체크
+        if CompanyInfo.objects.filter(code=code).exists():
+            messages.error(request, f"회사코드 {code}가 이미 존재합니다.")
+            return redirect('voucher:company_create')
+        
+        company = CompanyInfo(
+            code=code,
+            name=request.POST.get('name'),
+            name_en=request.POST.get('name_en') or None,
+            name_jp=request.POST.get('name_jp') or None,
+            is_supplier='is_supplier' in request.POST,
+            is_customer='is_customer' in request.POST,
+            address=request.POST.get('address'),
+            address_en=request.POST.get('address_en'),
+            ceo=request.POST.get('ceo'),
+            business_no=request.POST.get('business_no'),
+            tel=request.POST.get('tel'),
+            fax=request.POST.get('fax'),
+            email=request.POST.get('email') or None,
+            website=request.POST.get('website') or None,
+            manager_name=request.POST.get('manager_name'),
+            manager_tel=request.POST.get('manager_tel'),
+            manager_email=request.POST.get('manager_email') or None,
+            bank_name=request.POST.get('bank_name'),
+            bank_account=request.POST.get('bank_account'),
+            bank_holder=request.POST.get('bank_holder'),
+            default_trade_terms=request.POST.get('default_trade_terms'),
+            note=request.POST.get('note'),
+            is_active='is_active' in request.POST,
+        )
+        company.save()
+        
+        messages.success(request, f"회사 {company.name}이(가) 등록되었습니다.")
+        return redirect('voucher:company_list')
+    
+    is_supplier = request.GET.get('is_supplier') == '1'
+    
+    context = {
+        'company': None,
+        'is_supplier': is_supplier,
+    }
+    return render(request, 'voucher/company_form.html', context)
+
+
+@login_required
+def company_edit(request, pk):
+    """회사정보 수정"""
+    company = get_object_or_404(CompanyInfo, pk=pk)
+    
+    if request.method == 'POST':
+        company.name = request.POST.get('name')
+        company.name_en = request.POST.get('name_en') or None
+        company.name_jp = request.POST.get('name_jp') or None
+        company.is_supplier = 'is_supplier' in request.POST
+        company.is_customer = 'is_customer' in request.POST
+        company.address = request.POST.get('address')
+        company.address_en = request.POST.get('address_en')
+        company.ceo = request.POST.get('ceo')
+        company.business_no = request.POST.get('business_no')
+        company.tel = request.POST.get('tel')
+        company.fax = request.POST.get('fax')
+        company.email = request.POST.get('email') or None
+        company.website = request.POST.get('website') or None
+        company.manager_name = request.POST.get('manager_name')
+        company.manager_tel = request.POST.get('manager_tel')
+        company.manager_email = request.POST.get('manager_email') or None
+        company.bank_name = request.POST.get('bank_name')
+        company.bank_account = request.POST.get('bank_account')
+        company.bank_holder = request.POST.get('bank_holder')
+        company.default_trade_terms = request.POST.get('default_trade_terms')
+        company.note = request.POST.get('note')
+        company.is_active = 'is_active' in request.POST
+        
+        company.save()
+        
+        messages.success(request, f"회사 {company.name} 정보가 수정되었습니다.")
+        return redirect('voucher:company_list')
+    
+    context = {
+        'company': company,
+    }
+    return render(request, 'voucher/company_form.html', context)

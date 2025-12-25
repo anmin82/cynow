@@ -11,6 +11,175 @@ from decimal import Decimal
 from datetime import date
 
 
+class CompanyInfo(models.Model):
+    """
+    회사 정보 (자사/거래처 공통)
+    
+    is_supplier=True: 자사 정보 (공급처)
+    is_supplier=False: 거래처 정보
+    """
+    code = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='회사코드'
+    )
+    name = models.CharField(
+        max_length=200,
+        verbose_name='회사명'
+    )
+    name_en = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='영문명'
+    )
+    name_jp = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='일문명'
+    )
+    
+    # 회사 구분
+    is_supplier = models.BooleanField(
+        default=False,
+        verbose_name='자사 여부',
+        help_text='체크하면 공급처(자사)로 사용'
+    )
+    is_customer = models.BooleanField(
+        default=True,
+        verbose_name='거래처 여부',
+        help_text='체크하면 거래처로 사용'
+    )
+    
+    # 기본 정보
+    address = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='주소'
+    )
+    address_en = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='영문 주소'
+    )
+    ceo = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='대표자'
+    )
+    business_no = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='사업자등록번호'
+    )
+    
+    # 연락처
+    tel = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='전화번호'
+    )
+    fax = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='팩스번호'
+    )
+    email = models.EmailField(
+        blank=True,
+        null=True,
+        verbose_name='이메일'
+    )
+    website = models.URLField(
+        blank=True,
+        null=True,
+        verbose_name='웹사이트'
+    )
+    
+    # 담당자
+    manager_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='담당자명'
+    )
+    manager_tel = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='담당자 연락처'
+    )
+    manager_email = models.EmailField(
+        blank=True,
+        null=True,
+        verbose_name='담당자 이메일'
+    )
+    
+    # 결제 정보 (자사용)
+    bank_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='은행명'
+    )
+    bank_account = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='계좌번호'
+    )
+    bank_holder = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='예금주'
+    )
+    
+    # 기본 거래 조건
+    default_trade_terms = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='기본 거래조건'
+    )
+    
+    # 메타
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name='활성화'
+    )
+    note = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='비고'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'voucher_company_info'
+        ordering = ['-is_supplier', 'name']
+        verbose_name = '회사정보'
+        verbose_name_plural = '회사정보'
+    
+    def __str__(self):
+        prefix = "[자사]" if self.is_supplier else ""
+        return f"{prefix} {self.code} - {self.name}"
+    
+    @classmethod
+    def get_supplier(cls):
+        """자사 정보 조회 (첫 번째)"""
+        return cls.objects.filter(is_supplier=True, is_active=True).first()
+    
+    @classmethod
+    def get_customers(cls):
+        """거래처 목록 조회"""
+        return cls.objects.filter(is_customer=True, is_active=True)
+
+
 class Customer(models.Model):
     """
     거래처 마스터

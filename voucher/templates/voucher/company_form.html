@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}{% if company %}회사정보 수정{% else %}회사 등록{% endif %} - CYNOW{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'voucher:company_list' %}">회사정보</a></li>
+        <li class="breadcrumb-item active">{% if company %}{{ company.name }} 수정{% else %}회사 등록{% endif %}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">{% if company %}회사정보 수정{% else %}회사 등록{% endif %}</h1>
+        <p class="page-subtitle">{% if company %}{{ company.code }}{% else %}새 회사 정보를 입력하세요{% endif %}</p>
+    </div>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="row g-4">
+        <!-- 기본 정보 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-building me-2"></i>기본 정보
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">회사코드 *</label>
+                            <input type="text" name="code" class="form-control" 
+                                   value="{{ company.code|default:'' }}" required
+                                   {% if company %}readonly{% endif %}>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">상태</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" name="is_active" 
+                                       id="isActive" {% if company.is_active or not company %}checked{% endif %}>
+                                <label class="form-check-label" for="isActive">활성화</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">회사명 *</label>
+                        <input type="text" name="name" class="form-control" 
+                               value="{{ company.name|default:'' }}" required>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">영문명</label>
+                            <input type="text" name="name_en" class="form-control" 
+                                   value="{{ company.name_en|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">일문명</label>
+                            <input type="text" name="name_jp" class="form-control" 
+                                   value="{{ company.name_jp|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">회사 구분</label>
+                        <div class="d-flex gap-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_supplier" 
+                                       id="isSupplier" {% if company.is_supplier or is_supplier %}checked{% endif %}>
+                                <label class="form-check-label" for="isSupplier">
+                                    <strong>자사 (공급처)</strong>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_customer" 
+                                       id="isCustomer" {% if company.is_customer or not company and not is_supplier %}checked{% endif %}>
+                                <label class="form-check-label" for="isCustomer">
+                                    거래처
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">대표자</label>
+                            <input type="text" name="ceo" class="form-control" 
+                                   value="{{ company.ceo|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">사업자등록번호</label>
+                            <input type="text" name="business_no" class="form-control" 
+                                   value="{{ company.business_no|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">주소</label>
+                        <textarea name="address" class="form-control" rows="2">{{ company.address|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">영문 주소</label>
+                        <textarea name="address_en" class="form-control" rows="2">{{ company.address_en|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 연락처 및 담당자 -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-telephone me-2"></i>연락처
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">전화번호</label>
+                            <input type="text" name="tel" class="form-control" 
+                                   value="{{ company.tel|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">팩스번호</label>
+                            <input type="text" name="fax" class="form-control" 
+                                   value="{{ company.fax|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">이메일</label>
+                            <input type="email" name="email" class="form-control" 
+                                   value="{{ company.email|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">웹사이트</label>
+                            <input type="url" name="website" class="form-control" 
+                                   value="{{ company.website|default:'' }}" placeholder="https://">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-person me-2"></i>담당자
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">담당자명</label>
+                        <input type="text" name="manager_name" class="form-control" 
+                               value="{{ company.manager_name|default:'' }}">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">담당자 연락처</label>
+                            <input type="text" name="manager_tel" class="form-control" 
+                                   value="{{ company.manager_tel|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">담당자 이메일</label>
+                            <input type="email" name="manager_email" class="form-control" 
+                                   value="{{ company.manager_email|default:'' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 결제 정보 (자사용) -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-bank me-2"></i>결제 정보
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">은행명</label>
+                            <input type="text" name="bank_name" class="form-control" 
+                                   value="{{ company.bank_name|default:'' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">계좌번호</label>
+                            <input type="text" name="bank_account" class="form-control" 
+                                   value="{{ company.bank_account|default:'' }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">예금주</label>
+                            <input type="text" name="bank_holder" class="form-control" 
+                                   value="{{ company.bank_holder|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">기본 거래조건</label>
+                        <textarea name="default_trade_terms" class="form-control" rows="2" 
+                                  placeholder="예: FOB 인천, 30일 결제">{{ company.default_trade_terms|default:'' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 비고 -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <label class="form-label">비고</label>
+            <textarea name="note" class="form-control" rows="2">{{ company.note|default:'' }}</textarea>
+        </div>
+    </div>
+    
+    <!-- 버튼 -->
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% url 'voucher:company_list' %}" class="btn btn-outline-light">
+            <i class="bi bi-x-lg"></i> 취소
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> {% if company %}저장{% else %}등록{% endif %}
+        </button>
+    </div>
+</form>
+{% endblock %}
+
