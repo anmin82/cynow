@@ -150,13 +150,7 @@
                             </td>
                             <td>{{ item.po.received_at|kst|date:"Y-m-d" }}</td>
                             <td>
-                                {% if item.po.delivery_type == 'PARTIAL' %}
-                                    <span class="badge bg-info">분납</span>
-                                {% elif item.po.delivery_type == 'FIXED' %}
-                                    <span class="badge bg-warning text-dark">{{ item.po.delivery_date|date:"m/d" }}</span>
-                                {% else %}
-                                    -
-                                {% endif %}
+                                <span class="badge bg-info" style="font-size: 0.7rem;">{{ item.po.delivery_summary }}</span>
                             </td>
                             <td class="text-center">
                                 <strong>{{ item.po.total_qty }}</strong>

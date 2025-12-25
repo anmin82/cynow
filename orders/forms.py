@@ -36,8 +36,6 @@ class POForm(forms.ModelForm):
             'supplier_user_code',
             'supplier_user_name',
             'received_at',
-            'delivery_type',
-            'delivery_date',
             'status',
             'memo',
         ]
@@ -60,15 +58,6 @@ class POForm(forms.ModelForm):
                 'class': 'form-control',
                 'type': 'datetime-local'
             }),
-            'delivery_type': forms.Select(attrs={
-                'class': 'form-select',
-                'id': 'delivery-type-select'
-            }),
-            'delivery_date': forms.DateInput(attrs={
-                'class': 'form-control',
-                'type': 'date',
-                'id': 'delivery-date-input'
-            }),
             'status': forms.Select(attrs={
                 'class': 'form-select'
             }),
@@ -83,8 +72,6 @@ class POForm(forms.ModelForm):
             'supplier_user_code': '고객코드',
             'supplier_user_name': '고객명',
             'received_at': '수주일시',
-            'delivery_type': '납기유형',
-            'delivery_date': '납기일',
             'status': '상태',
             'memo': '메모',
         }
@@ -102,17 +89,6 @@ class POForm(forms.ModelForm):
             raise ValidationError('이미 존재하는 PO번호입니다.')
         
         return customer_order_no
-    
-    def clean(self):
-        """납기 유효성 검사"""
-        cleaned_data = super().clean()
-        delivery_type = cleaned_data.get('delivery_type')
-        delivery_date = cleaned_data.get('delivery_date')
-        
-        if delivery_type == 'FIXED' and not delivery_date:
-            self.add_error('delivery_date', '지정일 납기 시 날짜를 입력해주세요.')
-        
-        return cleaned_data
 
 
 class POItemForm(forms.ModelForm):
@@ -139,6 +115,7 @@ class POItemForm(forms.ModelForm):
             'qty',
             'unit_price',
             'currency',
+            'delivery_date',
             'remarks',
         ]
         widgets = {
@@ -177,6 +154,11 @@ class POItemForm(forms.ModelForm):
             'currency': forms.HiddenInput(attrs={
                 'class': 'currency-value'
             }),
+            'delivery_date': forms.DateInput(attrs={
+                'class': 'form-control form-control-sm delivery-date',
+                'type': 'date',
+                'style': 'width: 130px;'
+            }),
             'remarks': forms.TextInput(attrs={
                 'class': 'form-control form-control-sm',
                 'placeholder': '비고'
@@ -186,6 +168,7 @@ class POItemForm(forms.ModelForm):
             'line_no': 'No',
             'trade_condition_code': '제품',
             'qty': '수량',
+            'delivery_date': '납기',
             'remarks': '비고',
         }
     

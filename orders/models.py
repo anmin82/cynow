@@ -36,11 +36,6 @@ class PO(models.Model):
         ('COMPLETED', '완료'),
     ]
     
-    DELIVERY_TYPE_CHOICES = [
-        ('PARTIAL', '분납 (익월말까지)'),
-        ('FIXED', '지정일'),
-    ]
-    
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # ⚠️ PO 번호는 customer_order_no 단 하나
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -79,22 +74,6 @@ class PO(models.Model):
     received_at = models.DateTimeField(
         default=timezone.now,
         verbose_name='수주일시'
-    )
-    
-    # 납기 정보
-    delivery_type = models.CharField(
-        max_length=20,
-        choices=DELIVERY_TYPE_CHOICES,
-        default='PARTIAL',
-        verbose_name='납기유형',
-        help_text='분납: 익월말까지 / 지정일: 특정일 지정'
-    )
-    
-    delivery_date = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name='납기일',
-        help_text='지정일 납기일 때만 입력'
     )
     
     status = models.CharField(
@@ -148,13 +127,17 @@ class PO(models.Model):
             self.supplier_user_name = self.customer.name
     
     @property
-    def delivery_display(self):
-        """납기 표시용 문자열"""
-        if self.delivery_type == 'PARTIAL':
-            return '분납 (익월말)'
-        elif self.delivery_type == 'FIXED' and self.delivery_date:
-            return f'{self.delivery_date.strftime("%Y-%m-%d")} 까지'
-        return '-'
+    def has_fixed_delivery_items(self):
+        """지정 납기 품목이 있는지 확인"""
+        return self.items.filter(delivery_date__isnull=False).exists()
+    
+    @property
+    def delivery_summary(self):
+        """납기 요약 (분납 기본 + 지정납기 품목 수)"""
+        fixed_count = self.items.filter(delivery_date__isnull=False).count()
+        if fixed_count > 0:
+            return f'분납 (지정 {fixed_count}건)'
+        return '분납 (익월말)'
     
     @property
     def total_qty(self):
@@ -296,6 +279,14 @@ class POItem(models.Model):
         verbose_name='통화'
     )
     
+    # 품목별 납기 (NULL이면 분납, 값이 있으면 해당일 납기)
+    delivery_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='납기일',
+        help_text='비워두면 분납(익월말), 날짜 입력 시 해당일 납기'
+    )
+    
     remarks = models.TextField(
         blank=True,
         verbose_name='비고'
@@ -335,6 +326,18 @@ class POItem(models.Model):
         if self.filling_weight:
             return self.filling_weight * self.qty
         return None
+    
+    @property
+    def delivery_display(self):
+        """납기 표시"""
+        if self.delivery_date:
+            return self.delivery_date.strftime('%m/%d')
+        return '분납'
+    
+    @property
+    def is_fixed_delivery(self):
+        """지정 납기 여부"""
+        return self.delivery_date is not None
     
     def sync_from_product_code(self):
         """ProductCode에서 스펙/단가 정보 동기화"""

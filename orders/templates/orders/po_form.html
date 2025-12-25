@@ -57,18 +57,18 @@
     
     /* 제품 선택 드롭다운 */
     .product-select {
-        min-width: 280px;
+        min-width: 260px;
     }
     
     /* 계산 결과 표시 */
     .calc-display {
         background: #f0f7ff;
         border-radius: 6px;
-        padding: 8px 12px;
+        padding: 6px 10px;
         margin-top: 4px;
+        font-size: 0.8rem;
     }
     .calc-display .label {
-        font-size: 0.75rem;
         color: #666;
     }
     .calc-display .value {
@@ -92,16 +92,18 @@
         opacity: 0.5;
     }
     
-    /* 납기 선택 */
-    .delivery-section {
-        background: #fffbeb;
-        border: 1px solid #fcd34d;
-        border-radius: 8px;
-        padding: 16px;
+    /* 납기 표시 */
+    .delivery-badge {
+        font-size: 0.75rem;
+        padding: 2px 6px;
     }
-    .delivery-section.fixed {
-        background: #fef2f2;
-        border-color: #fca5a5;
+    .delivery-partial {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    .delivery-fixed {
+        background: #fef3c7;
+        color: #92400e;
     }
     
     /* 제출 버튼 */
@@ -114,7 +116,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
     <div class="row mb-3">
         <div class="col">
             <nav aria-label="breadcrumb">
@@ -137,27 +139,26 @@
         
         <div class="row">
             <!-- 좌측: 기본 정보 -->
-            <div class="col-lg-5">
+            <div class="col-lg-4">
                 <!-- 고객 & PO번호 -->
                 <div class="card form-section">
                     <div class="card-header">
-                        <h5><i class="bi bi-building me-2"></i>고객 정보</h5>
+                        <h5><i class="bi bi-building me-2"></i>수주 정보</h5>
                     </div>
                     <div class="card-body">
                         <!-- 고객 선택 -->
                         <div class="mb-3 required-field">
-                            <label class="form-label fw-bold">고객사 선택 <span class="text-danger">*</span></label>
+                            <label class="form-label fw-bold">고객사 <span class="text-danger">*</span></label>
                             {{ form.customer }}
-                            <div class="form-text">고객을 선택하면 코드와 이름이 자동 입력됩니다.</div>
                         </div>
                         
                         <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">고객코드</label>
+                            <div class="col-6 mb-3">
+                                <label class="form-label small text-muted">고객코드</label>
                                 {{ form.supplier_user_code }}
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">고객명</label>
+                            <div class="col-6 mb-3">
+                                <label class="form-label small text-muted">고객명</label>
                                 {{ form.supplier_user_name }}
                             </div>
                         </div>
@@ -169,67 +170,37 @@
                             {% if form.customer_order_no.errors %}
                                 <div class="text-danger small">{{ form.customer_order_no.errors }}</div>
                             {% endif %}
-                            <div class="form-text">고객이 발행한 발주서 번호</div>
                         </div>
                         
                         <!-- 수주일시 -->
-                        <div class="mb-0">
+                        <div class="mb-3">
                             <label class="form-label">수주일시</label>
                             {{ form.received_at }}
                         </div>
-                    </div>
-                </div>
-                
-                <!-- 납기 정보 -->
-                <div class="card form-section">
-                    <div class="card-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-                        <h5><i class="bi bi-calendar-check me-2"></i>납기 정보</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="delivery-section" id="delivery-section">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">납기 유형</label>
-                                {{ form.delivery_type }}
-                            </div>
-                            
-                            <div id="delivery-date-wrapper" style="display: none;">
-                                <label class="form-label fw-bold">납기일 <span class="text-danger">*</span></label>
-                                {{ form.delivery_date }}
-                                {% if form.delivery_date.errors %}
-                                    <div class="text-danger small">{{ form.delivery_date.errors }}</div>
-                                {% endif %}
-                            </div>
-                            
-                            <div id="delivery-partial-info">
-                                <div class="alert alert-info mb-0">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                    <strong>분납:</strong> 익월 말까지 순차 출하됩니다.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 상태 & 메모 -->
-                <div class="card form-section">
-                    <div class="card-header" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);">
-                        <h5><i class="bi bi-gear me-2"></i>기타</h5>
-                    </div>
-                    <div class="card-body">
+                        
+                        <!-- 상태 -->
                         <div class="mb-3">
                             <label class="form-label">상태</label>
                             {{ form.status }}
                         </div>
+                        
+                        <!-- 메모 -->
                         <div class="mb-0">
                             <label class="form-label">메모</label>
                             {{ form.memo }}
                         </div>
                     </div>
                 </div>
+                
+                <!-- 납기 안내 -->
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>납기:</strong> 기본 분납(익월말). 품목별 지정일 납기가 필요하면 납기 컬럼에 날짜 입력.
+                </div>
             </div>
             
             <!-- 우측: 수주 품목 -->
-            <div class="col-lg-7">
+            <div class="col-lg-8">
                 <div class="card form-section">
                     <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
                         <h5 class="mb-0"><i class="bi bi-box-seam me-2"></i>수주 품목</h5>
@@ -244,11 +215,12 @@
                             <table class="table mb-0 items-table" id="items-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 50px;">No</th>
+                                        <th style="width: 45px;">No</th>
                                         <th>제품 선택 <span class="text-danger">*</span></th>
-                                        <th style="width: 90px;" class="text-center">수량 <span class="text-danger">*</span></th>
-                                        <th style="width: 130px;">비고</th>
-                                        <th style="width: 45px;"></th>
+                                        <th style="width: 80px;" class="text-center">수량 <span class="text-danger">*</span></th>
+                                        <th style="width: 120px;">납기</th>
+                                        <th style="width: 100px;">비고</th>
+                                        <th style="width: 40px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="items-tbody">
@@ -272,30 +244,17 @@
                                                     data-current="{{ item_form.trade_condition_code.value|default:'' }}">
                                                 <option value="">-- 제품 선택 --</option>
                                             </select>
-                                            <div class="calc-display mt-2" style="display: none;">
-                                                <div class="row">
-                                                    <div class="col-6">
-                                                        <span class="label">충전량:</span>
-                                                        <span class="value filling-display">-</span>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <span class="label">단가:</span>
-                                                        <span class="value price-display">-</span>
-                                                    </div>
-                                                </div>
-                                                <div class="row mt-1">
-                                                    <div class="col-6">
-                                                        <span class="label">중량:</span>
-                                                        <span class="value weight-display">-</span>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <span class="label">금액:</span>
-                                                        <span class="value amount-display">-</span>
-                                                    </div>
-                                                </div>
+                                            <div class="calc-display mt-1" style="display: none;">
+                                                <span class="label">충전:</span> <span class="value filling-display">-</span> |
+                                                <span class="label">단가:</span> <span class="value price-display">-</span> |
+                                                <span class="label">금액:</span> <span class="value amount-display">-</span>
                                             </div>
                                         </td>
                                         <td>{{ item_form.qty }}</td>
+                                        <td>
+                                            {{ item_form.delivery_date }}
+                                            <div class="text-muted small">비우면 분납</div>
+                                        </td>
                                         <td>{{ item_form.remarks }}</td>
                                         <td class="text-center">
                                             {% if item_form.instance.pk %}
@@ -315,35 +274,28 @@
                                     <tr class="totals-row">
                                         <td colspan="2" class="text-end">합계</td>
                                         <td class="text-center" id="total-qty">0</td>
-                                        <td colspan="2">
-                                            <div><span class="text-muted">금액:</span> <span id="total-amount">-</span></div>
-                                            <div><span class="text-muted">중량:</span> <span id="total-weight">-</span></div>
+                                        <td colspan="3">
+                                            <span class="text-muted">금액:</span> <span id="total-amount">-</span> |
+                                            <span class="text-muted">중량:</span> <span id="total-weight">-</span>
                                         </td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
-                        
-                        <div class="p-3 bg-light border-top">
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                제품을 선택하면 단가와 스펙이 자동으로 로딩됩니다.
-                            </small>
-                        </div>
                     </div>
                 </div>
+                
+                <!-- 버튼 -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% if is_edit %}{% url 'orders:detail' po.customer_order_no %}{% else %}{% url 'orders:list' %}{% endif %}" 
+                       class="btn btn-secondary btn-lg">
+                        <i class="bi bi-x-circle me-1"></i> 취소
+                    </a>
+                    <button type="submit" class="btn btn-primary btn-lg submit-btn">
+                        <i class="bi bi-check-circle me-1"></i> {% if is_edit %}수정 완료{% else %}수주 등록{% endif %}
+                    </button>
+                </div>
             </div>
-        </div>
-
-        <!-- 버튼 -->
-        <div class="d-flex justify-content-between mb-5 mt-4">
-            <a href="{% if is_edit %}{% url 'orders:detail' po.customer_order_no %}{% else %}{% url 'orders:list' %}{% endif %}" 
-               class="btn btn-secondary btn-lg">
-                <i class="bi bi-x-circle me-1"></i> 취소
-            </a>
-            <button type="submit" class="btn btn-primary btn-lg submit-btn">
-                <i class="bi bi-check-circle me-1"></i> {% if is_edit %}수정 완료{% else %}수주 등록{% endif %}
-            </button>
         </div>
     </form>
 </div>
@@ -361,37 +313,24 @@
             <input type="hidden" name="items-__prefix__-filling_weight" class="filling-weight">
             <input type="hidden" name="items-__prefix__-unit_price" class="unit-price">
             <input type="hidden" name="items-__prefix__-currency" class="currency-value">
-            <input type="number" name="items-__prefix__-line_no" class="form-control form-control-sm line-no" min="1" style="width: 50px;" value="">
+            <input type="number" name="items-__prefix__-line_no" class="form-control form-control-sm line-no" min="1" style="width: 45px;" value="">
         </td>
         <td>
             <select name="items-__prefix__-trade_condition_code" class="form-select form-select-sm product-select">
                 <option value="">-- 제품 선택 --</option>
             </select>
-            <div class="calc-display mt-2" style="display: none;">
-                <div class="row">
-                    <div class="col-6">
-                        <span class="label">충전량:</span>
-                        <span class="value filling-display">-</span>
-                    </div>
-                    <div class="col-6">
-                        <span class="label">단가:</span>
-                        <span class="value price-display">-</span>
-                    </div>
-                </div>
-                <div class="row mt-1">
-                    <div class="col-6">
-                        <span class="label">중량:</span>
-                        <span class="value weight-display">-</span>
-                    </div>
-                    <div class="col-6">
-                        <span class="label">금액:</span>
-                        <span class="value amount-display">-</span>
-                    </div>
-                </div>
+            <div class="calc-display mt-1" style="display: none;">
+                <span class="label">충전:</span> <span class="value filling-display">-</span> |
+                <span class="label">단가:</span> <span class="value price-display">-</span> |
+                <span class="label">금액:</span> <span class="value amount-display">-</span>
             </div>
         </td>
         <td>
             <input type="number" name="items-__prefix__-qty" class="form-control form-control-sm qty-input" min="1" placeholder="수량" style="width: 80px;">
+        </td>
+        <td>
+            <input type="date" name="items-__prefix__-delivery_date" class="form-control form-control-sm delivery-date" style="width: 130px;">
+            <div class="text-muted small">비우면 분납</div>
         </td>
         <td>
             <input type="text" name="items-__prefix__-remarks" class="form-control form-control-sm" placeholder="비고">
@@ -414,10 +353,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const customerSelect = document.getElementById('customer-select');
     const codeInput = document.querySelector('[name="supplier_user_code"]');
     const nameInput = document.querySelector('[name="supplier_user_name"]');
-    const deliveryTypeSelect = document.getElementById('delivery-type-select');
-    const deliveryDateWrapper = document.getElementById('delivery-date-wrapper');
-    const deliveryPartialInfo = document.getElementById('delivery-partial-info');
-    const deliverySection = document.getElementById('delivery-section');
     
     const itemsTbody = document.getElementById('items-tbody');
     const emptyRowTemplate = document.getElementById('empty-row-template');
@@ -425,23 +360,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let productsData = [];
     
-    // 통화 기호
-    const currencySymbols = {
-        'KRW': '₩',
-        'JPY': '¥',
-        'USD': '$',
-        'CNY': '¥'
-    };
+    const currencySymbols = { 'KRW': '₩', 'JPY': '¥', 'USD': '$', 'CNY': '¥' };
     
-    // 숫자 포맷팅
     function formatNumber(num) {
         if (num === null || num === undefined || isNaN(num)) return '-';
         return num.toLocaleString('ko-KR', { maximumFractionDigits: 0 });
     }
     
-    // ========================================
-    // 고객 선택 시 정보 자동입력
-    // ========================================
+    // 고객 선택
     if (customerSelect) {
         customerSelect.addEventListener('change', function() {
             const customerId = this.value;
@@ -454,7 +380,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             fetch(API_CUSTOMER_URL + customerId + '/')
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
                     if (data.code) {
                         codeInput.value = data.code;
@@ -462,49 +388,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         codeInput.classList.add('auto-filled');
                         nameInput.classList.add('auto-filled');
                     }
-                })
-                .catch(err => console.error('고객 정보 조회 실패:', err));
+                });
         });
         
-        // 초기 로드 시 이미 선택된 고객이 있으면 스타일 적용
         if (customerSelect.value && codeInput.value) {
             codeInput.classList.add('auto-filled');
             nameInput.classList.add('auto-filled');
         }
     }
     
-    // ========================================
-    // 납기 유형 변경
-    // ========================================
-    function updateDeliveryUI() {
-        const type = deliveryTypeSelect.value;
-        if (type === 'FIXED') {
-            deliveryDateWrapper.style.display = 'block';
-            deliveryPartialInfo.style.display = 'none';
-            deliverySection.classList.add('fixed');
-        } else {
-            deliveryDateWrapper.style.display = 'none';
-            deliveryPartialInfo.style.display = 'block';
-            deliverySection.classList.remove('fixed');
-        }
-    }
-    
-    if (deliveryTypeSelect) {
-        deliveryTypeSelect.addEventListener('change', updateDeliveryUI);
-        updateDeliveryUI(); // 초기 상태
-    }
-    
-    // ========================================
     // 제품 목록 로드
-    // ========================================
     function loadProducts() {
         fetch(API_PRODUCTS_URL)
-            .then(response => response.json())
+            .then(r => r.json())
             .then(products => {
                 productsData = products;
                 populateProductSelects();
-            })
-            .catch(err => console.error('제품 목록 로드 실패:', err));
+            });
     }
     
     function populateProductSelects() {
@@ -517,29 +417,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 option.value = p.code;
                 option.textContent = p.display;
                 option.dataset.product = JSON.stringify(p);
-                if (p.code === currentValue) {
-                    option.selected = true;
-                }
+                if (p.code === currentValue) option.selected = true;
                 select.appendChild(option);
             });
             
-            // 기존 값이 있으면 계산 표시
             if (currentValue) {
                 const row = select.closest('.item-form-row');
                 const product = productsData.find(p => p.code === currentValue);
-                if (product && row) {
-                    updateRowWithProduct(row, product);
-                }
+                if (product && row) updateRowWithProduct(row, product);
             }
         });
     }
     
-    // ========================================
-    // 품목 추가 버튼
-    // ========================================
-    document.getElementById('add-item-btn').addEventListener('click', function() {
-        addNewRow();
-    });
+    // 품목 추가
+    document.getElementById('add-item-btn').addEventListener('click', addNewRow);
     
     function addNewRow() {
         const totalForms = parseInt(totalFormsInput.value);
@@ -548,11 +439,9 @@ document.addEventListener('DOMContentLoaded', function() {
         tempDiv.innerHTML = templateHtml;
         const newRow = tempDiv.querySelector('tr');
         
-        // 라인번호 설정
         const lineNoInput = newRow.querySelector('.line-no');
-        const existingRows = itemsTbody.querySelectorAll('.item-form-row:not(.deleted)');
         let maxLineNo = 0;
-        existingRows.forEach(row => {
+        itemsTbody.querySelectorAll('.item-form-row:not(.deleted)').forEach(row => {
             const ln = parseInt(row.querySelector('.line-no').value) || 0;
             if (ln > maxLineNo) maxLineNo = ln;
         });
@@ -561,7 +450,6 @@ document.addEventListener('DOMContentLoaded', function() {
         itemsTbody.appendChild(newRow);
         totalFormsInput.value = totalForms + 1;
         
-        // 제품 드롭다운 채우기
         const select = newRow.querySelector('.product-select');
         select.innerHTML = '<option value="">-- 제품 선택 --</option>';
         productsData.forEach(p => {
@@ -572,29 +460,22 @@ document.addEventListener('DOMContentLoaded', function() {
             select.appendChild(option);
         });
         
-        // 이벤트 바인딩
         initRowEvents(newRow);
-        
-        // 포커스
         select.focus();
     }
     
-    // ========================================
-    // 행 이벤트 초기화
-    // ========================================
+    // 행 이벤트
     function initRowEvents(row) {
         const productSelect = row.querySelector('.product-select');
         const qtyInput = row.querySelector('.qty-input');
         const removeBtn = row.querySelector('.remove-row-btn');
         const deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
         
-        // 제품 선택 변경
         if (productSelect) {
             productSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                if (selectedOption && selectedOption.dataset.product) {
-                    const product = JSON.parse(selectedOption.dataset.product);
-                    updateRowWithProduct(row, product);
+                const opt = this.options[this.selectedIndex];
+                if (opt && opt.dataset.product) {
+                    updateRowWithProduct(row, JSON.parse(opt.dataset.product));
                 } else {
                     clearRowProduct(row);
                 }
@@ -602,26 +483,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // 수량 변경
-        if (qtyInput) {
-            qtyInput.addEventListener('input', () => calculateRowAmount(row));
-        }
-        
-        // 삭제 버튼
-        if (removeBtn) {
-            removeBtn.addEventListener('click', function() {
-                row.remove();
-                updateTotals();
-            });
-        }
-        
-        // 삭제 체크박스
-        if (deleteCheckbox) {
-            deleteCheckbox.addEventListener('change', function() {
-                row.classList.toggle('deleted', this.checked);
-                updateTotals();
-            });
-        }
+        if (qtyInput) qtyInput.addEventListener('input', () => calculateRowAmount(row));
+        if (removeBtn) removeBtn.addEventListener('click', () => { row.remove(); updateTotals(); });
+        if (deleteCheckbox) deleteCheckbox.addEventListener('change', function() {
+            row.classList.toggle('deleted', this.checked);
+            updateTotals();
+        });
     }
     
     function updateRowWithProduct(row, product) {
@@ -634,16 +501,12 @@ document.addEventListener('DOMContentLoaded', function() {
         row.querySelector('.unit-price').value = product.unit_price || '';
         row.querySelector('.currency-value').value = product.currency;
         
-        // 계산 표시 영역 보이기
         const calcDisplay = row.querySelector('.calc-display');
         if (calcDisplay) {
             calcDisplay.style.display = 'block';
-            row.querySelector('.filling-display').textContent = 
-                product.filling_weight ? `${product.filling_weight} kg` : '-';
-            row.querySelector('.price-display').textContent = 
-                product.unit_price ? `${product.currency_symbol}${formatNumber(product.unit_price)}/kg` : '-';
+            row.querySelector('.filling-display').textContent = product.filling_weight ? `${product.filling_weight}kg` : '-';
+            row.querySelector('.price-display').textContent = product.unit_price ? `${product.currency_symbol}${formatNumber(product.unit_price)}/kg` : '-';
         }
-        
         calculateRowAmount(row);
     }
     
@@ -656,16 +519,10 @@ document.addEventListener('DOMContentLoaded', function() {
         row.querySelector('.filling-weight').value = '';
         row.querySelector('.unit-price').value = '';
         row.querySelector('.currency-value').value = 'KRW';
-        
         const calcDisplay = row.querySelector('.calc-display');
-        if (calcDisplay) {
-            calcDisplay.style.display = 'none';
-        }
+        if (calcDisplay) calcDisplay.style.display = 'none';
     }
     
-    // ========================================
-    // 금액 계산
-    // ========================================
     function calculateRowAmount(row) {
         if (row.classList.contains('deleted')) return;
         
@@ -674,38 +531,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const unitPrice = parseFloat(row.querySelector('.unit-price')?.value) || 0;
         const currency = row.querySelector('.currency-value')?.value || 'KRW';
         
-        const weightDisplay = row.querySelector('.weight-display');
         const amountDisplay = row.querySelector('.amount-display');
-        
-        if (weightDisplay) {
-            if (fillingWeight > 0 && qty > 0) {
-                const totalWeight = fillingWeight * qty;
-                weightDisplay.textContent = `${formatNumber(totalWeight)} kg`;
-            } else {
-                weightDisplay.textContent = '-';
-            }
-        }
-        
         if (amountDisplay) {
             if (unitPrice > 0 && fillingWeight > 0 && qty > 0) {
-                const packingPrice = unitPrice * fillingWeight;
-                const amount = packingPrice * qty;
+                const amount = unitPrice * fillingWeight * qty;
                 amountDisplay.textContent = `${currencySymbols[currency] || ''}${formatNumber(amount)}`;
             } else {
                 amountDisplay.textContent = '-';
             }
         }
-        
         updateTotals();
     }
     
-    // ========================================
-    // 합계 업데이트
-    // ========================================
     function updateTotals() {
-        let totalQty = 0;
-        let totalWeight = 0;
-        const amountsByCurrency = {};
+        let totalQty = 0, totalWeight = 0;
+        const amounts = {};
         
         document.querySelectorAll('.item-form-row:not(.deleted)').forEach(row => {
             const qty = parseInt(row.querySelector('.qty-input')?.value) || 0;
@@ -714,42 +554,22 @@ document.addEventListener('DOMContentLoaded', function() {
             const currency = row.querySelector('.currency-value')?.value || 'KRW';
             
             totalQty += qty;
-            
-            if (fillingWeight > 0 && qty > 0) {
-                totalWeight += fillingWeight * qty;
-            }
-            
+            if (fillingWeight > 0 && qty > 0) totalWeight += fillingWeight * qty;
             if (unitPrice > 0 && fillingWeight > 0 && qty > 0) {
-                const amount = unitPrice * fillingWeight * qty;
-                if (!amountsByCurrency[currency]) {
-                    amountsByCurrency[currency] = 0;
-                }
-                amountsByCurrency[currency] += amount;
+                if (!amounts[currency]) amounts[currency] = 0;
+                amounts[currency] += unitPrice * fillingWeight * qty;
             }
         });
         
         document.getElementById('total-qty').textContent = formatNumber(totalQty);
         
-        // 총 금액
-        const amountParts = [];
-        for (const [currency, amount] of Object.entries(amountsByCurrency)) {
-            amountParts.push(`${currencySymbols[currency] || ''}${formatNumber(amount)} ${currency}`);
-        }
+        const amountParts = Object.entries(amounts).map(([c, a]) => `${currencySymbols[c] || ''}${formatNumber(a)} ${c}`);
         document.getElementById('total-amount').textContent = amountParts.length > 0 ? amountParts.join(' / ') : '-';
-        
-        // 총 중량
-        document.getElementById('total-weight').textContent = totalWeight > 0 ? `${formatNumber(totalWeight)} kg` : '-';
+        document.getElementById('total-weight').textContent = totalWeight > 0 ? `${formatNumber(totalWeight)}kg` : '-';
     }
     
-    // ========================================
-    // 초기화
-    // ========================================
     loadProducts();
-    
-    document.querySelectorAll('.item-form-row').forEach(row => {
-        initRowEvents(row);
-    });
-    
+    document.querySelectorAll('.item-form-row').forEach(initRowEvents);
     updateTotals();
 });
 </script>

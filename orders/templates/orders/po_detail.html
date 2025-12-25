@@ -190,16 +190,7 @@
                                     <tr>
                                         <th>납기</th>
                                         <td>
-                                            {% if po.delivery_type == 'PARTIAL' %}
-                                                <span class="badge bg-info">분납 (익월말)</span>
-                                            {% elif po.delivery_type == 'FIXED' %}
-                                                <span class="badge bg-warning text-dark">지정일</span>
-                                                {% if po.delivery_date %}
-                                                    <strong>{{ po.delivery_date|date:"Y-m-d" }}</strong> 까지
-                                                {% endif %}
-                                            {% else %}
-                                                -
-                                            {% endif %}
+                                            <span class="badge bg-info">{{ po.delivery_summary }}</span>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -247,8 +238,8 @@
                                     <th>스펙</th>
                                     <th class="text-center">충전량</th>
                                     <th class="text-center">수량</th>
+                                    <th>납기</th>
                                     <th class="text-end">단가(/kg)</th>
-                                    <th class="text-end">용기단가</th>
                                     <th class="text-end">금액</th>
                                     <th class="text-center">중량</th>
                                 </tr>
@@ -276,22 +267,19 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-center"><strong>{{ item.qty }}</strong></td>
+                                    <td>
+                                        {% if item.delivery_date %}
+                                            <span class="badge bg-warning text-dark">{{ item.delivery_date|date:"m/d" }}</span>
+                                        {% else %}
+                                            <span class="text-muted">분납</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end">
                                         {% if item.unit_price %}
                                             <span class="currency-{{ item.currency|lower }}">
                                                 {% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' %}¥{% elif item.currency == 'USD' %}${% else %}{{ item.currency }}{% endif %}
                                             </span>
                                             {{ item.unit_price|floatformat:0|intcomma }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        {% if item.packing_price %}
-                                            <span class="currency-{{ item.currency|lower }}">
-                                                {% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' %}¥{% elif item.currency == 'USD' %}${% else %}{{ item.currency }}{% endif %}
-                                            </span>
-                                            {{ item.packing_price|floatformat:0|intcomma }}
                                         {% else %}
                                             -
                                         {% endif %}
@@ -324,9 +312,9 @@
                             </tbody>
                             <tfoot>
                                 <tr class="totals-row">
-                                    <td colspan="5" class="text-end">합계</td>
-                                    <td class="text-center"><strong>{{ po.total_qty }}</strong></td>
-                                    <td colspan="2"></td>
+                                    <td colspan="6" class="text-end">합계</td>
+                                    <td></td>
+                                    <td></td>
                                     <td class="text-end">
                                         {% if po.total_amount_display %}
                                             <span class="amount-display">{{ po.total_amount_display }}</span>
