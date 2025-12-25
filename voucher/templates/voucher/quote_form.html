@@ -138,8 +138,10 @@
                             <th style="width: 40px;"></th>
                             <th>제품코드</th>
                             <th>가스명</th>
-                            <th>용기</th>
-                            <th>충전량</th>
+                            <th>용기 스펙</th>
+                            <th>밸브 스펙</th>
+                            <th>용량(L)</th>
+                            <th>충전량(kg)</th>
                             <th>통화</th>
                             <th class="text-end">단가(/kg)</th>
                         </tr>
@@ -153,8 +155,10 @@
                             </td>
                             <td><code>{{ p.trade_condition_no }}</code></td>
                             <td>{{ p.gas_name|default:'-' }}</td>
-                            <td>{{ p.cylinder_capacity|default:'-' }}L</td>
-                            <td>{{ p.filling_weight|default:'-' }}kg</td>
+                            <td><small>{{ p.cylinder_spec_name|default:'-' }}</small></td>
+                            <td><small>{{ p.valve_spec_name|default:'-' }}</small></td>
+                            <td>{{ p.cylinder_capacity|default:'-' }}</td>
+                            <td>{{ p.filling_weight|default:'-' }}</td>
                             <td>
                                 {% if p.default_currency == 'KRW' %}
                                 <span class="badge bg-success currency-badge">₩ KRW</span>
@@ -176,7 +180,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">
+                            <td colspan="9" class="text-center py-4 text-muted">
                                 등록된 제품이 없습니다.
                                 <a href="{% url 'products:list' %}">제품코드 관리</a>
                             </td>

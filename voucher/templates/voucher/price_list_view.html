@@ -87,7 +87,9 @@
                         <th style="width: 50px;">No</th>
                         <th>제품코드</th>
                         <th>가스명</th>
-                        <th class="text-center">용기(L)</th>
+                        <th>용기 스펙</th>
+                        <th>밸브 스펙</th>
+                        <th class="text-center">용량(L)</th>
                         <th class="text-center">충전량(kg)</th>
                         <th class="text-center">통화</th>
                         <th class="text-end">단가(/kg)</th>
@@ -100,6 +102,8 @@
                         <td class="text-muted">{{ forloop.counter }}</td>
                         <td><code>{{ item.product.trade_condition_no }}</code></td>
                         <td>{{ item.product.gas_name|default:'-' }}</td>
+                        <td><small>{{ item.product.cylinder_spec_name|default:'-' }}</small></td>
+                        <td><small>{{ item.product.valve_spec_name|default:'-' }}</small></td>
                         <td class="text-center">{{ item.product.cylinder_capacity|default:'-' }}</td>
                         <td class="text-center">{{ item.filling_weight|floatformat:1 }}</td>
                         <td class="text-center">
@@ -132,7 +136,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center py-4 text-muted">
+                        <td colspan="10" class="text-center py-4 text-muted">
                             등록된 제품이 없습니다.
                         </td>
                     </tr>
