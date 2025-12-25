@@ -385,11 +385,15 @@ def quote_create(request):
         )
         quote.save()
         
-        # 선택된 제품들로 QuoteItem 생성
+        # 선택된 제품들 조회 및 정렬 (가스명 → 통화 → 제품코드)
+        products_to_add = ProductCode.objects.filter(
+            pk__in=selected_products
+        ).order_by('gas_name', 'default_currency', 'trade_condition_no')
+        
+        # QuoteItem 생성
         item_count = 0
-        for product_pk in selected_products:
+        for product in products_to_add:
             try:
-                product = ProductCode.objects.get(pk=product_pk)
                 
                 # 해당 연도 단가 조회 (유효기간 연도 기준)
                 from django.db.models import Q
@@ -428,7 +432,7 @@ def quote_create(request):
                     packing_price=packing_price,
                 )
                 item_count += 1
-            except ProductCode.DoesNotExist:
+            except Exception:
                 continue
         
         messages.success(request, f"견적서 {quote.quote_no}가 생성되었습니다. (품목 {item_count}개)")
