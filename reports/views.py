@@ -306,6 +306,8 @@ def daily_report(request):
     # 오늘 이동된 용기 조회
     movements = []
     move_summary = {}
+    arrival_details = []  # 입하 용기 상세
+    arrival_summary = {'total': 0, 'expired': 0, 'expiring_soon': 0}
     
     try:
         with connection.cursor() as cursor:
@@ -354,6 +356,59 @@ def daily_report(request):
                 if move_label not in move_summary:
                     move_summary[move_label] = {'code': move_code, 'count': 0}
                 move_summary[move_label]['count'] += 1
+            
+            # 입하(10) 용기 상세 정보 조회 (내압검사 만료일 포함)
+            cursor.execute('''
+                SELECT 
+                    h."CYLINDER_NO",
+                    h."MOVE_DATE",
+                    h."SUPPLIER_USER_NAME",
+                    h."CUSTOMER_USER_NAME",
+                    c."ITEM_CODE",
+                    c."CAPACITY",
+                    c."WITHSTAND_PRESSURE_MAINTE_DATE",
+                    c."WITHSTAND_PRESSURE_TEST_TERM",
+                    CASE 
+                        WHEN c."WITHSTAND_PRESSURE_MAINTE_DATE" IS NULL THEN NULL
+                        WHEN c."WITHSTAND_PRESSURE_TEST_TERM" IS NULL THEN NULL
+                        ELSE c."WITHSTAND_PRESSURE_MAINTE_DATE" + (c."WITHSTAND_PRESSURE_TEST_TERM" * INTERVAL '1 year')
+                    END as pressure_expiry_date
+                FROM fcms_cdc.tr_cylinder_status_histories h
+                LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
+                WHERE DATE(h."MOVE_DATE") = %s
+                  AND h."MOVE_CODE" = '10'
+                ORDER BY h."CYLINDER_NO"
+            ''', [report_date])
+            
+            today = report_date
+            for row in cursor.fetchall():
+                expiry_date = row[8]
+                is_expired = False
+                is_expiring_soon = False
+                
+                if expiry_date:
+                    expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+                    if expiry_date_only < today:
+                        is_expired = True
+                        arrival_summary['expired'] += 1
+                    elif expiry_date_only < today + timedelta(days=90):
+                        is_expiring_soon = True
+                        arrival_summary['expiring_soon'] += 1
+                
+                arrival_summary['total'] += 1
+                arrival_details.append({
+                    'cylinder_no': row[0].strip() if row[0] else '',
+                    'move_date': row[1],
+                    'supplier': row[2].strip() if row[2] else '',
+                    'customer': row[3].strip() if row[3] else '',
+                    'item_code': row[4].strip() if row[4] else '',
+                    'capacity': row[5] or 0,
+                    'pressure_test_date': row[6],
+                    'pressure_test_term': row[7] or 0,
+                    'pressure_expiry_date': expiry_date,
+                    'is_expired': is_expired,
+                    'is_expiring_soon': is_expiring_soon,
+                })
     
     except Exception as e:
         logger.error(f"일일 보고서 조회 오류: {e}")
@@ -385,6 +440,8 @@ def daily_report(request):
         'total_movements': len(movements),
         'status_summary': status_summary,
         'total_cylinders': total_cylinders,
+        'arrival_details': arrival_details,
+        'arrival_summary': arrival_summary,
         'generated_at': timezone.now(),
     }
     return render(request, 'reports/daily.html', context)
