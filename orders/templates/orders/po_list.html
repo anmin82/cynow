@@ -159,10 +159,14 @@
                                 {% endif %}
                             </td>
                             <td class="text-end">
-                                {% if item.po.total_amount_display %}
-                                    <span class="amount-text">{{ item.po.total_amount_display }}</span>
+                                {% if user.is_authenticated %}
+                                    {% if item.po.total_amount_display %}
+                                        <span class="amount-text">{{ item.po.total_amount_display }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                    <span class="text-muted" title="로그인 필요">***</span>
                                 {% endif %}
                             </td>
                             <td>

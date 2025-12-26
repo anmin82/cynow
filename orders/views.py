@@ -88,17 +88,7 @@ def po_list(request):
     status = request.GET.get('status', '')
     supplier = request.GET.get('supplier', '')
     
-    # 비로그인 사용자는 에러 대신 빈 화면(안내)로 처리
-    # - 메뉴 클릭 시 서버에러(500) 방지
-    if not request.user.is_authenticated:
-        context = {
-            "po_list": [],
-            "current_status": "",
-            "current_supplier": "",
-            "status_choices": PO.STATUS_CHOICES,
-            "error_message": "PO 관리는 로그인 후 사용 가능합니다.",
-        }
-        return render(request, "orders/po_list.html", context)
+    # 비로그인 사용자도 목록 조회 가능 (단가/금액만 블라인드 - 템플릿에서 처리)
 
     try:
         pos = PO.objects.all()
