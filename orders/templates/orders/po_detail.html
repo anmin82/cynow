@@ -349,8 +349,8 @@
                                     <td class="text-center">{% if item.filling_weight %}{{ item.filling_weight|floatformat:0 }}{% else %}-{% endif %}</td>
                                     <td class="text-center"><strong>{{ item.qty }}</strong></td>
                                     <td class="text-center">{% if item.delivery_date %}{{ item.delivery_date|date:"m/d" }}{% else %}분납{% endif %}</td>
-                                    <td class="text-end">{% if item.unit_price %}{{ item.unit_price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
-                                    <td class="text-end"><strong>{% if item.amount %}{{ item.amount|floatformat:0|intcomma }}{% else %}-{% endif %}</strong></td>
+                                    <td class="text-end">{% if item.unit_price %}{% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' or item.currency == 'CNY' %}¥{% elif item.currency == 'USD' %}${% endif %}{{ item.unit_price|floatformat:0|intcomma }}{% else %}-{% endif %}</td>
+                                    <td class="text-end"><strong>{% if item.amount %}{% if item.currency == 'KRW' %}₩{% elif item.currency == 'JPY' or item.currency == 'CNY' %}¥{% elif item.currency == 'USD' %}${% endif %}{{ item.amount|floatformat:0|intcomma }}{% else %}-{% endif %}</strong></td>
                                     <td class="text-center">{% if item.total_weight %}{{ item.total_weight|floatformat:0 }}{% else %}-{% endif %}</td>
                                 </tr>
                                 {% empty %}
