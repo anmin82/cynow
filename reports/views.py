@@ -763,10 +763,27 @@ def arrival_report(request):
     current_inventory = CylinderRepository.get_inventory_summary()
     cylinder_types_dict = group_cylinder_types(current_inventory)
     
-    # 가용 수량 기준 상위 10개
+    # 제품명 조합 함수 (스펙 정리 포함)
+    def build_item_name(v):
+        parts = [v['gas_name']]
+        if v['capacity']:
+            parts.append(f"{int(v['capacity'])}L")
+        valve = clean_spec(v.get('valve_spec', '') or '')
+        if valve:
+            parts.append(valve)
+        cylinder = clean_spec(v.get('cylinder_spec', '') or '')
+        if cylinder:
+            parts.append(cylinder)
+        enduser = v.get('usage_place', '') or ''
+        if enduser:
+            parts.append(enduser)
+        return ' / '.join(parts)
+    
+    # 가용 수량 기준 상위 15개
     inventory_list = sorted(
         [
             {
+                'item_name': build_item_name(v),
                 'gas_name': v['gas_name'],
                 'capacity': v['capacity'],
                 'available_qty': v['available_qty'],
@@ -775,7 +792,7 @@ def arrival_report(request):
             for v in cylinder_types_dict.values()
         ],
         key=lambda x: -x['available_qty']
-    )[:10]
+    )[:15]
     
     # 전체 가용/총 집계
     total_available = sum(v['available_qty'] for v in cylinder_types_dict.values())
