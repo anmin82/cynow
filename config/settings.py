@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'products',
     'voucher',  # 전표/견적서 생성
     'inventory',  # 재고 관리
+    'sales',  # 판매(거래명세서/출하지시서/매출집계)
 ]
 
 MIDDLEWARE = [

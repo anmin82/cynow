@@ -29,6 +29,7 @@ urlpatterns = [
     path('history/', include('history.urls')),
     path('orders/', include('orders.urls')),  # 🆕 수주 관리
     path('inventory/', include('inventory.urls')),  # 재고 관리
+    path('sales/', include('sales.urls')),  # 판매 (거래명세서/출하지시서/매출집계)
     
     # Authentication
     path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),

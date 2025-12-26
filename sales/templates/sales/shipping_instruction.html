@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}출하지시서{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-truck me-2"></i>출하지시서 (MVP)</h2>
+    <a href="{% url 'sales:index' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>판매
+    </a>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label">이동서번호(MOVE_REPORT_NO)</label>
+          <input type="text" name="move_report_no" class="form-control" value="{{ move_report_no }}" placeholder="예: FP25xxxxxx">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary w-100" type="submit">
+            <i class="bi bi-search me-1"></i>조회
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if move_report_no and not detail %}
+    <div class="alert alert-warning">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      이동서 정보를 찾지 못했습니다. 번호를 확인해주세요.
+    </div>
+  {% endif %}
+
+  {% if detail %}
+    <div class="card mb-4">
+      <div class="card-header">이동서 정보</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <table class="table table-sm">
+              <tr><th style="width:140px">이동서번호</th><td class="fw-bold">{{ detail.move_report.move_report_no }}</td></tr>
+              <tr><th>고객사</th><td>{{ detail.move_report.supplier_user_name }}</td></tr>
+              <tr><th>PO번호</th><td>{{ detail.move_report.customer_order_no }}</td></tr>
+              <tr><th>제품</th><td>{{ detail.move_report.item_name }}</td></tr>
+            </table>
+          </div>
+          <div class="col-md-6">
+            <table class="table table-sm">
+              <tr><th style="width:140px">포장</th><td>{{ detail.move_report.packing_name }}</td></tr>
+              <tr><th>지시수량(병)</th><td class="fw-bold">{{ detail.move_report.instruction_count|intcomma }}</td></tr>
+              <tr><th>출하일</th><td>{{ detail.move_report.shipping_date|date:"Y-m-d"|default:"-" }}</td></tr>
+              <tr><th>충전LOT</th><td><code>{{ detail.move_report.filling_lot_no|default:"-" }}</code></td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">용기 리스트</div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>용기번호</th>
+                <th>최근이동코드</th>
+                <th>최근이동일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in detail.cylinders %}
+              <tr>
+                <td>{{ c.row_no }}</td>
+                <td class="fw-bold">{{ c.cylinder_no }}</td>
+                <td><span class="badge bg-secondary">{{ c.last_move_code|default:"-" }}</span></td>
+                <td class="text-muted small">{{ c.last_move_date|date:"Y-m-d H:i"|default:"-" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-4">용기 리스트가 없습니다.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+
