@@ -359,13 +359,8 @@ def daily_report(request):
                 pressure_test_term = row[13] or 0
                 valve_name = row[14].strip() if row[14] else ''
                 
-                # 제품명: 가스/용량L/밸브 형식
-                item_name_parts = [gas_name]
-                if capacity:
-                    item_name_parts.append(f"{int(capacity)}L")
-                if valve_name:
-                    item_name_parts.append(valve_name)
-                item_name = ' / '.join(item_name_parts)
+                # 제품명: ITEM_CODE 그대로 사용 (CF4_47L_BN_Mn-St_JIS-R_BRASS 형식)
+                item_name = item_code if item_code else '미분류'
                 
                 # 내압만료 계산
                 is_expired = False
@@ -437,7 +432,7 @@ def daily_report(request):
                     h."MOVE_DATE",
                     h."SUPPLIER_USER_NAME",
                     h."CUSTOMER_USER_NAME",
-                    COALESCE(i."DISPLAY_NAME", c."ITEM_CODE", '미분류') as item_name,
+                    COALESCE(c."ITEM_CODE", '미분류') as item_code,
                     c."CAPACITY",
                     c."WITHSTAND_PRESSURE_MAINTE_DATE",
                     c."WITHSTAND_PRESSURE_TEST_TERM",
@@ -445,12 +440,9 @@ def daily_report(request):
                         WHEN c."WITHSTAND_PRESSURE_MAINTE_DATE" IS NULL THEN NULL
                         WHEN c."WITHSTAND_PRESSURE_TEST_TERM" IS NULL THEN NULL
                         ELSE c."WITHSTAND_PRESSURE_MAINTE_DATE" + (c."WITHSTAND_PRESSURE_TEST_TERM" * INTERVAL '1 year')
-                    END as pressure_expiry_date,
-                    COALESCE(pv."VALUE2", c."VALVE_SPEC_CODE", '') as valve_name
+                    END as pressure_expiry_date
                 FROM fcms_cdc.tr_cylinder_status_histories h
                 LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
-                LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
-                LEFT JOIN fcms_cdc.ma_parameters pv ON pv."TYPE" = '0021' AND TRIM(pv."VALUE1") = TRIM(c."VALVE_SPEC_CODE")
                 WHERE DATE(h."MOVE_DATE") = %s
                   AND h."MOVE_CODE" = '10'
                 ORDER BY h."CYLINDER_NO"
@@ -471,16 +463,9 @@ def daily_report(request):
                         is_expiring_soon = True
                         arrival_summary['expiring_soon'] += 1
                 
-                # 제품명: 가스/용량L/밸브 형식
-                gas_name = row[4].strip() if row[4] else '미분류'
+                # 제품명: ITEM_CODE 그대로 사용
+                item_code = row[4].strip() if row[4] else '미분류'
                 capacity = row[5] or 0
-                valve_name = row[9].strip() if row[9] else ''
-                item_name_parts = [gas_name]
-                if capacity:
-                    item_name_parts.append(f"{int(capacity)}L")
-                if valve_name:
-                    item_name_parts.append(valve_name)
-                item_name = ' / '.join(item_name_parts)
                 
                 arrival_summary['total'] += 1
                 arrival_details.append({
@@ -488,7 +473,7 @@ def daily_report(request):
                     'move_date': row[1],
                     'supplier': row[2].strip() if row[2] else '',
                     'customer': row[3].strip() if row[3] else '',
-                    'item_code': item_name,
+                    'item_code': item_code,
                     'capacity': capacity,
                     'pressure_test_date': row[6],
                     'pressure_test_term': row[7] or 0,
