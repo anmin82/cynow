@@ -858,7 +858,7 @@ def arrival_report(request):
             for v in cylinder_types_dict.values()
         ],
         key=lambda x: -x['available_qty']
-    )[:15]
+    )  # 전체 표시
     
     # 전체 가용/총 집계
     total_available = sum(v['available_qty'] for v in cylinder_types_dict.values())
