@@ -36,7 +36,7 @@ class Command(BaseCommand):
                         SELECT DISTINCT c."CYLINDER_NO"
                         FROM "fcms_cdc"."ma_cylinders" c
                         LEFT JOIN "fcms_cdc"."tr_latest_cylinder_statuses" ls 
-                            ON c."CYLINDER_NO" = ls."CYLINDER_NO"
+                            ON RTRIM(c."CYLINDER_NO") = RTRIM(ls."CYLINDER_NO")
                         WHERE c."UPDATE_DATETIME" >= %s
                            OR c."ADD_DATETIME" >= %s
                            OR ls."MOVE_DATE" >= %s

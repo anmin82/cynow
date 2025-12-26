@@ -79,7 +79,7 @@ class Command(BaseCommand):
                 create_cylinder_list_view_sql = f"""
                     CREATE OR REPLACE VIEW vw_cynow_cylinder_list AS
                     SELECT 
-                        c."CYLINDER_NO" as cylinder_no,
+                        RTRIM(c."CYLINDER_NO") as cylinder_no,
                         COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", '') as gas_name,
                         c."CAPACITY" as capacity,
                         COALESCE(vs."NAME", '') as valve_spec,
@@ -107,7 +107,7 @@ class Command(BaseCommand):
                     LEFT JOIN "{source_schema}"."ma_items" i ON c."ITEM_CODE" = i."ITEM_CODE"
                     LEFT JOIN "{source_schema}"."ma_cylinder_specs" cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
                     LEFT JOIN "{source_schema}"."ma_valve_specs" vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
-                    LEFT JOIN "{source_schema}"."tr_latest_cylinder_statuses" ls ON c."CYLINDER_NO" = ls."CYLINDER_NO";
+                    LEFT JOIN "{source_schema}"."tr_latest_cylinder_statuses" ls ON RTRIM(c."CYLINDER_NO") = RTRIM(ls."CYLINDER_NO");
                 """
                 
                 cursor.execute(create_cylinder_list_view_sql)
@@ -143,13 +143,13 @@ class Command(BaseCommand):
                             ELSE '기타'
                         END as status,
                         COALESCE(ls."POSITION_USER_NAME", '') as location,
-                        COUNT(DISTINCT c."CYLINDER_NO") as qty,
+                        COUNT(DISTINCT RTRIM(c."CYLINDER_NO")) as qty,
                         NOW() as updated_at
                     FROM "{source_schema}"."ma_cylinders" c
                     LEFT JOIN "{source_schema}"."ma_items" i ON c."ITEM_CODE" = i."ITEM_CODE"
                     LEFT JOIN "{source_schema}"."ma_cylinder_specs" cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
                     LEFT JOIN "{source_schema}"."ma_valve_specs" vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
-                    LEFT JOIN "{source_schema}"."tr_latest_cylinder_statuses" ls ON c."CYLINDER_NO" = ls."CYLINDER_NO"
+                    LEFT JOIN "{source_schema}"."tr_latest_cylinder_statuses" ls ON RTRIM(c."CYLINDER_NO") = RTRIM(ls."CYLINDER_NO")
                     GROUP BY 
                         cylinder_type_key,
                         gas_name,

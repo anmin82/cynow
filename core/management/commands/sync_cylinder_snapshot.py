@@ -32,7 +32,7 @@ class Command(BaseCommand):
         # 1. VIEW에서 최신 데이터 조회 (변경된 것만)
         cursor.execute("""
             SELECT 
-                c."CYLINDER_NO",
+                RTRIM(c."CYLINDER_NO") as "CYLINDER_NO",
                 COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", '') as gas_name,
                 c."CAPACITY",
                 COALESCE(c."VALVE_SPEC_CODE", '') as valve_spec_code,
@@ -53,14 +53,14 @@ class Command(BaseCommand):
             LEFT JOIN "fcms_cdc"."ma_items" i ON c."ITEM_CODE" = i."ITEM_CODE"
             LEFT JOIN "fcms_cdc"."ma_cylinder_specs" cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
             LEFT JOIN "fcms_cdc"."ma_valve_specs" vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
-            LEFT JOIN "fcms_cdc"."tr_latest_cylinder_statuses" ls ON c."CYLINDER_NO" = ls."CYLINDER_NO"
-            WHERE c."CYLINDER_NO" IN (
+            LEFT JOIN "fcms_cdc"."tr_latest_cylinder_statuses" ls ON RTRIM(c."CYLINDER_NO") = RTRIM(ls."CYLINDER_NO")
+            WHERE RTRIM(c."CYLINDER_NO") IN (
                 SELECT cylinder_no FROM cy_cylinder_current
                 WHERE snapshot_updated_at < NOW() - INTERVAL '5 minutes'
                 OR source_updated_at > snapshot_updated_at
             )
-            OR c."CYLINDER_NO" NOT IN (SELECT cylinder_no FROM cy_cylinder_current)
-            ORDER BY c."CYLINDER_NO"
+            OR RTRIM(c."CYLINDER_NO") NOT IN (SELECT cylinder_no FROM cy_cylinder_current)
+            ORDER BY RTRIM(c."CYLINDER_NO")
             LIMIT %s
         """, [batch_size])
         
