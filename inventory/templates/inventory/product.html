@@ -1,38 +1,30 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
-{% block title %}제품 재고 현황{% endblock %}
+{% block title %}제품 재고{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-1"><i class="bi bi-box-seam-fill text-primary me-2"></i>제품 재고 현황</h2>
-            <p class="text-muted mb-0">창고 입고된 충전 용기 재고 (제품코드 기준)</p>
-        </div>
-        <div class="d-flex gap-2">
-            <a href="{% url 'inventory:cylinder' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-cylinder me-1"></i>용기 재고
-            </a>
-            <a href="{% url 'inventory:index' %}" class="btn btn-outline-primary">
-                <i class="bi bi-arrow-left me-1"></i>재고 현황
-            </a>
-        </div>
+        <h2><i class="bi bi-box me-2"></i>제품 재고 (창입)</h2>
+        <a href="{% url 'inventory:index' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>돌아가기
+        </a>
     </div>
     
-    <!-- 검색 필터 -->
-    <div class="card border-0 shadow-sm mb-4">
+    <!-- 필터 -->
+    <div class="card mb-4">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label"><i class="bi bi-upc-scan me-1"></i>제품코드</label>
+                    <label class="form-label">제품코드</label>
                     <input type="text" name="product_code" class="form-control" 
-                           value="{{ filter_product_code }}" placeholder="예: KF001...">
+                           value="{{ filter_product_code }}" placeholder="예: KF020...">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label"><i class="bi bi-wind me-1"></i>가스명</label>
+                    <label class="form-label">가스명</label>
                     <input type="text" name="gas_name" class="form-control" 
-                           value="{{ filter_gas_name }}" placeholder="예: COS, 아르곤...">
+                           value="{{ filter_gas_name }}" placeholder="예: COS, CF4, CLF3...">
                 </div>
                 <div class="col-md-2">
                     <button type="submit" class="btn btn-primary w-100">
@@ -41,149 +33,100 @@
                 </div>
                 <div class="col-md-2">
                     <a href="{% url 'inventory:product' %}" class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>초기화
+                        초기화
                     </a>
+                </div>
+                <div class="col-md-2">
+                    {% if show_all == '1' %}
+                        <a href="{% url 'inventory:product' %}?product_code={{ filter_product_code }}&gas_name={{ filter_gas_name }}" class="btn btn-outline-primary w-100">
+                            COS/CF4/CLF3만
+                        </a>
+                    {% else %}
+                        <a href="{% url 'inventory:product' %}?show_all=1&product_code={{ filter_product_code }}&gas_name={{ filter_gas_name }}" class="btn btn-outline-primary w-100">
+                            전체보기
+                        </a>
+                    {% endif %}
                 </div>
             </form>
         </div>
     </div>
     
-    <!-- 요약 통계 -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-primary text-white">
-                <div class="card-body text-center">
-                    <h3 class="display-5 fw-bold mb-0">{{ total_qty|intcomma }}</h3>
-                    <p class="mb-0 opacity-75"><i class="bi bi-box me-1"></i>총 재고 (병)</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-success text-white">
-                <div class="card-body text-center">
-                    <h3 class="display-5 fw-bold mb-0">{{ total_products }}</h3>
-                    <p class="mb-0 opacity-75"><i class="bi bi-tags me-1"></i>제품 종류</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm bg-info text-white">
-                <div class="card-body text-center">
-                    <h3 class="display-5 fw-bold mb-0">MAIN</h3>
-                    <p class="mb-0 opacity-75"><i class="bi bi-building me-1"></i>창고</p>
-                </div>
-            </div>
-        </div>
+    <!-- 요약 -->
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>표시 기준:</strong>
+        {% if show_all == '1' %}
+            전체 제품
+        {% else %}
+            {{ core_gases|join:", " }}만
+        {% endif %}
+        &nbsp;|&nbsp;
+        <strong>제품 종류:</strong> {{ total_products|intcomma }}개
+        &nbsp;|&nbsp;
+        <strong>총 재고:</strong> {{ total_qty|intcomma }}병
     </div>
     
     <!-- 재고 목록 -->
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-3">
-            <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>제품별 재고 상세</h5>
+    <div class="card">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">상세 목록</h6>
         </div>
-        <div class="card-body p-0">
+        <div class="card-body">
             {% if inventory_list %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="px-4">제품코드</th>
-                            <th>제품명</th>
-                            <th>가스</th>
-                            <th class="text-center">용량</th>
-                            <th class="text-center">충전량</th>
-                            <th>밸브스펙</th>
-                            <th>엔드유저</th>
-                            <th class="text-end">단가</th>
-                            <th class="text-end px-4">재고수량</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in inventory_list %}
-                        <tr>
-                            <td class="px-4">
-                                <span class="badge {% if item.has_product_code %}bg-primary{% else %}bg-secondary{% endif %} fs-6">
-                                    {{ item.trade_condition_code }}
-                                </span>
-                            </td>
-                            <td>
-                                <strong>{{ item.display_name|default:"-" }}</strong>
-                            </td>
-                            <td>
-                                <span class="text-primary fw-medium">{{ item.gas_name }}</span>
-                            </td>
-                            <td class="text-center">
-                                {% if item.capacity %}
-                                <span class="badge bg-light text-dark border">{{ item.capacity }}L</span>
-                                {% else %}
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>제품코드</th>
+                        <th>제품명</th>
+                        <th>가스</th>
+                        <th>용기/밸브</th>
+                        <th class="text-end">단가</th>
+                        <th class="text-end">재고수량</th>
+                        <th class="text-end">갱신</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory_list %}
+                    <tr>
+                        <td class="fw-bold">{{ item.trade_condition_code }}</td>
+                        <td>{{ item.product_display_name|default:"-" }}</td>
+                        <td>{{ item.gas_name|default:"-" }}</td>
+                        <td class="small text-muted">
+                            {{ item.cylinder_spec_name|default:"-" }}
+                            {% if item.valve_spec_name %}
+                                <span class="mx-1">/</span>{{ item.valve_spec_name }}
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if item.current_price %}
+                                ₩{{ item.current_price|intcomma }}/kg
+                            {% else %}
                                 <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if item.filling_weight %}
-                                <span class="badge bg-light text-dark border">{{ item.filling_weight }}kg</span>
-                                {% else %}
-                                <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if item.valve_spec_name %}
-                                <small class="text-muted">{{ item.valve_spec_name }}</small>
-                                {% else %}
-                                <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if item.customer_user_name %}
-                                <small>{{ item.customer_user_name }}</small>
-                                {% else %}
-                                <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end">
-                                {% if item.current_price %}
-                                <span class="text-success">₩{{ item.current_price|intcomma }}/kg</span>
-                                {% else %}
-                                <span class="text-muted">미설정</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end px-4">
-                                <span class="badge {% if item.quantity > 0 %}bg-success{% else %}bg-danger{% endif %} fs-5 px-3 py-2">
-                                    {{ item.quantity|intcomma }}병
-                                </span>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    <tfoot class="table-secondary">
-                        <tr>
-                            <td colspan="8" class="text-end fw-bold px-4">합계</td>
-                            <td class="text-end px-4">
-                                <span class="badge bg-dark fs-5 px-3 py-2">{{ total_qty|intcomma }}병</span>
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <span class="badge bg-primary fs-6">{{ item.quantity|intcomma }}병</span>
+                        </td>
+                        <td class="text-end text-muted small">{{ item.updated_at|date:"m/d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% else %}
-            <div class="text-center py-5">
-                <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
-                <h5 class="text-muted mt-3">재고 데이터가 없습니다</h5>
-                <p class="text-muted">창고에 입고된 충전 용기가 없거나, 동기화가 필요합니다.</p>
-            </div>
+            <div class="text-center text-muted py-4">제품 재고가 없습니다.</div>
             {% endif %}
         </div>
     </div>
     
     <!-- 안내 -->
-    <div class="card border-0 shadow-sm mt-4 bg-light">
+    <div class="card mt-4 bg-light">
         <div class="card-body">
             <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>안내</h6>
             <ul class="mb-0 small text-muted">
                 <li><strong>제품코드 (KF로 시작)</strong>: FCMS 시스템의 거래조건번호로, 가스+용기+밸브 조합을 식별합니다.</li>
                 <li><strong>재고수량</strong>: 창고에 입고되어 있는 충전 완료 용기 개수입니다.</li>
                 <li><strong>자동 동기화</strong>: 매일 자정에 자동으로 재고가 갱신됩니다.</li>
-                <li>파란색 제품코드는 ProductCode 마스터에 등록된 제품이고, 회색은 미등록 제품입니다.</li>
+                <li>기본 표시는 {{ core_gases|join:", " }}만 보여주며, 필요 시 “전체보기”로 확장할 수 있습니다.</li>
             </ul>
         </div>
     </div>

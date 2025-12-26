@@ -85,6 +85,7 @@ def product_inventory(request):
     # 필터
     gas_name = request.GET.get('gas_name', '')
     product_code_filter = request.GET.get('product_code', '')
+    show_all = request.GET.get('show_all', '')  # '1'이면 전체보기
     
     queryset = ProductInventory.objects.select_related('product_code').all()
     
@@ -93,22 +94,23 @@ def product_inventory(request):
     if product_code_filter:
         queryset = queryset.filter(trade_condition_code__icontains=product_code_filter)
     
-    # 총 재고
-    total_qty = queryset.aggregate(total=Sum('quantity'))['total'] or 0
-    total_products = queryset.count()
-    
+    core_gases = ['COS', 'CF4', 'CLF3']
+
     # 재고 리스트에 ProductCode 상세 정보 추가
     inventory_list = []
     for item in queryset.order_by('trade_condition_code'):
         pc = item.product_code
-        inventory_list.append({
+        base_gas = (pc.gas_name if pc else '') or ''
+        display_name = (pc.display_name if pc else '') or item.gas_name
+
+        row = {
             'trade_condition_code': item.trade_condition_code,
-            'gas_name': item.gas_name,
             'warehouse': item.warehouse,
             'quantity': item.quantity,
             'updated_at': item.updated_at,
             # ProductCode 상세 정보
-            'display_name': pc.display_name if pc else item.gas_name,
+            'product_display_name': display_name,
+            'gas_name': base_gas or item.gas_name,
             'capacity': pc.capacity if pc else None,
             'filling_weight': pc.filling_weight if pc else None,
             'valve_spec_name': pc.valve_spec_name if pc else None,
@@ -116,7 +118,20 @@ def product_inventory(request):
             'customer_user_name': pc.customer_user_name if pc else None,
             'current_price': pc.current_price_per_kg if pc else None,
             'has_product_code': pc is not None,
-        })
+        }
+
+        # 기본은 우리 취급 가스만 표시 (필요 시 전체보기)
+        if show_all != '1':
+            gas_upper = (base_gas or '').upper()
+            display_upper = (display_name or '').upper()
+            if not any(g in gas_upper or display_upper.startswith(g) for g in core_gases):
+                continue
+
+        inventory_list.append(row)
+
+    # 총 재고 (표시 리스트 기준)
+    total_qty = sum(int(x.get('quantity') or 0) for x in inventory_list)
+    total_products = len(inventory_list)
     
     context = {
         'inventory_list': inventory_list,
@@ -124,6 +139,8 @@ def product_inventory(request):
         'total_products': total_products,
         'filter_gas_name': gas_name,
         'filter_product_code': product_code_filter,
+        'show_all': show_all,
+        'core_gases': core_gases,
     }
     return render(request, 'inventory/product.html', context)
 
