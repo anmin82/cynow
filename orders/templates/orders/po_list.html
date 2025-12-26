@@ -69,7 +69,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="mb-1">수주 목록</h2>
-            <p class="text-muted mb-0">고객 수주 관리 및 이동서번호 가이드</p>
+            <p class="text-muted mb-0">고객 수주 관리</p>
         </div>
         <div>
             <a href="{% url 'orders:new' %}" class="btn btn-primary">
@@ -131,7 +131,6 @@
                             <th>납기</th>
                             <th class="text-center">수량</th>
                             <th class="text-end">금액</th>
-                            <th>이동서가이드</th>
                             <th>상태</th>
                             <th></th>
                         </tr>
@@ -167,13 +166,6 @@
                                     {% endif %}
                                 {% else %}
                                     <span class="text-muted" title="로그인 필요">***</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if item.guide %}
-                                    <span class="badge bg-info">{{ item.guide.suggested_move_no }}</span>
-                                {% else %}
-                                    <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
                             <td>
