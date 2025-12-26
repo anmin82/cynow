@@ -460,10 +460,10 @@ def daily_report(request):
         for k, v in sorted(item_summary.items(), key=lambda x: -x[1]['count'])
     ]
     
-    # 이동유형+제품코드별 집계 정렬
+    # 이동유형+제품코드별 집계 정렬 (이동코드순, 건수 내림차순)
     move_by_item_list = sorted(
         move_by_item.values(),
-        key=lambda x: (-move_code_labels.get(x['move_code'], ''), -x['count'])
+        key=lambda x: (x['move_code'], -x['count'])
     )
     
     context = {
