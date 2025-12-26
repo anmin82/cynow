@@ -96,11 +96,12 @@
                     <tr>
                         <th style="width: 130px;">이동서번호</th>
                         <th style="width: 80px;" class="text-center">지시수량</th>
-                        <th style="width: 90px;">주문일</th>
-                        <th style="width: 90px;">납기</th>
-                        <th style="width: 90px;">출하일</th>
-                        <th>비고</th>
-                        <th style="width: 80px;" class="text-center">상태</th>
+                        <th style="width: 80px;">주문일</th>
+                        <th style="width: 80px;">납기</th>
+                        <th style="width: 80px;">충전일</th>
+                        <th style="width: 80px;">출하일</th>
+                        <th>충전LOT</th>
+                        <th style="width: 70px;" class="text-center">상태</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -130,6 +131,13 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if order.filling_date %}
+                                <span class="badge bg-warning text-dark">{{ order.filling_date|date:"m/d" }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             {% if order.shipping_date %}
                                 <span class="badge bg-success">{{ order.shipping_date|date:"m/d" }}</span>
                             {% else %}
@@ -137,15 +145,19 @@
                             {% endif %}
                         </td>
                         <td>
-                            <small class="text-muted">
-                                {{ order.order_remarks|default:"" }}
-                            </small>
+                            {% if order.filling_lot_no %}
+                                <code class="small">{{ order.filling_lot_no }}</code>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
                         </td>
                         <td class="text-center">
                             {% if order.shipping_date %}
-                                <span class="badge bg-success">출하완료</span>
+                                <span class="badge bg-success">출하</span>
+                            {% elif order.filling_date %}
+                                <span class="badge bg-warning text-dark">충전</span>
                             {% else %}
-                                <span class="badge bg-info">FCMS등록</span>
+                                <span class="badge bg-info">등록</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -155,7 +167,7 @@
                     <tr>
                         <td class="text-end fw-bold">합계</td>
                         <td class="text-center fw-bold text-primary">{{ item_data.issued_qty }}병</td>
-                        <td colspan="5"></td>
+                        <td colspan="6"></td>
                     </tr>
                 </tfoot>
             </table>
