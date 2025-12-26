@@ -203,26 +203,6 @@
     </div>
 </div>
 
-<!-- 요약 카드 -->
-<div class="summary-grid">
-    <div class="summary-card info">
-        <div class="value">{{ summary.total|intcomma }}</div>
-        <div class="label">총 입하 수량</div>
-    </div>
-    <div class="summary-card success">
-        <div class="value">{{ summary.normal|intcomma }}</div>
-        <div class="label">정상 용기</div>
-    </div>
-    <div class="summary-card warning">
-        <div class="value">{{ summary.expiring_soon|intcomma }}</div>
-        <div class="label">만료 임박</div>
-    </div>
-    <div class="summary-card danger">
-        <div class="value">{{ summary.expired|intcomma }}</div>
-        <div class="label">내압 만료</div>
-    </div>
-</div>
-
 <div class="row">
     <!-- 브리핑 요약 -->
     <div class="col-md-6 mb-4">
