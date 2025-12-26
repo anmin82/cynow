@@ -327,20 +327,36 @@ class InventoryService:
         """
         cy_cylinder_current 테이블에서 제품 재고 동기화
         
-        "제품" 상태(창입) 용기를 가스명 × 용량별로 집계
+        "제품" 상태(창입) 용기를 ProductCode(제품코드) 기준으로 집계
+        cylinder_type_key를 통해 ProductCode와 매핑
         
         Returns:
             {'synced': N, 'updated': M, 'deleted': D}
         """
+        # ProductCode와 cylinder_type_key 매핑 조회
+        from products.models import ProductCode as PC
+        
+        # cylinder_type_key → trade_condition_no 매핑 생성
+        type_key_to_product = {}
+        for pc in PC.objects.filter(is_active=True, cylinder_type_key__isnull=False):
+            if pc.cylinder_type_key:
+                type_key_to_product[pc.cylinder_type_key] = {
+                    'trade_condition_no': pc.trade_condition_no,
+                    'gas_name': pc.gas_name or '',
+                    'display_name': pc.display_name or pc.gas_name or '',
+                }
+        
+        # "제품" 상태 용기를 cylinder_type_key별로 집계
         query = '''
             SELECT 
+                cylinder_type_key,
                 dashboard_gas_name,
                 dashboard_capacity,
                 COUNT(*) as cnt
             FROM cy_cylinder_current
             WHERE dashboard_status = '제품'
-              AND dashboard_gas_name IS NOT NULL
-            GROUP BY dashboard_gas_name, dashboard_capacity
+              AND cylinder_type_key IS NOT NULL
+            GROUP BY cylinder_type_key, dashboard_gas_name, dashboard_capacity
         '''
         
         try:
@@ -358,24 +374,36 @@ class InventoryService:
             ProductInventory.objects.all().update(quantity=0)
             
             for row in rows:
-                gas_name = row[0] or ''
-                capacity = row[1]
-                count = row[2]
+                type_key = row[0]
+                gas_name = row[1] or ''
+                capacity = row[2]
+                count = row[3]
                 
-                # 제품코드 생성 (gas_name + capacity)
-                trade_code = f"{gas_name}_{capacity}L" if capacity else gas_name
+                # ProductCode 매핑 확인
+                if type_key in type_key_to_product:
+                    product_info = type_key_to_product[type_key]
+                    trade_code = product_info['trade_condition_no']
+                    display_name = product_info['display_name']
+                else:
+                    # 매핑 없으면 gas_name + capacity로 대체
+                    trade_code = f"{gas_name}_{int(capacity)}L" if capacity else gas_name
+                    display_name = gas_name
                 
                 obj, created = ProductInventory.objects.update_or_create(
                     trade_condition_code=trade_code,
                     warehouse='MAIN',
                     defaults={
-                        'gas_name': gas_name,
+                        'gas_name': display_name,
                         'quantity': count,
                     }
                 )
                 if created:
                     synced += 1
                 else:
+                    # 같은 제품코드에 여러 cylinder_type_key가 매핑될 수 있음 (합산)
+                    if not created:
+                        obj.quantity = F('quantity') + count
+                        obj.save()
                     updated += 1
             
             # 수량 0인 항목 삭제
