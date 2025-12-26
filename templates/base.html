@@ -605,23 +605,22 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'dashboard:dashboard' %}">대시보드</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'dashboard:detail' %}">현황</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="statusDropdown" role="button" data-bs-toggle="dropdown">
+                            현황
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'dashboard:detail' %}"><i class="bi bi-pie-chart me-2"></i>현황 상세</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'reports:weekly' %}"><i class="bi bi-calendar-week me-2"></i>주간 보고서</a></li>
+                            <li><a class="dropdown-item" href="{% url 'reports:monthly' %}"><i class="bi bi-calendar-month me-2"></i>월간 보고서</a></li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'cylinders:list' %}">용기</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'alerts:alerts' %}">알림</a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown">
-                            보고서
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'reports:weekly' %}"><i class="bi bi-calendar-week me-2"></i>주간 보고서</a></li>
-                            <li><a class="dropdown-item" href="{% url 'reports:monthly' %}"><i class="bi bi-calendar-month me-2"></i>월간 보고서</a></li>
-                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'history:history' %}">조회</a>
