@@ -687,7 +687,7 @@ class FcmsRepository:
                 cursor.execute('''
                     SELECT 
                         d."CYLINDER_NO",
-                        d."SEQ_NO",
+                        d."ROW_NO",
                         h."MOVE_CODE" as last_move_code,
                         h."MOVE_DATE" as last_move_date
                     FROM fcms_cdc.tr_move_report_details d
@@ -700,14 +700,14 @@ class FcmsRepository:
                         LIMIT 1
                     ) h ON true
                     WHERE TRIM(d."MOVE_REPORT_NO") = %s
-                    ORDER BY d."SEQ_NO", d."CYLINDER_NO"
+                    ORDER BY d."ROW_NO", d."CYLINDER_NO"
                 ''', [move_report_no.strip()])
                 
                 cylinders = []
                 for cyl_row in cursor.fetchall():
                     cylinders.append({
                         'cylinder_no': cyl_row[0].strip() if cyl_row[0] else '',
-                        'seq_no': cyl_row[1] or 0,
+                        'row_no': cyl_row[1] or 0,
                         'last_move_code': cyl_row[2].strip() if cyl_row[2] else '',
                         'last_move_date': cyl_row[3],
                     })
