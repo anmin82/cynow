@@ -633,7 +633,7 @@ def arrival_report(request):
         'expiring_soon': 0,
         'normal': 0,
         'by_item': {},
-        'by_supplier': {},
+        'by_enduser': {},
     }
     
     try:
@@ -721,10 +721,10 @@ def arrival_report(request):
                 else:
                     summary['by_item'][item_name]['normal'] += 1
                 
-                if supplier:
-                    if supplier not in summary['by_supplier']:
-                        summary['by_supplier'][supplier] = 0
-                    summary['by_supplier'][supplier] += 1
+                if enduser:
+                    if enduser not in summary['by_enduser']:
+                        summary['by_enduser'][enduser] = 0
+                    summary['by_enduser'][enduser] += 1
                 
                 arrivals.append({
                     'cylinder_no': row[0].strip() if row[0] else '',
@@ -752,10 +752,10 @@ def arrival_report(request):
         for k, v in sorted(summary['by_item'].items(), key=lambda x: -x[1]['count'])
     ]
     
-    # 공급처별 집계 정렬
-    by_supplier_list = [
-        {'supplier': k, 'count': v}
-        for k, v in sorted(summary['by_supplier'].items(), key=lambda x: -x[1])
+    # 엔드유저별 집계 정렬
+    by_enduser_list = [
+        {'enduser': k, 'count': v}
+        for k, v in sorted(summary['by_enduser'].items(), key=lambda x: -x[1])
     ]
     
     # 현재 보유 가용 용기 현황 (대시보드와 동일)
@@ -786,7 +786,7 @@ def arrival_report(request):
         'arrivals': arrivals,
         'summary': summary,
         'by_item': by_item_list,
-        'by_supplier': by_supplier_list,
+        'by_enduser': by_enduser_list,
         'inventory_list': inventory_list,
         'total_available': total_available,
         'total_inventory': total_inventory,

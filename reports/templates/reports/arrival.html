@@ -257,23 +257,23 @@
                 <span class="value">{{ by_item|length }}종</span>
             </div>
             <div class="briefing-item">
-                <span class="label">공급처</span>
-                <span class="value">{{ by_supplier|length }}곳</span>
+                <span class="label">엔드유저</span>
+                <span class="value">{{ by_enduser|length }}곳</span>
             </div>
         </div>
     </div>
     
-    <!-- 공급처별 현황 -->
+    <!-- 엔드유저별 현황 -->
     <div class="col-md-6 mb-4">
         <div class="briefing-box">
-            <h5><i class="bi bi-building me-2"></i>공급처별 입하 현황</h5>
-            {% for s in by_supplier %}
+            <h5><i class="bi bi-people me-2"></i>엔드유저별 입하 현황</h5>
+            {% for e in by_enduser %}
             <div class="briefing-item">
-                <span class="label">{{ s.supplier }}</span>
-                <span class="value">{{ s.count }}건</span>
+                <span class="label">{{ e.enduser }}</span>
+                <span class="value">{{ e.count }}건</span>
             </div>
             {% empty %}
-            <div class="text-muted text-center py-3">공급처 정보 없음</div>
+            <div class="text-muted text-center py-3">엔드유저 정보 없음</div>
             {% endfor %}
         </div>
     </div>
