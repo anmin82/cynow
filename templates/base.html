@@ -626,7 +626,7 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'history:history' %}">조회</a>
                     </li>
-                    {% if user.is_authenticated %}
+                    <!-- 판매 메뉴: 비로그인도 조회 가능 (단가만 블라인드) -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="salesDropdown" role="button" data-bs-toggle="dropdown">
                             판매
@@ -639,7 +639,6 @@
                             <li><a class="dropdown-item" href="{% url 'voucher:company_list' %}"><i class="bi bi-building me-2"></i>회사정보</a></li>
                         </ul>
                     </li>
-                    {% endif %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="plansDropdown" role="button" data-bs-toggle="dropdown">
                             계획

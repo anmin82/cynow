@@ -27,9 +27,8 @@ from .services.docx_generator import (
 from .services.onlyoffice import get_onlyoffice_service
 
 
-@login_required
 def quote_list(request):
-    """견적서 목록"""
+    """견적서 목록 (비로그인도 조회 가능, 단가만 블라인드)"""
     quotes = Quote.objects.select_related('customer', 'created_by').all()
     
     # 상태 필터
@@ -53,9 +52,8 @@ def quote_list(request):
     return render(request, 'voucher/quote_list.html', context)
 
 
-@login_required
 def quote_detail(request, pk):
-    """견적서 상세"""
+    """견적서 상세 (비로그인도 조회 가능, 단가만 블라인드)"""
     quote = get_object_or_404(
         Quote.objects.prefetch_related('items'),
         pk=pk
@@ -551,9 +549,8 @@ def quote_edit(request, pk):
 # 회사정보 관리
 # ============================================
 
-@login_required
 def company_list(request):
-    """회사정보 목록"""
+    """회사정보 목록 (비로그인도 조회 가능)"""
     suppliers = CompanyInfo.objects.filter(is_supplier=True).order_by('name')
     customers = CompanyInfo.objects.filter(is_customer=True, is_supplier=False).order_by('name')
     

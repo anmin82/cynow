@@ -77,11 +77,15 @@
                         </td>
                         <td>{{ quote.quote_date|date:"Y-m-d" }}</td>
                         <td class="text-end">
-                            {% if quote.total_amount %}
-                            <strong>{{ quote.total_amount|floatformat:0|intcomma }}</strong>
-                            <small class="text-muted">{{ quote.default_currency }}</small>
+                            {% if user.is_authenticated %}
+                                {% if quote.total_amount %}
+                                <strong>{{ quote.total_amount|floatformat:0|intcomma }}</strong>
+                                <small class="text-muted">{{ quote.default_currency }}</small>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
                             {% else %}
-                            <span class="text-muted">-</span>
+                                <span class="text-muted" title="로그인 필요">***</span>
                             {% endif %}
                         </td>
                         <td>

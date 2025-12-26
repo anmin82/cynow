@@ -250,8 +250,8 @@
                                 <span class="badge bg-secondary">{{ item.currency }}</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end">{{ item.price_per_kg|floatformat:0|intcomma|default:"-" }}</td>
-                            <td class="text-end"><strong>{{ item.packing_price|floatformat:0|intcomma|default:"-" }}</strong></td>
+                            <td class="text-end">{% if user.is_authenticated %}{{ item.price_per_kg|floatformat:0|intcomma|default:"-" }}{% else %}<span class="text-muted">***</span>{% endif %}</td>
+                            <td class="text-end">{% if user.is_authenticated %}<strong>{{ item.packing_price|floatformat:0|intcomma|default:"-" }}</strong>{% else %}<span class="text-muted">***</span>{% endif %}</td>
                         </tr>
                         {% empty %}
                         <tr>
@@ -339,8 +339,8 @@
                     <td class="text-center">{{ item.capacity|floatformat:0|default:"-" }}</td>
                     <td class="text-center">{{ item.filling_weight|floatformat:1|default:"-" }}</td>
                     <td class="text-center">{{ item.currency }}</td>
-                    <td class="text-end">{{ item.price_per_kg|floatformat:0|intcomma|default:"-" }}</td>
-                    <td class="text-end">{{ item.packing_price|floatformat:0|intcomma|default:"-" }}</td>
+                    <td class="text-end">{% if user.is_authenticated %}{{ item.price_per_kg|floatformat:0|intcomma|default:"-" }}{% else %}***{% endif %}</td>
+                    <td class="text-end">{% if user.is_authenticated %}{{ item.packing_price|floatformat:0|intcomma|default:"-" }}{% else %}***{% endif %}</td>
                 </tr>
                 {% endfor %}
             </tbody>
