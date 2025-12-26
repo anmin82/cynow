@@ -309,7 +309,7 @@ def daily_report(request):
     
     try:
         with connection.cursor() as cursor:
-            # 오늘 이동 내역 조회
+            # 오늘 이동 내역 조회 (MOVE_DATE는 datetime이므로 DATE 비교)
             cursor.execute('''
                 SELECT 
                     h."CYLINDER_NO",
@@ -329,7 +329,7 @@ def daily_report(request):
                         END
                     ) as filling_lot
                 FROM fcms_cdc.tr_cylinder_status_histories h
-                WHERE h."MOVE_DATE" = %s
+                WHERE DATE(h."MOVE_DATE") = %s
                 ORDER BY h."MOVE_CODE", h."CYLINDER_NO"
             ''', [report_date])
             
