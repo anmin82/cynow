@@ -84,19 +84,46 @@ def product_inventory(request):
     """제품 재고 현황"""
     # 필터
     gas_name = request.GET.get('gas_name', '')
+    product_code_filter = request.GET.get('product_code', '')
     
-    queryset = ProductInventory.objects.all()
+    queryset = ProductInventory.objects.select_related('product_code').all()
     
     if gas_name:
         queryset = queryset.filter(gas_name__icontains=gas_name)
+    if product_code_filter:
+        queryset = queryset.filter(trade_condition_code__icontains=product_code_filter)
     
     # 총 재고
     total_qty = queryset.aggregate(total=Sum('quantity'))['total'] or 0
+    total_products = queryset.count()
+    
+    # 재고 리스트에 ProductCode 상세 정보 추가
+    inventory_list = []
+    for item in queryset.order_by('trade_condition_code'):
+        pc = item.product_code
+        inventory_list.append({
+            'trade_condition_code': item.trade_condition_code,
+            'gas_name': item.gas_name,
+            'warehouse': item.warehouse,
+            'quantity': item.quantity,
+            'updated_at': item.updated_at,
+            # ProductCode 상세 정보
+            'display_name': pc.display_name if pc else item.gas_name,
+            'capacity': pc.capacity if pc else None,
+            'filling_weight': pc.filling_weight if pc else None,
+            'valve_spec_name': pc.valve_spec_name if pc else None,
+            'cylinder_spec_name': pc.cylinder_spec_name if pc else None,
+            'customer_user_name': pc.customer_user_name if pc else None,
+            'current_price': pc.current_price_per_kg if pc else None,
+            'has_product_code': pc is not None,
+        })
     
     context = {
-        'inventory_list': queryset.order_by('gas_name', 'trade_condition_code'),
+        'inventory_list': inventory_list,
         'total_qty': total_qty,
+        'total_products': total_products,
         'filter_gas_name': gas_name,
+        'filter_product_code': product_code_filter,
     }
     return render(request, 'inventory/product.html', context)
 

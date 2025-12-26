@@ -333,18 +333,19 @@ class InventoryService:
         Returns:
             {'synced': N, 'updated': M, 'deleted': D}
         """
-        # ProductCode와 cylinder_type_key 매핑 조회
         from products.models import ProductCode as PC
         
-        # cylinder_type_key → trade_condition_no 매핑 생성
+        # cylinder_type_key → ProductCode 객체 매핑 생성
         type_key_to_product = {}
         for pc in PC.objects.filter(is_active=True, cylinder_type_key__isnull=False):
             if pc.cylinder_type_key:
-                type_key_to_product[pc.cylinder_type_key] = {
-                    'trade_condition_no': pc.trade_condition_no,
-                    'gas_name': pc.gas_name or '',
-                    'display_name': pc.display_name or pc.gas_name or '',
-                }
+                type_key_to_product[pc.cylinder_type_key] = pc
+        
+        # trade_condition_no로도 조회할 수 있도록 매핑 추가
+        trade_no_to_product = {
+            pc.trade_condition_no: pc
+            for pc in PC.objects.filter(is_active=True)
+        }
         
         # "제품" 상태 용기를 cylinder_type_key별로 집계
         query = '''
@@ -369,41 +370,58 @@ class InventoryService:
         
         synced = 0
         updated = 0
+        
+        # trade_condition_code별 수량 합산 (여러 cylinder_type_key가 같은 제품코드로 매핑될 수 있음)
+        product_qty_map = {}  # trade_condition_code -> {'product': ProductCode, 'quantity': int, 'gas_name': str}
+        
+        for row in rows:
+            type_key = row[0]
+            gas_name = row[1] or ''
+            capacity = row[2]
+            count = row[3]
+            
+            # ProductCode 매핑 확인
+            if type_key in type_key_to_product:
+                pc = type_key_to_product[type_key]
+                trade_code = pc.trade_condition_no
+                display_name = pc.display_name or pc.gas_name or gas_name
+            else:
+                # 매핑 없으면 gas_name + capacity로 대체
+                trade_code = f"{gas_name}_{int(capacity)}L" if capacity else gas_name
+                display_name = gas_name
+                pc = None
+            
+            # 수량 합산
+            if trade_code in product_qty_map:
+                product_qty_map[trade_code]['quantity'] += count
+            else:
+                product_qty_map[trade_code] = {
+                    'product': pc,
+                    'quantity': count,
+                    'gas_name': display_name,
+                }
+        
         with transaction.atomic():
             # 기존 재고 0으로 초기화
             ProductInventory.objects.all().update(quantity=0)
             
-            for row in rows:
-                type_key = row[0]
-                gas_name = row[1] or ''
-                capacity = row[2]
-                count = row[3]
-                
-                # ProductCode 매핑 확인
-                if type_key in type_key_to_product:
-                    product_info = type_key_to_product[type_key]
-                    trade_code = product_info['trade_condition_no']
-                    display_name = product_info['display_name']
-                else:
-                    # 매핑 없으면 gas_name + capacity로 대체
-                    trade_code = f"{gas_name}_{int(capacity)}L" if capacity else gas_name
-                    display_name = gas_name
+            for trade_code, data in product_qty_map.items():
+                pc = data['product']
+                qty = data['quantity']
+                display_name = data['gas_name']
                 
                 obj, created = ProductInventory.objects.update_or_create(
                     trade_condition_code=trade_code,
                     warehouse='MAIN',
                     defaults={
+                        'product_code': pc,  # ProductCode FK 연결
                         'gas_name': display_name,
-                        'quantity': count,
+                        'quantity': qty,
                     }
                 )
                 if created:
                     synced += 1
                 else:
-                    # 같은 제품코드에 여러 cylinder_type_key가 매핑될 수 있음 (합산)
-                    if not created:
-                        obj.quantity = F('quantity') + count
-                        obj.save()
                     updated += 1
             
             # 수량 0인 항목 삭제
