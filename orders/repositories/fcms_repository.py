@@ -233,7 +233,13 @@ class FcmsRepository:
                          THEN '-' || m."FILLING_LOT_BRANCH" 
                          ELSE '' 
                     END
-                ) as filling_lot_no
+                ) as filling_lot_no,
+                m."FILLING_PLAN_DATE" as filling_plan_date,
+                m."WAREHOUSING_PLAN_DATE" as warehousing_plan_date,
+                m."SHIPPING_PLAN_DATE" as shipping_plan_date,
+                m."SALES_REMARKS" as sales_remarks,
+                m."BUSINESS_REMARKS" as business_remarks,
+                m."PRODUCTION_REMARKS" as production_remarks
             FROM fcms_cdc.tr_orders o
             LEFT JOIN fcms_cdc.tr_move_reports m 
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
@@ -288,6 +294,12 @@ class FcmsRepository:
                     'filling_date': row[16] if has_progress and len(row) > 16 else None,
                     'shipping_date': row[17] if has_progress and len(row) > 17 else None,
                     'filling_lot_no': row[18].strip() if has_progress and len(row) > 18 and row[18] else '',
+                    'filling_plan_date': row[19] if has_progress and len(row) > 19 else None,
+                    'warehousing_plan_date': row[20] if has_progress and len(row) > 20 else None,
+                    'shipping_plan_date': row[21] if has_progress and len(row) > 21 else None,
+                    'sales_remarks': row[22].strip() if has_progress and len(row) > 22 and row[22] else '',
+                    'business_remarks': row[23].strip() if has_progress and len(row) > 23 and row[23] else '',
+                    'production_remarks': row[24].strip() if has_progress and len(row) > 24 and row[24] else '',
                 })
             return result
         
