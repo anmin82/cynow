@@ -193,7 +193,7 @@
                 <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control form-control-sm" style="width: auto;">
                 <button type="submit" class="btn btn-sm btn-primary">조회</button>
             </form>
-            <button onclick="window.print()" class="btn btn-sm btn-outline-primary ms-2">
+            <button onclick="printReport()" class="btn btn-sm btn-outline-primary ms-2">
                 <i class="bi bi-printer me-1"></i>PDF 출력
             </button>
             <a href="{% url 'reports:daily' %}?date={{ report_date|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary ms-2">
@@ -501,5 +501,23 @@
     <p>본 보고서는 CYNOW 용기 관리 시스템에서 자동 생성되었습니다.</p>
     <p>생성일시: {{ generated_at|date:"Y-m-d H:i" }} | KDFPK Co., Ltd.</p>
 </div>
+
+<script>
+function printReport() {
+    // 파일명에 날짜/시간 포함
+    const originalTitle = document.title;
+    const now = new Date();
+    const dateStr = '{{ report_date|date:"Ymd" }}';
+    const timeStr = now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0');
+    document.title = `입하보고서_${dateStr}_${timeStr}`;
+    
+    window.print();
+    
+    // 원래 제목으로 복원
+    setTimeout(() => {
+        document.title = originalTitle;
+    }, 1000);
+}
+</script>
 {% endblock %}
 
