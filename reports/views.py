@@ -312,7 +312,7 @@ def daily_report(request):
     try:
         with connection.cursor() as cursor:
             # 오늘 이동 내역 조회 (MOVE_DATE는 datetime이므로 DATE 비교) - 용기/제품 마스터 조인
-            # 대시보드와 동일하게 ma_items, ma_valve_specs, ma_cylinder_specs 조인
+            # 대시보드와 동일하게 ma_items, ma_valve_specs, ma_cylinder_specs 조인 + EndUser 마스터
             cursor.execute('''
                 SELECT 
                     h."CYLINDER_NO",
@@ -335,7 +335,7 @@ def daily_report(request):
                     COALESCE(c."CAPACITY", 0) as capacity,
                     COALESCE(vs."NAME", '') as valve_spec,
                     COALESCE(cs."NAME", '') as cylinder_spec,
-                    COALESCE(c."USE_DEPARTMENT_CODE", '') as enduser,
+                    COALESCE(eu.enduser_name, c."USE_DEPARTMENT_CODE", '') as enduser,
                     c."WITHSTAND_PRESSURE_MAINTE_DATE",
                     c."WITHSTAND_PRESSURE_TEST_TERM"
                 FROM fcms_cdc.tr_cylinder_status_histories h
@@ -343,6 +343,7 @@ def daily_report(request):
                 LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
                 LEFT JOIN fcms_cdc.ma_valve_specs vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
                 LEFT JOIN fcms_cdc.ma_cylinder_specs cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
+                LEFT JOIN public.cy_enduser_master eu ON TRIM(c."USE_DEPARTMENT_CODE") = TRIM(eu.enduser_code) AND eu.is_active = TRUE
                 WHERE DATE(h."MOVE_DATE") = %s
                 ORDER BY h."MOVE_CODE", i."DISPLAY_NAME", h."CYLINDER_NO"
             ''', [report_date])
@@ -363,7 +364,9 @@ def daily_report(request):
                 pressure_test_date = row[14]
                 pressure_test_term = row[15] or 0
                 
-                # 제품명: 가스명/용량/밸브/용기 형식 (EndUser 코드는 제외)
+                enduser = row[13].strip() if row[13] else ''
+                
+                # 제품명: 가스명/용량/밸브/용기/EndUser 형식
                 item_name_parts = [gas_name]
                 if capacity:
                     item_name_parts.append(f"{int(capacity)}L")
@@ -371,6 +374,8 @@ def daily_report(request):
                     item_name_parts.append(valve_spec)
                 if cylinder_spec:
                     item_name_parts.append(cylinder_spec)
+                if enduser:
+                    item_name_parts.append(enduser)
                 item_name = ' / '.join(item_name_parts)
                 
                 # 내압만료 계산
@@ -447,7 +452,7 @@ def daily_report(request):
                     c."CAPACITY",
                     COALESCE(vs."NAME", '') as valve_spec,
                     COALESCE(cs."NAME", '') as cylinder_spec,
-                    COALESCE(c."USE_DEPARTMENT_CODE", '') as enduser,
+                    COALESCE(eu.enduser_name, c."USE_DEPARTMENT_CODE", '') as enduser,
                     c."WITHSTAND_PRESSURE_MAINTE_DATE",
                     c."WITHSTAND_PRESSURE_TEST_TERM",
                     CASE 
@@ -460,6 +465,7 @@ def daily_report(request):
                 LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
                 LEFT JOIN fcms_cdc.ma_valve_specs vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
                 LEFT JOIN fcms_cdc.ma_cylinder_specs cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
+                LEFT JOIN public.cy_enduser_master eu ON TRIM(c."USE_DEPARTMENT_CODE") = TRIM(eu.enduser_code) AND eu.is_active = TRUE
                 WHERE DATE(h."MOVE_DATE") = %s
                   AND h."MOVE_CODE" = '10'
                 ORDER BY h."CYLINDER_NO"
@@ -467,7 +473,10 @@ def daily_report(request):
             
             today = report_date
             for row in cursor.fetchall():
-                expiry_date = row[12]
+                # 인덱스: 0=CYLINDER_NO, 1=MOVE_DATE, 2=SUPPLIER, 3=CUSTOMER, 4=gas_name, 
+                # 5=CAPACITY, 6=valve_spec, 7=cylinder_spec, 8=enduser,
+                # 9=WITHSTAND_PRESSURE_MAINTE_DATE, 10=WITHSTAND_PRESSURE_TEST_TERM, 11=pressure_expiry_date
+                expiry_date = row[11]
                 is_expired = False
                 is_expiring_soon = False
                 
@@ -480,11 +489,12 @@ def daily_report(request):
                         is_expiring_soon = True
                         arrival_summary['expiring_soon'] += 1
                 
-                # 제품명: 가스명/용량/밸브/용기 형식 (EndUser 코드는 제외)
+                # 제품명: 가스명/용량/밸브/용기/EndUser 형식
                 gas_name = row[4].strip() if row[4] else '미분류'
                 capacity = row[5] or 0
                 valve_spec = row[6].strip() if row[6] else ''
                 cylinder_spec = row[7].strip() if row[7] else ''
+                enduser = row[8].strip() if row[8] else ''
                 
                 item_name_parts = [gas_name]
                 if capacity:
@@ -493,6 +503,8 @@ def daily_report(request):
                     item_name_parts.append(valve_spec)
                 if cylinder_spec:
                     item_name_parts.append(cylinder_spec)
+                if enduser:
+                    item_name_parts.append(enduser)
                 item_name = ' / '.join(item_name_parts)
                 
                 arrival_summary['total'] += 1
