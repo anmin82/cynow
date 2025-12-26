@@ -208,6 +208,8 @@ class FcmsRepository:
         # 먼저 JOIN 쿼리 시도 (취소 이동서 제외)
         # TR_MOVE_REPORTS: 충전일/출하일/LOT
         # TR_ORDER_INFORMATIONS: 예정일/메모
+        # TR_MOVE_REPORT_DETAILS: 확정수량 (CYLINDER_NO 개수)
+        # TR_CYLINDER_STATUS_HISTORIES: 출하수량 (MOVE_CODE='60')
         query_with_join = '''
             SELECT 
                 o."ARRIVAL_SHIPPING_NO",
@@ -241,12 +243,25 @@ class FcmsRepository:
                 oi."SHIPPING_PLAN_DATE" as shipping_plan_date,
                 oi."SALES_REMARKS" as sales_remarks,
                 oi."BUSINESS_REMARKS" as business_remarks,
-                oi."PRODUCTION_REMARKS" as production_remarks
+                oi."PRODUCTION_REMARKS" as production_remarks,
+                COALESCE(d.confirmed_count, 0) as confirmed_count,
+                COALESCE(s.shipped_count, 0) as shipped_count
             FROM fcms_cdc.tr_orders o
             LEFT JOIN fcms_cdc.tr_move_reports m 
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
             LEFT JOIN fcms_cdc.tr_order_informations oi
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(oi."MOVE_REPORT_NO")
+            LEFT JOIN (
+                SELECT "MOVE_REPORT_NO", COUNT("CYLINDER_NO") as confirmed_count
+                FROM fcms_cdc.tr_move_report_details
+                GROUP BY "MOVE_REPORT_NO"
+            ) d ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(d."MOVE_REPORT_NO")
+            LEFT JOIN (
+                SELECT "MOVE_REPORT_NO", COUNT("CYLINDER_NO") as shipped_count
+                FROM fcms_cdc.tr_cylinder_status_histories
+                WHERE "MOVE_CODE" = '60'
+                GROUP BY "MOVE_REPORT_NO"
+            ) s ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(s."MOVE_REPORT_NO")
             WHERE TRIM(o."CUSTOMER_ORDER_NO") = %s
               AND (m."PROGRESS_CODE" IS NULL OR m."PROGRESS_CODE" != '51')
             ORDER BY o."ARRIVAL_SHIPPING_NO"
@@ -304,6 +319,8 @@ class FcmsRepository:
                     'sales_remarks': row[22].strip() if has_progress and len(row) > 22 and row[22] else '',
                     'business_remarks': row[23].strip() if has_progress and len(row) > 23 and row[23] else '',
                     'production_remarks': row[24].strip() if has_progress and len(row) > 24 and row[24] else '',
+                    'confirmed_count': row[25] if has_progress and len(row) > 25 else 0,
+                    'shipped_count': row[26] if has_progress and len(row) > 26 else 0,
                 })
             return result
         

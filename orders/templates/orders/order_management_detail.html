@@ -96,6 +96,8 @@
                     <tr>
                         <th>이동서번호</th>
                         <th class="text-center">지시</th>
+                        <th class="text-center">확정</th>
+                        <th class="text-center">출하</th>
                         <th class="text-center">충전예정</th>
                         <th class="text-center">입고예정</th>
                         <th class="text-center">출하예정</th>
@@ -116,6 +118,16 @@
                         </td>
                         <td class="text-center">
                             <span class="fw-bold">{{ order.instruction_count }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% if order.confirmed_count %}
+                                <span class="text-primary fw-bold">{{ order.confirmed_count }}</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if order.shipped_count %}
+                                <span class="text-success fw-bold">{{ order.shipped_count }}</span>
+                            {% else %}-{% endif %}
                         </td>
                         <td class="text-center">{{ order.filling_plan_date|date:"m/d"|default:"-" }}</td>
                         <td class="text-center">{{ order.warehousing_plan_date|date:"m/d"|default:"-" }}</td>
@@ -154,7 +166,7 @@
                     <tr>
                         <td class="text-end fw-bold">합계</td>
                         <td class="text-center fw-bold text-primary">{{ item_data.issued_qty }}병</td>
-                        <td colspan="10"></td>
+                        <td colspan="12"></td>
                     </tr>
                 </tfoot>
             </table>
