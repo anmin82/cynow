@@ -226,7 +226,14 @@ class FcmsRepository:
                 COALESCE(m."PROGRESS_CODE", '') as progress_code,
                 m."FILLING_DATE" as filling_date,
                 m."SHIPPING_DATE" as shipping_date,
-                m."FILLING_LOT_NO" as filling_lot_no
+                CONCAT(
+                    COALESCE(m."FILLING_LOT_HEADER", ''),
+                    COALESCE(m."FILLING_LOT_NO", ''),
+                    CASE WHEN m."FILLING_LOT_BRANCH" IS NOT NULL AND m."FILLING_LOT_BRANCH" != '' 
+                         THEN '-' || m."FILLING_LOT_BRANCH" 
+                         ELSE '' 
+                    END
+                ) as filling_lot_no
             FROM fcms_cdc.tr_orders o
             LEFT JOIN fcms_cdc.tr_move_reports m 
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
