@@ -19,10 +19,21 @@
         }
         .no-print { display: none !important; }
         .container { max-width: 100% !important; padding: 0 !important; }
-        .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; break-inside: avoid; }
+        .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
         .card-header { background-color: #f8f9fa !important; }
         .page-break { page-break-before: always; }
         .print-header { display: block !important; }
+        
+        /* 테이블 인쇄 최적화 */
+        table { page-break-inside: auto; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        thead { display: table-header-group; }  /* 각 페이지마다 헤더 반복 */
+        tfoot { display: table-footer-group; }
+        
+        /* 섹션 제목이 테이블과 분리되지 않도록 */
+        .section-title { page-break-after: avoid; }
+        .report-section { page-break-inside: avoid; }
+        .briefing-box { page-break-inside: avoid; }
     }
     
     .print-header {
