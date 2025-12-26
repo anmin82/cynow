@@ -689,14 +689,14 @@ class FcmsRepository:
                         d."CYLINDER_NO",
                         d."SEQ_NO",
                         h."MOVE_CODE" as last_move_code,
-                        h."UPDATE_DATE" as last_update_date
+                        h."MOVE_DATE" as last_move_date
                     FROM fcms_cdc.tr_move_report_details d
                     LEFT JOIN LATERAL (
-                        SELECT "MOVE_CODE", "UPDATE_DATE"
+                        SELECT "MOVE_CODE", "MOVE_DATE"
                         FROM fcms_cdc.tr_cylinder_status_histories
                         WHERE "CYLINDER_NO" = d."CYLINDER_NO"
                           AND "MOVE_REPORT_NO" = d."MOVE_REPORT_NO"
-                        ORDER BY "UPDATE_DATE" DESC
+                        ORDER BY "HISTORY_SEQ" DESC
                         LIMIT 1
                     ) h ON true
                     WHERE TRIM(d."MOVE_REPORT_NO") = %s
@@ -709,7 +709,7 @@ class FcmsRepository:
                         'cylinder_no': cyl_row[0].strip() if cyl_row[0] else '',
                         'seq_no': cyl_row[1] or 0,
                         'last_move_code': cyl_row[2].strip() if cyl_row[2] else '',
-                        'last_update_date': cyl_row[3],
+                        'last_move_date': cyl_row[3],
                     })
                 
                 return {

@@ -1221,8 +1221,8 @@ def api_move_report_detail(request, move_report_no):
                 move_report[key] = move_report[key].strftime('%Y-%m-%d')
         
         for cyl in result['cylinders']:
-            if cyl.get('last_update_date'):
-                cyl['last_update_date'] = cyl['last_update_date'].strftime('%Y-%m-%d %H:%M')
+            if cyl.get('last_move_date'):
+                cyl['last_move_date'] = cyl['last_move_date'].strftime('%Y-%m-%d')
         
         return JsonResponse(result)
     except Exception as e:
