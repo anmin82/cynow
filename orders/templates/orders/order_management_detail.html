@@ -413,12 +413,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function getMoveCodeBadge(code) {
         const codes = {
-            '10': ['입고', 'bg-info'],
-            '20': ['충전', 'bg-warning text-dark'],
-            '30': ['검사', 'bg-secondary'],
-            '40': ['입고대기', 'bg-primary'],
-            '50': ['입고완료', 'bg-primary'],
+            '00': ['신규구매', 'bg-secondary'],
+            '01': ['신규등록', 'bg-secondary'],
+            '10': ['입하', 'bg-info'],
+            '14': ['회수완료', 'bg-secondary'],
+            '16': ['회수없음', 'bg-secondary'],
+            '17': ['재보관', 'bg-secondary'],
+            '21': ['충전선택', 'bg-warning text-dark'],
+            '22': ['충전완료', 'bg-warning text-dark'],
+            '30': ['창고출고', 'bg-secondary'],
+            '31': ['외부충전', 'bg-warning text-dark'],
+            '41': ['분석중', 'bg-primary'],
+            '42': ['분석완료', 'bg-info'],
+            '50': ['창고입고', 'bg-primary'],
+            '51': ['수주연결', 'bg-primary'],
+            '52': ['연결해제', 'bg-secondary'],
             '60': ['출하', 'bg-success'],
+            '65': ['영업외출하', 'bg-success'],
+            '70': ['반품', 'bg-danger'],
+            '85': ['전출', 'bg-secondary'],
+            '86': ['전입', 'bg-secondary'],
+            '99': ['폐기', 'bg-dark'],
         };
         if (!code) return '<span class="badge bg-light text-dark">-</span>';
         const [label, cls] = codes[code] || [code, 'bg-secondary'];
