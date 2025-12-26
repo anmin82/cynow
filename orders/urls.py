@@ -36,6 +36,7 @@ urlpatterns = [
     
     # ⚠️ customer_order_no 기반 경로는 맨 아래 배치
     path('<str:customer_order_no>/', views.po_detail, name='detail'),
+    path('<str:customer_order_no>/edit-unlock/', views.po_edit_unlock, name='edit_unlock'),
     path('<str:customer_order_no>/edit/', views.po_edit, name='edit'),
     path('<str:customer_order_no>/delete/', views.po_delete, name='delete'),
     path('<str:customer_order_no>/generate-guide/', views.generate_guide, name='generate_guide'),
