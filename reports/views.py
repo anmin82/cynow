@@ -335,10 +335,11 @@ def daily_report(request):
                     COALESCE(i."DISPLAY_NAME", c."ITEM_CODE", '미분류') as gas_name,
                     c."WITHSTAND_PRESSURE_MAINTE_DATE",
                     c."WITHSTAND_PRESSURE_TEST_TERM",
-                    COALESCE(c."VALVE_SPEC_CODE", '') as valve_spec
+                    COALESCE(pv."VALUE2", c."VALVE_SPEC_CODE", '') as valve_name
                 FROM fcms_cdc.tr_cylinder_status_histories h
                 LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
                 LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
+                LEFT JOIN fcms_cdc.ma_parameters pv ON pv."TYPE" = '0021' AND TRIM(pv."VALUE1") = TRIM(c."VALVE_SPEC_CODE")
                 WHERE DATE(h."MOVE_DATE") = %s
                 ORDER BY h."MOVE_CODE", i."DISPLAY_NAME", h."CYLINDER_NO"
             ''', [report_date])
@@ -356,14 +357,14 @@ def daily_report(request):
                 gas_name = row[11].strip() if row[11] else '미분류'
                 pressure_test_date = row[12]
                 pressure_test_term = row[13] or 0
-                valve_spec = row[14].strip() if row[14] else ''
+                valve_name = row[14].strip() if row[14] else ''
                 
                 # 제품명: 가스/용량L/밸브 형식
                 item_name_parts = [gas_name]
                 if capacity:
                     item_name_parts.append(f"{int(capacity)}L")
-                if valve_spec:
-                    item_name_parts.append(valve_spec)
+                if valve_name:
+                    item_name_parts.append(valve_name)
                 item_name = ' / '.join(item_name_parts)
                 
                 # 내압만료 계산
