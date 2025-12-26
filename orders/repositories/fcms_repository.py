@@ -223,7 +223,8 @@ class FcmsRepository:
                 o."FILLING_THRESHOLD",
                 o."DELIVERY_DATE",
                 o."MOVE_REPORT_REMARKS",
-                COALESCE(m."PROGRESS_CODE", '') as progress_code
+                COALESCE(m."PROGRESS_CODE", '') as progress_code,
+                m."MOVE_DATE" as shipping_date
             FROM fcms_cdc.tr_orders o
             LEFT JOIN fcms_cdc.tr_move_reports m 
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
@@ -275,6 +276,7 @@ class FcmsRepository:
                     'delivery_date': row[13],
                     'move_report_remarks': row[14].strip() if row[14] else '',
                     'progress_code': row[15].strip() if has_progress and len(row) > 15 and row[15] else '',
+                    'shipping_date': row[16] if has_progress and len(row) > 16 else None,
                 })
             return result
         

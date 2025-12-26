@@ -96,10 +96,11 @@
                     <tr>
                         <th style="width: 130px;">이동서번호</th>
                         <th style="width: 80px;" class="text-center">지시수량</th>
-                        <th style="width: 100px;">주문일</th>
-                        <th style="width: 100px;">납기</th>
+                        <th style="width: 90px;">주문일</th>
+                        <th style="width: 90px;">납기</th>
+                        <th style="width: 90px;">출하일</th>
                         <th>비고</th>
-                        <th style="width: 100px;" class="text-center">상태</th>
+                        <th style="width: 80px;" class="text-center">상태</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -129,12 +130,23 @@
                             {% endif %}
                         </td>
                         <td>
+                            {% if order.shipping_date %}
+                                <span class="badge bg-success">{{ order.shipping_date|date:"m/d" }}</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             <small class="text-muted">
                                 {{ order.order_remarks|default:"" }}
                             </small>
                         </td>
                         <td class="text-center">
-                            <span class="badge bg-info">FCMS등록</span>
+                            {% if order.shipping_date %}
+                                <span class="badge bg-success">출하완료</span>
+                            {% else %}
+                                <span class="badge bg-info">FCMS등록</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -143,7 +155,7 @@
                     <tr>
                         <td class="text-end fw-bold">합계</td>
                         <td class="text-center fw-bold text-primary">{{ item_data.issued_qty }}병</td>
-                        <td colspan="4"></td>
+                        <td colspan="5"></td>
                     </tr>
                 </tfoot>
             </table>
