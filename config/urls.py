@@ -28,6 +28,7 @@ urlpatterns = [
     path('reports/', include('reports.urls')),
     path('history/', include('history.urls')),
     path('orders/', include('orders.urls')),  # 🆕 수주 관리
+    path('inventory/', include('inventory.urls')),  # 재고 관리
     
     # Authentication
     path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
