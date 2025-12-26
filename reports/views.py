@@ -353,18 +353,30 @@ def daily_report(request):
             move_detail_stats = {}  # 이동유형별 상세 통계
             today = report_date
             
+            # 스펙에서 제거할 문자열들
+            remove_patterns = ['general Y', 'HAMAI', 'NERIKI', 'SHOT-Y In-screw']
+            
+            def clean_spec(spec):
+                """스펙에서 불필요한 문자열 제거"""
+                if not spec:
+                    return ''
+                result = spec
+                for pattern in remove_patterns:
+                    result = result.replace(pattern, '')
+                # 연속 공백 정리
+                result = ' '.join(result.split())
+                return result.strip()
+            
             for row in cursor.fetchall():
                 move_code = row[1].strip() if row[1] else ''
                 move_label = move_code_labels.get(move_code, move_code)
                 gas_name = row[9].strip() if row[9] else '미분류'
                 capacity = row[10] or 0
-                valve_spec = row[11].strip() if row[11] else ''
-                cylinder_spec = row[12].strip() if row[12] else ''
+                valve_spec = clean_spec(row[11].strip() if row[11] else '')
+                cylinder_spec = clean_spec(row[12].strip() if row[12] else '')
                 enduser = row[13].strip() if row[13] else ''
                 pressure_test_date = row[14]
                 pressure_test_term = row[15] or 0
-                
-                enduser = row[13].strip() if row[13] else ''
                 
                 # 제품명: 가스명/용량/밸브/용기/EndUser 형식
                 item_name_parts = [gas_name]
@@ -492,8 +504,8 @@ def daily_report(request):
                 # 제품명: 가스명/용량/밸브/용기/EndUser 형식
                 gas_name = row[4].strip() if row[4] else '미분류'
                 capacity = row[5] or 0
-                valve_spec = row[6].strip() if row[6] else ''
-                cylinder_spec = row[7].strip() if row[7] else ''
+                valve_spec = clean_spec(row[6].strip() if row[6] else '')
+                cylinder_spec = clean_spec(row[7].strip() if row[7] else '')
                 enduser = row[8].strip() if row[8] else ''
                 
                 item_name_parts = [gas_name]
