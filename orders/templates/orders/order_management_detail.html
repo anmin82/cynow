@@ -154,13 +154,7 @@
                         <td class="small">{{ order.business_remarks|default:"-" }}</td>
                         <td class="small">{{ order.production_remarks|default:"-" }}</td>
                         <td class="text-center">
-                            {% if order.shipping_date %}
-                                <span class="badge bg-success">출하</span>
-                            {% elif order.filling_date %}
-                                <span class="badge bg-warning text-dark">충전</span>
-                            {% else %}
-                                <span class="badge bg-info">등록</span>
-                            {% endif %}
+                            <span class="status-badge" data-code="{{ order.progress_code }}"></span>
                         </td>
                     </tr>
                     {% endfor %}
@@ -321,6 +315,12 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const modal = new bootstrap.Modal(document.getElementById('moveReportModal'));
+    
+    // 메인 테이블 상태 배지 초기화
+    document.querySelectorAll('.status-badge').forEach(span => {
+        const code = span.dataset.code;
+        span.outerHTML = getMoveCodeBadge(code);
+    });
     
     // 이동서 링크 클릭 이벤트
     document.querySelectorAll('.move-report-link').forEach(link => {
