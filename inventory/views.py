@@ -44,6 +44,7 @@ def cylinder_inventory(request):
     # 필터
     gas_name = request.GET.get('gas_name', '')
     status = request.GET.get('status', '')
+    show_all = request.GET.get('show_all', '')  # '1'이면 전체보기
     
     queryset = CylinderInventory.objects.all()
     
@@ -51,20 +52,26 @@ def cylinder_inventory(request):
         queryset = queryset.filter(gas_name__icontains=gas_name)
     if status:
         queryset = queryset.filter(status=status)
+
+    core_gases = ['COS', 'CF4', 'CLF3']
+    if show_all != '1' and not gas_name:
+        queryset = queryset.filter(gas_name__in=core_gases)
     
     # 가스명별 집계
-    gas_summary = CylinderInventory.objects.values(
+    gas_summary = queryset.values(
         'gas_name'
     ).annotate(
         total=Sum('quantity')
     ).order_by('gas_name')
     
     # 상태별 집계
-    status_summary = CylinderInventory.objects.values(
+    status_summary = queryset.values(
         'status'
     ).annotate(
         total=Sum('quantity')
     ).order_by('status')
+
+    total_qty = queryset.aggregate(total=Sum('quantity'))['total'] or 0
     
     # 상태 선택 목록
     status_choices = CylinderInventory.STATUS_CHOICES
@@ -76,6 +83,9 @@ def cylinder_inventory(request):
         'status_choices': status_choices,
         'filter_gas_name': gas_name,
         'filter_status': status,
+        'show_all': show_all,
+        'core_gases': core_gases,
+        'total_qty': total_qty,
     }
     return render(request, 'inventory/cylinder.html', context)
 

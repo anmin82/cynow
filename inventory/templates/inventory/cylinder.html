@@ -7,9 +7,20 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-cylinder me-2"></i>용기 재고</h2>
-        <a href="{% url 'inventory:index' %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>돌아가기
-        </a>
+        <div class="d-flex gap-2">
+            {% if show_all == '1' %}
+                <a href="{% url 'inventory:cylinder' %}?gas_name={{ filter_gas_name }}&status={{ filter_status }}" class="btn btn-outline-primary">
+                    COS/CF4/CLF3만
+                </a>
+            {% else %}
+                <a href="{% url 'inventory:cylinder' %}?show_all=1&gas_name={{ filter_gas_name }}&status={{ filter_status }}" class="btn btn-outline-primary">
+                    전체보기
+                </a>
+            {% endif %}
+            <a href="{% url 'inventory:index' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>돌아가기
+            </a>
+        </div>
     </div>
     
     <!-- 필터 -->
@@ -19,7 +30,7 @@
                 <div class="col-md-3">
                     <label class="form-label">가스명</label>
                     <input type="text" name="gas_name" class="form-control" 
-                           value="{{ filter_gas_name }}" placeholder="가스명 검색...">
+                           value="{{ filter_gas_name }}" placeholder="예: COS, CF4, CLF3...">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">상태</label>
@@ -38,8 +49,24 @@
                 <div class="col-md-2">
                     <a href="{% url 'inventory:cylinder' %}" class="btn btn-outline-secondary w-100">초기화</a>
                 </div>
+                {% if show_all == '1' %}
+                    <input type="hidden" name="show_all" value="1">
+                {% endif %}
             </form>
         </div>
+    </div>
+
+    <!-- 요약 -->
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>표시 기준:</strong>
+        {% if show_all == '1' %}
+            전체
+        {% else %}
+            {{ core_gases|join:", " }}
+        {% endif %}
+        &nbsp;|&nbsp;
+        <strong>총 수량:</strong> {{ total_qty|intcomma }}병
     </div>
     
     <div class="row">
