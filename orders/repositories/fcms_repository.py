@@ -246,7 +246,7 @@ class FcmsRepository:
             LEFT JOIN fcms_cdc.tr_move_reports m 
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
             LEFT JOIN fcms_cdc.tr_order_informations oi
-                ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(oi."ARRIVAL_SHIPPING_NO")
+                ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(oi."MOVE_REPORT_NO")
             WHERE TRIM(o."CUSTOMER_ORDER_NO") = %s
               AND (m."PROGRESS_CODE" IS NULL OR m."PROGRESS_CODE" != '51')
             ORDER BY o."ARRIVAL_SHIPPING_NO"
