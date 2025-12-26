@@ -79,6 +79,7 @@
     }
     
     .move-10 { background: rgba(90, 200, 250, 0.2); color: #0A84FF; }
+    .move-19 { background: rgba(255, 59, 48, 0.2); color: #FF3B30; }
     .move-21, .move-22, .move-31 { background: rgba(255, 204, 0, 0.2); color: #D4A600; }
     .move-41, .move-42 { background: rgba(175, 82, 222, 0.2); color: #AF52DE; }
     .move-50, .move-51 { background: rgba(0, 122, 255, 0.2); color: #007AFF; }
@@ -162,7 +163,7 @@
     {% for item in item_summary|slice:":5" %}
     <div class="summary-card {% cycle 'info' 'success' 'warning' 'purple' 'primary' %}">
         <div class="value">{{ item.count|intcomma }}</div>
-        <div class="label">{{ item.item_code }}</div>
+        <div class="label">{{ item.item_name }}</div>
     </div>
     {% endfor %}
 </div>
@@ -203,32 +204,42 @@
         </div>
     </div>
     
-    <!-- 제품코드별 이동 현황 -->
+    <!-- 제품별 이동 현황 -->
     <div class="col-md-8 mb-4">
         <div class="card h-100">
             <div class="card-header">
-                <i class="bi bi-grid me-2"></i>제품코드별 이동 현황
+                <i class="bi bi-grid me-2"></i>제품별 이동 현황
             </div>
             <div class="card-body p-0">
-                <div class="table-responsive">
+                <div class="table-responsive" style="max-height: 400px;">
                     <table class="table table-sm mb-0">
-                        <thead class="table-light">
+                        <thead class="table-light sticky-top">
                             <tr>
-                                <th>제품코드</th>
+                                <th>제품명</th>
                                 <th>이동유형</th>
                                 <th class="text-end">건수</th>
+                                <th class="text-center">내압만료</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in move_by_item %}
                             <tr>
-                                <td><code class="fw-bold">{{ item.item_code }}</code></td>
+                                <td class="fw-bold">{{ item.item_name }}</td>
                                 <td><span class="move-badge move-{{ item.move_code }}">{{ item.move_label }}</span></td>
                                 <td class="text-end fw-bold">{{ item.count }}</td>
+                                <td class="text-center">
+                                    {% if item.expired > 0 %}
+                                    <span class="badge bg-danger">{{ item.expired }}</span>
+                                    {% elif item.expiring_soon > 0 %}
+                                    <span class="badge bg-warning text-dark">{{ item.expiring_soon }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="3" class="text-center text-muted py-4">
+                                <td colspan="4" class="text-center text-muted py-4">
                                     오늘 이동 내역이 없습니다
                                 </td>
                             </tr>
@@ -240,6 +251,44 @@
         </div>
     </div>
 </div>
+
+<!-- 이동유형별 상세 분석 -->
+{% if move_detail_stats %}
+<div class="row">
+    {% for stats in move_detail_stats %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <span class="move-badge move-{{ stats.code }}">{{ stats.label }}</span>
+                <div>
+                    <span class="badge bg-primary">{{ stats.total }}건</span>
+                    {% if stats.expired > 0 %}
+                    <span class="badge bg-danger">만료 {{ stats.expired }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        {% for item in stats.by_item %}
+                        <tr>
+                            <td>{{ item.item_name }}</td>
+                            <td class="text-end fw-bold">{{ item.count }}건</td>
+                            <td class="text-end" style="width: 60px;">
+                                {% if item.expired > 0 %}
+                                <span class="badge bg-danger">{{ item.expired }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- 입하 용기 상세 분석 -->
 {% if arrival_details %}
@@ -376,10 +425,10 @@
                         <tr>
                             <th style="width: 50px;">#</th>
                             <th>용기번호</th>
-                            <th>제품코드</th>
+                            <th>제품명</th>
                             <th>이동서번호</th>
                             <th>고객/공급처</th>
-                            <th>충전LOT</th>
+                            <th class="text-center">상태</th>
                         </tr>
                     </thead>
                     <tbody id="modalMoveBody"></tbody>
@@ -419,7 +468,10 @@ document.addEventListener('DOMContentLoaded', function() {
             filling_lot: "{{ m.filling_lot }}",
             remarks: "{{ m.remarks|escapejs }}",
             item_code: "{{ m.item_code }}",
-            capacity: {{ m.capacity }}
+            item_name: "{{ m.item_name }}",
+            capacity: {{ m.capacity }},
+            is_expired: {{ m.is_expired|yesno:"true,false" }},
+            is_expiring_soon: {{ m.is_expiring_soon|yesno:"true,false" }}
         },
         {% endfor %}
     ];
@@ -446,13 +498,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             filtered.forEach((m, idx) => {
                 const tr = document.createElement('tr');
+                let statusBadge = '<span class="badge bg-success">정상</span>';
+                if (m.is_expired) {
+                    statusBadge = '<span class="badge bg-danger">만료</span>';
+                    tr.className = 'table-danger';
+                } else if (m.is_expiring_soon) {
+                    statusBadge = '<span class="badge bg-warning text-dark">임박</span>';
+                    tr.className = 'table-warning';
+                }
                 tr.innerHTML = `
                     <td class="text-muted">${idx + 1}</td>
                     <td><code class="fw-bold">${m.cylinder_no}</code></td>
-                    <td><code>${m.item_code}</code></td>
+                    <td>${m.item_name}</td>
                     <td>${m.move_report_no ? '<code class="text-success">' + m.move_report_no + '</code>' : '-'}</td>
                     <td>${m.customer || m.supplier || '-'}</td>
-                    <td>${m.filling_lot ? '<code class="small">' + m.filling_lot + '</code>' : '-'}</td>
+                    <td class="text-center">${statusBadge}</td>
                 `;
                 tbody.appendChild(tr);
             });

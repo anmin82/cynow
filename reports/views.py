@@ -297,7 +297,7 @@ def daily_report(request):
     # MOVE_CODE 라벨 매핑
     move_code_labels = {
         '00': '신규구매', '01': '신규등록', '10': '입하', '14': '회수완료',
-        '16': '회수없음', '17': '재보관', '21': '충전선택', '22': '충전완료',
+        '16': '회수없음', '17': '재보관', '19': '이상처리', '21': '충전선택', '22': '충전완료',
         '30': '창고출고', '31': '외부충전', '41': '분석중', '42': '분석완료',
         '50': '창고입고', '51': '수주연결', '52': '연결해제', '60': '출하',
         '65': '영업외출하', '70': '반품', '85': '전출', '86': '전입', '99': '폐기',
@@ -311,7 +311,7 @@ def daily_report(request):
     
     try:
         with connection.cursor() as cursor:
-            # 오늘 이동 내역 조회 (MOVE_DATE는 datetime이므로 DATE 비교) - 용기 마스터 조인
+            # 오늘 이동 내역 조회 (MOVE_DATE는 datetime이므로 DATE 비교) - 용기/제품 마스터 조인
             cursor.execute('''
                 SELECT 
                     h."CYLINDER_NO",
@@ -331,21 +331,41 @@ def daily_report(request):
                         END
                     ) as filling_lot,
                     COALESCE(c."ITEM_CODE", '') as item_code,
-                    COALESCE(c."CAPACITY", 0) as capacity
+                    COALESCE(c."CAPACITY", 0) as capacity,
+                    COALESCE(i."DISPLAY_NAME", c."ITEM_CODE", '미분류') as item_name,
+                    c."WITHSTAND_PRESSURE_MAINTE_DATE",
+                    c."WITHSTAND_PRESSURE_TEST_TERM"
                 FROM fcms_cdc.tr_cylinder_status_histories h
                 LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
+                LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
                 WHERE DATE(h."MOVE_DATE") = %s
-                ORDER BY h."MOVE_CODE", c."ITEM_CODE", h."CYLINDER_NO"
+                ORDER BY h."MOVE_CODE", i."DISPLAY_NAME", h."CYLINDER_NO"
             ''', [report_date])
             
-            item_summary = {}  # 제품코드별 집계
-            move_by_item = {}  # 이동유형+제품코드별 집계
+            item_summary = {}  # 제품명별 집계
+            move_by_item = {}  # 이동유형+제품명별 집계
+            move_detail_stats = {}  # 이동유형별 상세 통계
+            today = report_date
             
             for row in cursor.fetchall():
                 move_code = row[1].strip() if row[1] else ''
                 move_label = move_code_labels.get(move_code, move_code)
-                item_code = row[9].strip() if row[9] else '미분류'
+                item_code = row[9].strip() if row[9] else ''
                 capacity = row[10] or 0
+                item_name = row[11].strip() if row[11] else '미분류'
+                pressure_test_date = row[12]
+                pressure_test_term = row[13] or 0
+                
+                # 내압만료 계산
+                is_expired = False
+                is_expiring_soon = False
+                if pressure_test_date and pressure_test_term:
+                    expiry_date = pressure_test_date + timedelta(days=pressure_test_term * 365)
+                    expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+                    if expiry_date_only < today:
+                        is_expired = True
+                    elif expiry_date_only < today + timedelta(days=90):
+                        is_expiring_soon = True
                 
                 movements.append({
                     'cylinder_no': row[0].strip() if row[0] else '',
@@ -360,6 +380,9 @@ def daily_report(request):
                     'filling_lot': row[8].strip() if row[8] else '',
                     'item_code': item_code,
                     'capacity': capacity,
+                    'item_name': item_name,
+                    'is_expired': is_expired,
+                    'is_expiring_soon': is_expiring_soon,
                 })
                 
                 # 이동유형별 요약 집계
@@ -367,16 +390,34 @@ def daily_report(request):
                     move_summary[move_label] = {'code': move_code, 'count': 0}
                 move_summary[move_label]['count'] += 1
                 
-                # 제품코드별 집계
-                if item_code not in item_summary:
-                    item_summary[item_code] = {'count': 0, 'capacity': capacity}
-                item_summary[item_code]['count'] += 1
+                # 제품명별 집계
+                if item_name not in item_summary:
+                    item_summary[item_name] = {'count': 0, 'capacity': capacity}
+                item_summary[item_name]['count'] += 1
                 
-                # 이동유형+제품코드별 집계
-                key = f"{move_code}_{item_code}"
+                # 이동유형+제품명별 집계
+                key = f"{move_code}_{item_name}"
                 if key not in move_by_item:
-                    move_by_item[key] = {'move_code': move_code, 'move_label': move_label, 'item_code': item_code, 'count': 0}
+                    move_by_item[key] = {'move_code': move_code, 'move_label': move_label, 'item_name': item_name, 'count': 0, 'expired': 0, 'expiring_soon': 0}
                 move_by_item[key]['count'] += 1
+                if is_expired:
+                    move_by_item[key]['expired'] += 1
+                if is_expiring_soon:
+                    move_by_item[key]['expiring_soon'] += 1
+                
+                # 이동유형별 상세 통계
+                if move_code not in move_detail_stats:
+                    move_detail_stats[move_code] = {'label': move_label, 'total': 0, 'expired': 0, 'expiring_soon': 0, 'by_item': {}}
+                move_detail_stats[move_code]['total'] += 1
+                if is_expired:
+                    move_detail_stats[move_code]['expired'] += 1
+                if is_expiring_soon:
+                    move_detail_stats[move_code]['expiring_soon'] += 1
+                if item_name not in move_detail_stats[move_code]['by_item']:
+                    move_detail_stats[move_code]['by_item'][item_name] = {'count': 0, 'expired': 0}
+                move_detail_stats[move_code]['by_item'][item_name]['count'] += 1
+                if is_expired:
+                    move_detail_stats[move_code]['by_item'][item_name]['expired'] += 1
             
             # 입하(10) 용기 상세 정보 조회 (내압검사 만료일 포함)
             cursor.execute('''
@@ -454,17 +495,33 @@ def daily_report(request):
         status_summary[status] += qty
         total_cylinders += qty
     
-    # 제품코드별 집계 정렬
+    # 제품명별 집계 정렬
     item_summary_list = [
-        {'item_code': k, 'count': v['count'], 'capacity': v['capacity']}
+        {'item_name': k, 'count': v['count'], 'capacity': v['capacity']}
         for k, v in sorted(item_summary.items(), key=lambda x: -x[1]['count'])
     ]
     
-    # 이동유형+제품코드별 집계 정렬 (이동코드순, 건수 내림차순)
+    # 이동유형+제품명별 집계 정렬 (이동코드순, 건수 내림차순)
     move_by_item_list = sorted(
         move_by_item.values(),
         key=lambda x: (x['move_code'], -x['count'])
     )
+    
+    # 이동유형별 상세 통계 정렬
+    move_detail_stats_list = []
+    for code, stats in sorted(move_detail_stats.items()):
+        by_item_list = [
+            {'item_name': k, 'count': v['count'], 'expired': v['expired']}
+            for k, v in sorted(stats['by_item'].items(), key=lambda x: -x[1]['count'])
+        ]
+        move_detail_stats_list.append({
+            'code': code,
+            'label': stats['label'],
+            'total': stats['total'],
+            'expired': stats['expired'],
+            'expiring_soon': stats['expiring_soon'],
+            'by_item': by_item_list,
+        })
     
     context = {
         'report_date': report_date,
@@ -477,6 +534,7 @@ def daily_report(request):
         'arrival_summary': arrival_summary,
         'item_summary': item_summary_list,
         'move_by_item': move_by_item_list,
+        'move_detail_stats': move_detail_stats_list,
         'generated_at': timezone.now(),
     }
     return render(request, 'reports/daily.html', context)
