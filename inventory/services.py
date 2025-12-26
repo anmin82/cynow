@@ -176,22 +176,23 @@ class InventoryService:
         ).delete()
         
         # 당일 트랜잭션 집계 (제품 관련)
+        # 주의: 제품 재고는 "제품코드(KFxxx)" 기준으로 집계되어야 거래명세서/매출집계가 가능함
         day_txns = InventoryTransaction.objects.filter(
             txn_date=snapshot_date,
             txn_type__startswith='PROD_'
-        )
+        ).exclude(txn_type='SNAPSHOT')
         
-        # 제품코드별 입출고 집계
+        # 제품코드별 입출고 집계 (InventoryTransaction.product_code FK 기반)
         in_agg = day_txns.filter(txn_type='PROD_IN').values(
-            'gas_name'  # trade_condition_code 대신 gas_name 사용
+            'product_code_id'
         ).annotate(total=Sum('quantity'))
         
         out_agg = day_txns.filter(txn_type='PROD_OUT').values(
-            'gas_name'
+            'product_code_id'
         ).annotate(total=Sum('quantity'))
         
-        in_map = {item['gas_name']: int(item['total'] or 0) for item in in_agg}
-        out_map = {item['gas_name']: int(item['total'] or 0) for item in out_agg}
+        in_map = {item['product_code_id']: int(item['total'] or 0) for item in in_agg}
+        out_map = {item['product_code_id']: int(item['total'] or 0) for item in out_agg}
         
         # 현재 재고 스냅샷 생성
         inventories = ProductInventory.objects.all()
@@ -206,8 +207,8 @@ class InventoryService:
                 gas_name=inv.gas_name,
                 warehouse=inv.warehouse,
                 quantity=inv.quantity,
-                day_in=in_map.get(inv.gas_name, 0),
-                day_out=out_map.get(inv.gas_name, 0),
+                day_in=in_map.get(inv.product_code_id, 0),
+                day_out=out_map.get(inv.product_code_id, 0),
             ))
         
         if snapshots:
@@ -319,45 +320,45 @@ class InventoryService:
         return {'synced': synced, 'updated': updated, 'deleted': deleted}
     
     # ============================================
-    # cy_cylinder_current 기반 제품 재고 동기화
+    # FCMS(문서/이력) 기반 제품 재고 동기화
     # ============================================
     
     @staticmethod
-    def sync_product_inventory_from_current() -> Dict[str, int]:
+    def sync_product_inventory_from_documents(warehouse: str = 'MAIN') -> Dict[str, int]:
         """
-        cy_cylinder_current 테이블에서 제품 재고 동기화
-        
-        "제품" 상태(창입) 용기를 ProductCode(제품코드) 기준으로 집계
-        cylinder_type_key를 통해 ProductCode와 매핑
+        FCMS CDC(tr_cylinder_status_histories + tr_orders) 기반 제품 재고 동기화
+
+        제품 재고는 용기 대시보드 분류(cylinder_type_key)가 아니라,
+        "수주/이동서(ARRIVAL_SHIPPING_NO) → 제품코드(TRADE_CONDITION_CODE)" 문서 흐름으로 관리되어야 함.
+
+        현재 창고 재고는 "용기별 최신 MOVE_CODE"가 '50'(창고입고)인 건을 집계하여 계산한다.
+        (최신 상태가 '60'(출하)이면 재고에서 제외됨)
         
         Returns:
             {'synced': N, 'updated': M, 'deleted': D}
         """
         from products.models import ProductCode as PC
-        
-        # cylinder_type_key → ProductCode 객체 매핑 생성
-        type_key_to_product = {}
-        for pc in PC.objects.filter(is_active=True, cylinder_type_key__isnull=False):
-            if pc.cylinder_type_key:
-                type_key_to_product[pc.cylinder_type_key] = pc
-        
-        # trade_condition_no로도 조회할 수 있도록 매핑 추가
-        trade_no_to_product = {
-            pc.trade_condition_no: pc
-            for pc in PC.objects.filter(is_active=True)
-        }
-        
-        # "제품" 상태 용기를 cylinder_type_key별로 집계
+
+        # 용기별 최신 상태이력 1건(DISTINCT ON) → 창고입고('50')만 제품코드별 집계
         query = '''
-            SELECT 
-                cylinder_type_key,
-                dashboard_gas_name,
-                dashboard_capacity,
-                COUNT(*) as cnt
-            FROM cy_cylinder_current
-            WHERE dashboard_status = '제품'
-              AND cylinder_type_key IS NOT NULL
-            GROUP BY cylinder_type_key, dashboard_gas_name, dashboard_capacity
+            WITH latest AS (
+                SELECT DISTINCT ON (TRIM(h."CYLINDER_NO"))
+                    TRIM(h."CYLINDER_NO") AS cylinder_no,
+                    TRIM(h."MOVE_CODE") AS move_code,
+                    TRIM(h."MOVE_REPORT_NO") AS move_report_no
+                FROM fcms_cdc.tr_cylinder_status_histories h
+                WHERE h."CYLINDER_NO" IS NOT NULL
+                ORDER BY TRIM(h."CYLINDER_NO"), h."HISTORY_SEQ" DESC
+            )
+            SELECT
+                COALESCE(NULLIF(TRIM(o."TRADE_CONDITION_CODE"), ''), 'UNKNOWN') AS trade_condition_code,
+                COUNT(*) AS cnt
+            FROM latest l
+            LEFT JOIN fcms_cdc.tr_orders o
+                ON TRIM(o."ARRIVAL_SHIPPING_NO") = l.move_report_no
+            WHERE l.move_code = '50'
+            GROUP BY COALESCE(NULLIF(TRIM(o."TRADE_CONDITION_CODE"), ''), 'UNKNOWN')
+            ORDER BY trade_condition_code
         '''
         
         try:
@@ -365,54 +366,34 @@ class InventoryService:
                 cursor.execute(query)
                 rows = cursor.fetchall()
         except Exception as e:
-            logger.error(f"제품 재고 조회 실패: {e}")
+            logger.error(f"제품 재고(문서기반) 조회 실패: {e}")
             return {'synced': 0, 'updated': 0, 'deleted': 0, 'error': str(e)}
         
         synced = 0
         updated = 0
-        
-        # trade_condition_code별 수량 합산 (여러 cylinder_type_key가 같은 제품코드로 매핑될 수 있음)
-        product_qty_map = {}  # trade_condition_code -> {'product': ProductCode, 'quantity': int, 'gas_name': str}
-        
-        for row in rows:
-            type_key = row[0]
-            gas_name = row[1] or ''
-            capacity = row[2]
-            count = row[3]
-            
-            # ProductCode 매핑 확인
-            if type_key in type_key_to_product:
-                pc = type_key_to_product[type_key]
-                trade_code = pc.trade_condition_no
-                display_name = pc.display_name or pc.gas_name or gas_name
-            else:
-                # 매핑 없으면 gas_name + capacity로 대체
-                trade_code = f"{gas_name}_{int(capacity)}L" if capacity else gas_name
-                display_name = gas_name
-                pc = None
-            
-            # 수량 합산
-            if trade_code in product_qty_map:
-                product_qty_map[trade_code]['quantity'] += count
-            else:
-                product_qty_map[trade_code] = {
-                    'product': pc,
-                    'quantity': count,
-                    'gas_name': display_name,
-                }
+
+        trade_codes = [row[0] for row in rows if row and row[0]]
+        pc_map = {
+            pc.trade_condition_no: pc
+            for pc in PC.objects.filter(is_active=True, trade_condition_no__in=trade_codes)
+        }
         
         with transaction.atomic():
             # 기존 재고 0으로 초기화
             ProductInventory.objects.all().update(quantity=0)
             
-            for trade_code, data in product_qty_map.items():
-                pc = data['product']
-                qty = data['quantity']
-                display_name = data['gas_name']
+            for row in rows:
+                trade_code = row[0]
+                qty = int(row[1] or 0)
+                pc = pc_map.get(trade_code)
+                display_name = (
+                    (pc.display_name or pc.gas_name) if pc else
+                    ('미매칭(문서기반)' if trade_code == 'UNKNOWN' else trade_code)
+                )
                 
                 obj, created = ProductInventory.objects.update_or_create(
                     trade_condition_code=trade_code,
-                    warehouse='MAIN',
+                    warehouse=warehouse,
                     defaults={
                         'product_code': pc,  # ProductCode FK 연결
                         'gas_name': display_name,
@@ -427,7 +408,7 @@ class InventoryService:
             # 수량 0인 항목 삭제
             deleted = ProductInventory.objects.filter(quantity=0).delete()[0]
         
-        logger.info(f"제품 재고 동기화 완료: 신규 {synced}건, 갱신 {updated}건, 삭제 {deleted}건")
+        logger.info(f"제품 재고(문서기반) 동기화 완료: 신규 {synced}건, 갱신 {updated}건, 삭제 {deleted}건")
         return {'synced': synced, 'updated': updated, 'deleted': deleted}
     
     # ============================================

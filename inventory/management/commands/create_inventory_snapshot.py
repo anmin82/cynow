@@ -33,7 +33,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--sync-cylinders',
             action='store_true',
-            help='cy_cylinder_current에서 용기 재고 동기화 후 스냅샷 생성'
+            help='cy_cylinder_current에서 용기 재고 + FCMS 문서기반 제품 재고 동기화 후 스냅샷 생성'
         )
     
     def handle(self, *args, **options):
@@ -59,7 +59,7 @@ class Command(BaseCommand):
             
             # 제품 재고 동기화
             self.stdout.write('제품 재고 동기화 중...')
-            result2 = InventoryService.sync_product_inventory_from_current()
+            result2 = InventoryService.sync_product_inventory_from_documents()
             self.stdout.write(
                 self.style.SUCCESS(
                     f"제품 동기화: 신규 {result2.get('synced', 0)}건, "
