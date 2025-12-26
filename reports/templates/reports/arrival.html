@@ -279,6 +279,65 @@
     </div>
 </div>
 
+<!-- 현재 보유 가용 용기 현황 -->
+<div class="report-section">
+    <div class="section-title">
+        <i class="bi bi-archive"></i>
+        현재 보유 가용 용기 현황
+        <span class="badge bg-success ms-auto">가용 {{ total_available|intcomma }}본 / 전체 {{ total_inventory|intcomma }}본</span>
+    </div>
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover item-table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>가스명</th>
+                            <th class="text-center" style="width: 80px;">용량</th>
+                            <th class="text-center" style="width: 100px;">가용</th>
+                            <th class="text-center" style="width: 100px;">전체</th>
+                            <th class="text-center" style="width: 120px;">가용률</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in inventory_list %}
+                        <tr>
+                            <td class="text-muted">{{ forloop.counter }}</td>
+                            <td><strong>{{ inv.gas_name }}</strong></td>
+                            <td class="text-center">{{ inv.capacity }}L</td>
+                            <td class="text-center">
+                                <strong class="{% if inv.available_qty == 0 %}text-danger{% elif inv.available_qty < 5 %}text-warning{% else %}text-success{% endif %}">
+                                    {{ inv.available_qty }}
+                                </strong>
+                            </td>
+                            <td class="text-center text-muted">{{ inv.total_qty }}</td>
+                            <td class="text-center">
+                                {% if inv.total_qty > 0 %}
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-success" style="width: {% widthratio inv.available_qty inv.total_qty 100 %}%;"></div>
+                                </div>
+                                <small class="text-muted">{% widthratio inv.available_qty inv.total_qty 100 %}%</small>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">데이터 없음</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small">
+            <i class="bi bi-info-circle me-1"></i>가용 수량 기준 상위 10개 용기종류 표시
+        </div>
+    </div>
+</div>
+
 <!-- 제품별 입하 현황 -->
 <div class="report-section">
     <div class="section-title">

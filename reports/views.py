@@ -758,12 +758,38 @@ def arrival_report(request):
         for k, v in sorted(summary['by_supplier'].items(), key=lambda x: -x[1])
     ]
     
+    # 현재 보유 가용 용기 현황 (대시보드와 동일)
+    from core.utils.view_helper import group_cylinder_types
+    current_inventory = CylinderRepository.get_inventory_summary()
+    cylinder_types_dict = group_cylinder_types(current_inventory)
+    
+    # 가용 수량 기준 상위 10개
+    inventory_list = sorted(
+        [
+            {
+                'gas_name': v['gas_name'],
+                'capacity': v['capacity'],
+                'available_qty': v['available_qty'],
+                'total_qty': v['total_qty'],
+            }
+            for v in cylinder_types_dict.values()
+        ],
+        key=lambda x: -x['available_qty']
+    )[:10]
+    
+    # 전체 가용/총 집계
+    total_available = sum(v['available_qty'] for v in cylinder_types_dict.values())
+    total_inventory = sum(v['total_qty'] for v in cylinder_types_dict.values())
+    
     context = {
         'report_date': report_date,
         'arrivals': arrivals,
         'summary': summary,
         'by_item': by_item_list,
         'by_supplier': by_supplier_list,
+        'inventory_list': inventory_list,
+        'total_available': total_available,
+        'total_inventory': total_inventory,
         'generated_at': timezone.now(),
     }
     return render(request, 'reports/arrival.html', context)
