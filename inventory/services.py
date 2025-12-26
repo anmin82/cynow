@@ -319,6 +319,72 @@ class InventoryService:
         return {'synced': synced, 'updated': updated, 'deleted': deleted}
     
     # ============================================
+    # cy_cylinder_current 기반 제품 재고 동기화
+    # ============================================
+    
+    @staticmethod
+    def sync_product_inventory_from_current() -> Dict[str, int]:
+        """
+        cy_cylinder_current 테이블에서 제품 재고 동기화
+        
+        "제품" 상태(창입) 용기를 가스명 × 용량별로 집계
+        
+        Returns:
+            {'synced': N, 'updated': M, 'deleted': D}
+        """
+        query = '''
+            SELECT 
+                dashboard_gas_name,
+                dashboard_capacity,
+                COUNT(*) as cnt
+            FROM cy_cylinder_current
+            WHERE dashboard_status = '제품'
+              AND dashboard_gas_name IS NOT NULL
+            GROUP BY dashboard_gas_name, dashboard_capacity
+        '''
+        
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(query)
+                rows = cursor.fetchall()
+        except Exception as e:
+            logger.error(f"제품 재고 조회 실패: {e}")
+            return {'synced': 0, 'updated': 0, 'deleted': 0, 'error': str(e)}
+        
+        synced = 0
+        updated = 0
+        with transaction.atomic():
+            # 기존 재고 0으로 초기화
+            ProductInventory.objects.all().update(quantity=0)
+            
+            for row in rows:
+                gas_name = row[0] or ''
+                capacity = row[1]
+                count = row[2]
+                
+                # 제품코드 생성 (gas_name + capacity)
+                trade_code = f"{gas_name}_{capacity}L" if capacity else gas_name
+                
+                obj, created = ProductInventory.objects.update_or_create(
+                    trade_condition_code=trade_code,
+                    warehouse='MAIN',
+                    defaults={
+                        'gas_name': gas_name,
+                        'quantity': count,
+                    }
+                )
+                if created:
+                    synced += 1
+                else:
+                    updated += 1
+            
+            # 수량 0인 항목 삭제
+            deleted = ProductInventory.objects.filter(quantity=0).delete()[0]
+        
+        logger.info(f"제품 재고 동기화 완료: 신규 {synced}건, 갱신 {updated}건, 삭제 {deleted}건")
+        return {'synced': synced, 'updated': updated, 'deleted': deleted}
+    
+    # ============================================
     # 제품 재고 트랜잭션 처리
     # ============================================
     

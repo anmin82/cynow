@@ -51,8 +51,20 @@ class Command(BaseCommand):
             result = InventoryService.sync_cylinder_inventory_from_current()
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"동기화 완료: {result.get('synced', 0)}건 생성, "
-                    f"{result.get('deleted', 0)}건 삭제"
+                    f"용기 동기화: 신규 {result.get('synced', 0)}건, "
+                    f"갱신 {result.get('updated', 0)}건, "
+                    f"삭제 {result.get('deleted', 0)}건"
+                )
+            )
+            
+            # 제품 재고 동기화
+            self.stdout.write('제품 재고 동기화 중...')
+            result2 = InventoryService.sync_product_inventory_from_current()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"제품 동기화: 신규 {result2.get('synced', 0)}건, "
+                    f"갱신 {result2.get('updated', 0)}건, "
+                    f"삭제 {result2.get('deleted', 0)}건"
                 )
             )
         
