@@ -312,7 +312,8 @@ def daily_report(request):
     try:
         with connection.cursor() as cursor:
             # 오늘 이동 내역 조회 (MOVE_DATE는 datetime이므로 DATE 비교) - 용기/제품 마스터 조인
-            # 대시보드와 동일하게 ma_items, ma_valve_specs, ma_cylinder_specs 조인 + EndUser 마스터
+            # 대시보드와 동일하게 ma_items, ma_valve_specs, ma_cylinder_specs 조인
+            # EndUser는 cy_cylinder_current의 정책이 적용된 dashboard_enduser 사용
             cursor.execute('''
                 SELECT 
                     h."CYLINDER_NO",
@@ -335,7 +336,7 @@ def daily_report(request):
                     COALESCE(c."CAPACITY", 0) as capacity,
                     COALESCE(vs."NAME", '') as valve_spec,
                     COALESCE(cs."NAME", '') as cylinder_spec,
-                    COALESCE(eu.enduser_name, c."USE_DEPARTMENT_CODE", '') as enduser,
+                    COALESCE(cc.dashboard_enduser, '') as enduser,
                     c."WITHSTAND_PRESSURE_MAINTE_DATE",
                     c."WITHSTAND_PRESSURE_TEST_TERM"
                 FROM fcms_cdc.tr_cylinder_status_histories h
@@ -343,7 +344,7 @@ def daily_report(request):
                 LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
                 LEFT JOIN fcms_cdc.ma_valve_specs vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
                 LEFT JOIN fcms_cdc.ma_cylinder_specs cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
-                LEFT JOIN public.cy_enduser_master eu ON TRIM(c."USE_DEPARTMENT_CODE") = TRIM(eu.enduser_code) AND eu.is_active = TRUE
+                LEFT JOIN public.cy_cylinder_current cc ON TRIM(h."CYLINDER_NO") = TRIM(cc.cylinder_no)
                 WHERE DATE(h."MOVE_DATE") = %s
                 ORDER BY h."MOVE_CODE", i."DISPLAY_NAME", h."CYLINDER_NO"
             ''', [report_date])
@@ -464,7 +465,7 @@ def daily_report(request):
                     c."CAPACITY",
                     COALESCE(vs."NAME", '') as valve_spec,
                     COALESCE(cs."NAME", '') as cylinder_spec,
-                    COALESCE(eu.enduser_name, c."USE_DEPARTMENT_CODE", '') as enduser,
+                    COALESCE(cc.dashboard_enduser, '') as enduser,
                     c."WITHSTAND_PRESSURE_MAINTE_DATE",
                     c."WITHSTAND_PRESSURE_TEST_TERM",
                     CASE 
@@ -477,7 +478,7 @@ def daily_report(request):
                 LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
                 LEFT JOIN fcms_cdc.ma_valve_specs vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
                 LEFT JOIN fcms_cdc.ma_cylinder_specs cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
-                LEFT JOIN public.cy_enduser_master eu ON TRIM(c."USE_DEPARTMENT_CODE") = TRIM(eu.enduser_code) AND eu.is_active = TRUE
+                LEFT JOIN public.cy_cylinder_current cc ON TRIM(h."CYLINDER_NO") = TRIM(cc.cylinder_no)
                 WHERE DATE(h."MOVE_DATE") = %s
                   AND h."MOVE_CODE" = '10'
                 ORDER BY h."CYLINDER_NO"
