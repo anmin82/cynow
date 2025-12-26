@@ -245,7 +245,8 @@ class FcmsRepository:
                 oi."BUSINESS_REMARKS" as business_remarks,
                 oi."PRODUCTION_REMARKS" as production_remarks,
                 COALESCE(d.confirmed_count, 0) as confirmed_count,
-                COALESCE(s.shipped_count, 0) as shipped_count
+                COALESCE(s.shipped_count, 0) as shipped_count,
+                COALESCE(lc.last_move_code, '') as last_move_code
             FROM fcms_cdc.tr_orders o
             LEFT JOIN fcms_cdc.tr_move_reports m 
                 ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
@@ -262,6 +263,11 @@ class FcmsRepository:
                 WHERE "MOVE_CODE" = '60'
                 GROUP BY "MOVE_REPORT_NO"
             ) s ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(s."MOVE_REPORT_NO")
+            LEFT JOIN (
+                SELECT DISTINCT ON ("MOVE_REPORT_NO") "MOVE_REPORT_NO", "MOVE_CODE" as last_move_code
+                FROM fcms_cdc.tr_cylinder_status_histories
+                ORDER BY "MOVE_REPORT_NO", "HISTORY_SEQ" DESC
+            ) lc ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(lc."MOVE_REPORT_NO")
             WHERE TRIM(o."CUSTOMER_ORDER_NO") = %s
               AND (m."PROGRESS_CODE" IS NULL OR m."PROGRESS_CODE" != '51')
             ORDER BY o."ARRIVAL_SHIPPING_NO"
@@ -321,6 +327,7 @@ class FcmsRepository:
                     'production_remarks': row[24].strip() if has_progress and len(row) > 24 and row[24] else '',
                     'confirmed_count': row[25] if has_progress and len(row) > 25 else 0,
                     'shipped_count': row[26] if has_progress and len(row) > 26 else 0,
+                    'last_move_code': row[27].strip() if has_progress and len(row) > 27 and row[27] else '',
                 })
             return result
         

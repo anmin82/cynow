@@ -154,7 +154,7 @@
                         <td class="small">{{ order.business_remarks|default:"-" }}</td>
                         <td class="small">{{ order.production_remarks|default:"-" }}</td>
                         <td class="text-center">
-                            <span class="status-badge" data-code="{{ order.progress_code }}"></span>
+                            <span class="status-badge" data-code="{{ order.last_move_code }}"></span>
                         </td>
                     </tr>
                     {% endfor %}
