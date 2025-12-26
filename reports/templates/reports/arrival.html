@@ -176,7 +176,7 @@
 <!-- 인쇄용 헤더 -->
 <div class="print-header">
     <h1>입하 보고서</h1>
-    <div class="subtitle">{{ report_date|date:"Y년 m월 d일 (l)" }} | KDFPK Co., Ltd.</div>
+    <div class="subtitle">{{ report_date|date:"Y년 m월 d일 (l)" }} | 작성: {{ generated_at|date:"H:i" }} | KDFPK Co., Ltd.</div>
 </div>
 
 <!-- 필터 섹션 -->
@@ -231,6 +231,10 @@
             <div class="briefing-item">
                 <span class="label">보고 일자</span>
                 <span class="value">{{ report_date|date:"Y년 m월 d일 (l)" }}</span>
+            </div>
+            <div class="briefing-item">
+                <span class="label">🕐 작성 시간</span>
+                <span class="value">{{ generated_at|date:"H:i" }}</span>
             </div>
             <div class="briefing-item">
                 <span class="label">금일 입하 총량</span>
