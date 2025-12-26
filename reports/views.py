@@ -601,3 +601,169 @@ def daily_report(request):
         'generated_at': timezone.now(),
     }
     return render(request, 'reports/daily.html', context)
+
+
+def arrival_report(request):
+    """입하 보고서 - 오늘 입하된 용기 전문 브리핑용 (A4 PDF 출력)"""
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            report_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            report_date = timezone.now().date()
+    else:
+        report_date = timezone.now().date()
+    
+    # 스펙에서 제거할 문자열들
+    remove_patterns = ['general Y', 'HAMAI', 'NERIKI', 'SHOT-Y In-screw']
+    
+    def clean_spec(spec):
+        if not spec:
+            return ''
+        result = spec
+        for pattern in remove_patterns:
+            result = result.replace(pattern, '')
+        result = ' '.join(result.split())
+        return result.strip()
+    
+    arrivals = []
+    summary = {
+        'total': 0,
+        'expired': 0,
+        'expiring_soon': 0,
+        'normal': 0,
+        'by_item': {},
+        'by_supplier': {},
+    }
+    
+    try:
+        with connection.cursor() as cursor:
+            # 입하(10) 용기 상세 조회
+            cursor.execute('''
+                SELECT 
+                    h."CYLINDER_NO",
+                    h."MOVE_DATE",
+                    h."SUPPLIER_USER_NAME",
+                    h."CUSTOMER_USER_NAME",
+                    h."MOVE_REPORT_NO",
+                    COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", c."ITEM_CODE", '미분류') as gas_name,
+                    c."CAPACITY",
+                    COALESCE(vs."NAME", '') as valve_spec,
+                    COALESCE(cs."NAME", '') as cylinder_spec,
+                    COALESCE(cc.dashboard_enduser, '') as enduser,
+                    c."WITHSTAND_PRESSURE_MAINTE_DATE",
+                    c."WITHSTAND_PRESSURE_TEST_TERM",
+                    CASE 
+                        WHEN c."WITHSTAND_PRESSURE_MAINTE_DATE" IS NULL THEN NULL
+                        WHEN c."WITHSTAND_PRESSURE_TEST_TERM" IS NULL THEN NULL
+                        ELSE c."WITHSTAND_PRESSURE_MAINTE_DATE" + (c."WITHSTAND_PRESSURE_TEST_TERM" * INTERVAL '1 year')
+                    END as pressure_expiry_date,
+                    c."WEIGHT" as cylinder_weight
+                FROM fcms_cdc.tr_cylinder_status_histories h
+                LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
+                LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
+                LEFT JOIN fcms_cdc.ma_valve_specs vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
+                LEFT JOIN fcms_cdc.ma_cylinder_specs cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
+                LEFT JOIN public.cy_cylinder_current cc ON TRIM(h."CYLINDER_NO") = TRIM(cc.cylinder_no)
+                WHERE DATE(h."MOVE_DATE") = %s
+                  AND h."MOVE_CODE" = '10'
+                ORDER BY i."DISPLAY_NAME", h."CYLINDER_NO"
+            ''', [report_date])
+            
+            today = report_date
+            for row in cursor.fetchall():
+                expiry_date = row[12]
+                is_expired = False
+                is_expiring_soon = False
+                pressure_status = '정상'
+                
+                if expiry_date:
+                    expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+                    if expiry_date_only < today:
+                        is_expired = True
+                        summary['expired'] += 1
+                        pressure_status = '내압만료'
+                    elif expiry_date_only < today + timedelta(days=90):
+                        is_expiring_soon = True
+                        summary['expiring_soon'] += 1
+                        pressure_status = '만료임박'
+                    else:
+                        summary['normal'] += 1
+                else:
+                    summary['normal'] += 1
+                
+                gas_name = row[5].strip() if row[5] else '미분류'
+                capacity = row[6] or 0
+                valve_spec = clean_spec(row[7].strip() if row[7] else '')
+                cylinder_spec = clean_spec(row[8].strip() if row[8] else '')
+                enduser = row[9].strip() if row[9] else ''
+                supplier = row[2].strip() if row[2] else ''
+                
+                # 제품명 조합
+                item_name_parts = [gas_name]
+                if capacity:
+                    item_name_parts.append(f"{int(capacity)}L")
+                if valve_spec:
+                    item_name_parts.append(valve_spec)
+                if cylinder_spec:
+                    item_name_parts.append(cylinder_spec)
+                if enduser:
+                    item_name_parts.append(enduser)
+                item_name = ' / '.join(item_name_parts)
+                
+                # 집계
+                summary['total'] += 1
+                if item_name not in summary['by_item']:
+                    summary['by_item'][item_name] = {'count': 0, 'expired': 0, 'normal': 0}
+                summary['by_item'][item_name]['count'] += 1
+                if is_expired:
+                    summary['by_item'][item_name]['expired'] += 1
+                else:
+                    summary['by_item'][item_name]['normal'] += 1
+                
+                if supplier:
+                    if supplier not in summary['by_supplier']:
+                        summary['by_supplier'][supplier] = 0
+                    summary['by_supplier'][supplier] += 1
+                
+                arrivals.append({
+                    'cylinder_no': row[0].strip() if row[0] else '',
+                    'move_date': row[1],
+                    'supplier': supplier,
+                    'customer': row[3].strip() if row[3] else '',
+                    'move_report_no': row[4].strip() if row[4] else '',
+                    'gas_name': gas_name,
+                    'capacity': capacity,
+                    'item_name': item_name,
+                    'pressure_test_date': row[10],
+                    'pressure_expiry_date': expiry_date,
+                    'pressure_status': pressure_status,
+                    'is_expired': is_expired,
+                    'is_expiring_soon': is_expiring_soon,
+                    'cylinder_weight': row[13] or 0,
+                })
+    
+    except Exception as e:
+        logger.error(f"입하 보고서 조회 오류: {e}")
+    
+    # 제품별 집계 정렬
+    by_item_list = [
+        {'item_name': k, 'count': v['count'], 'expired': v['expired'], 'normal': v['normal']}
+        for k, v in sorted(summary['by_item'].items(), key=lambda x: -x[1]['count'])
+    ]
+    
+    # 공급처별 집계 정렬
+    by_supplier_list = [
+        {'supplier': k, 'count': v}
+        for k, v in sorted(summary['by_supplier'].items(), key=lambda x: -x[1])
+    ]
+    
+    context = {
+        'report_date': report_date,
+        'arrivals': arrivals,
+        'summary': summary,
+        'by_item': by_item_list,
+        'by_supplier': by_supplier_list,
+        'generated_at': timezone.now(),
+    }
+    return render(request, 'reports/arrival.html', context)
