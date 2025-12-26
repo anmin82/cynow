@@ -224,31 +224,31 @@ class InventoryService:
         """
         cy_cylinder_current 테이블에서 용기 재고 동기화
         
-        dashboard_cylinder_type_key × dashboard_status 별로 집계
+        cylinder_type_key × dashboard_status 별로 집계
         
         Returns:
             {'synced': N, 'deleted': M}
         """
         query = '''
             SELECT 
-                dashboard_cylinder_type_key,
+                cylinder_type_key,
                 dashboard_gas_name,
                 dashboard_capacity,
-                dashboard_valve_spec,
-                dashboard_cylinder_spec,
-                dashboard_enduser_code,
+                dashboard_valve_spec_name,
+                dashboard_cylinder_spec_name,
+                dashboard_enduser,
                 dashboard_status,
                 dashboard_location,
                 COUNT(*) as cnt
             FROM cy_cylinder_current
-            WHERE dashboard_cylinder_type_key IS NOT NULL
+            WHERE cylinder_type_key IS NOT NULL
             GROUP BY 
-                dashboard_cylinder_type_key,
+                cylinder_type_key,
                 dashboard_gas_name,
                 dashboard_capacity,
-                dashboard_valve_spec,
-                dashboard_cylinder_spec,
-                dashboard_enduser_code,
+                dashboard_valve_spec_name,
+                dashboard_cylinder_spec_name,
+                dashboard_enduser,
                 dashboard_status,
                 dashboard_location
         '''
