@@ -1,52 +1,151 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
-{% block title %}월간 보고서 - CYNOW{% endblock %}
+{% block title %}월간 보고서 - {{ report_month }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .summary-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .summary-card .card-header {
+        font-weight: 600;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+    }
+    .move-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: rgba(99, 102, 106, 0.15);
+        color: #636366;
+    }
+    .move-10 { background: rgba(90, 200, 250, 0.2); color: #0A84FF; }
+    .move-22 { background: rgba(255, 204, 0, 0.2); color: #D4A600; }
+    .move-60 { background: rgba(52, 199, 89, 0.2); color: #34C759; }
+    .move-50 { background: rgba(0, 122, 255, 0.2); color: #007AFF; }
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #e91e8c;
+    }
+    @media print {
+        .no-print { display: none !important; }
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-4">
-    <div>
-        <h1 class="page-title">월간 보고서</h1>
-        <p class="page-subtitle">{{ start_date|date:"Y년 m월" }}</p>
+<div class="container-fluid py-4">
+    <!-- 헤더 -->
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-calendar-month me-2"></i>월간 보고서</h2>
+            <p class="text-muted mb-0">{{ report_month }} ({{ start_date|date:"d일" }} ~ {{ end_date|date:"d일" }})</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'reports:monthly_arrival' %}" class="btn btn-primary">
+                <i class="bi bi-file-pdf me-1"></i>월간 입하보고서
+            </a>
+            <a href="{% url 'reports:daily' %}" class="btn btn-outline-secondary">일일</a>
+            <a href="{% url 'reports:weekly' %}" class="btn btn-outline-secondary">주간</a>
+        </div>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{% url 'reports:export_monthly_excel' %}" class="btn btn-success btn-sm">
-            <i class="bi bi-download"></i> Excel
-        </a>
-        <a href="{% url 'reports:weekly' %}" class="btn btn-outline-light btn-sm">주간 보고서</a>
+    
+    <!-- 요약 카드 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card summary-card text-center">
+                <div class="card-body">
+                    <div class="stat-number">{{ total_movements|intcomma }}</div>
+                    <div class="text-muted">총 이동 건수</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card summary-card text-center">
+                <div class="card-body">
+                    <div class="stat-number" style="color: #34C759;">{{ arrival_summary.total|intcomma }}</div>
+                    <div class="text-muted">입하 (10)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card summary-card text-center">
+                <div class="card-body">
+                    <div class="stat-number" style="color: #5856D6;">{{ move_summary|length }}</div>
+                    <div class="text-muted">이동 유형</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card summary-card text-center">
+                <div class="card-body">
+                    <div class="stat-number" style="color: #FF9500;">{{ item_summary|length }}</div>
+                    <div class="text-muted">제품 종류</div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header">월간 변동량 (Top 20)</div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="max-height: 500px;">
+    
+    <div class="row">
+        <!-- 이동유형별 집계 -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>이동유형별 집계</h5>
+                </div>
+                <div class="card-body p-0">
                     <table class="table table-hover mb-0">
-                        <thead class="sticky-top">
+                        <thead class="table-light">
                             <tr>
-                                <th>가스명</th>
-                                <th class="text-center">상태</th>
-                                <th class="text-end">지난 달</th>
-                                <th class="text-end">현재</th>
-                                <th class="text-end">변동</th>
+                                <th>이동유형</th>
+                                <th class="text-end">건수</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in comparison_data %}
+                            {% for item in move_summary %}
                             <tr>
-                                <td>{{ item.gas_name }}</td>
-                                <td class="text-center"><span class="status-badge status-{{ item.status }}">{{ item.status }}</span></td>
-                                <td class="text-end qty-total">{{ item.last_month_qty }}</td>
-                                <td class="text-end qty-emphasis">{{ item.current_qty }}</td>
-                                <td class="text-end">
-                                    <span class="{% if item.delta > 0 %}delta-positive{% elif item.delta < 0 %}delta-negative{% else %}delta-zero{% endif %}" style="font-size:16px; font-weight:700;">
-                                        {% if item.delta > 0 %}+{% endif %}{{ item.delta }}
-                                    </span>
+                                <td>
+                                    <span class="move-badge move-{{ item.code }}">{{ item.label }}</span>
                                 </td>
+                                <td class="text-end fw-bold">{{ item.count|intcomma }}</td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="5" class="text-center text-muted py-5">데이터가 없습니다.</td></tr>
+                            <tr><td colspan="2" class="text-center text-muted py-4">데이터 없음</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 제품별 집계 -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-box me-2"></i>제품별 이동 (Top 20)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>제품명</th>
+                                <th class="text-end">건수</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in item_summary %}
+                            <tr>
+                                <td>{{ item.item_name }}</td>
+                                <td class="text-end fw-bold">{{ item.count|intcomma }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted py-4">데이터 없음</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -54,36 +153,9 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card h-100">
-            <div class="card-header">현재 인벤토리</div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="max-height: 500px;">
-                    <table class="table table-hover mb-0">
-                        <thead class="sticky-top">
-                            <tr>
-                                <th>가스명</th>
-                                <th class="text-center">상태</th>
-                                <th>위치</th>
-                                <th class="text-end">수량</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in current_inventory %}
-                            <tr>
-                                <td>{{ row.gas_name }}</td>
-                                <td class="text-center"><span class="status-badge status-{{ row.status }}">{{ row.status }}</span></td>
-                                <td class="text-muted">{{ row.location }}</td>
-                                <td class="text-end qty-emphasis">{{ row.qty }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="4" class="text-center text-muted py-5">데이터가 없습니다.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+    
+    <div class="text-center text-muted small mt-3">
+        생성: {{ generated_at|date:"Y-m-d H:i" }}
     </div>
 </div>
 {% endblock %}

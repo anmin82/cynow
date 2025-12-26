@@ -13,111 +13,177 @@ logger = logging.getLogger(__name__)
 
 
 def weekly_report(request):
-    """주간 보고서"""
-    # 최근 7일 데이터
+    """주간 보고서 - 일일보고서 스타일"""
+    # 날짜 범위 계산 (최근 7일)
     end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=7)
+    start_date = end_date - timedelta(days=6)  # 오늘 포함 7일
     
-    # 현재 인벤토리
-    current_inventory = CylinderRepository.get_inventory_summary()
+    # MOVE_CODE 라벨 매핑
+    move_code_labels = {
+        '00': '신규구매', '01': '신규등록', '10': '입하', '14': '회수완료',
+        '16': '회수없음', '17': '재보관', '19': '이상처리', '21': '충전선택', '22': '충전완료',
+        '30': '창고출고', '31': '외부충전', '41': '분석중', '42': '분석완료',
+        '50': '창고입고', '51': '수주연결', '52': '연결해제', '60': '출하',
+        '65': '영업외출하', '70': '반품', '85': '전출', '86': '전입', '99': '폐기',
+    }
     
-    # 일주일 전 스냅샷
-    week_ago_snapshots = HistInventorySnapshot.objects.filter(
-        snapshot_datetime__date=start_date,
-        snapshot_type='DAILY'
-    )
+    move_summary = {}
+    item_summary = {}
+    arrival_summary = {'total': 0, 'expired': 0, 'expiring_soon': 0}
     
-    # 현재와 비교를 위한 집계
-    current_summary = {}
-    week_ago_summary = {}
+    try:
+        with connection.cursor() as cursor:
+            # 주간 이동 내역 집계
+            cursor.execute('''
+                SELECT 
+                    h."MOVE_CODE",
+                    COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", c."ITEM_CODE", '미분류') as gas_name,
+                    COUNT(*) as cnt
+                FROM fcms_cdc.tr_cylinder_status_histories h
+                LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
+                LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
+                WHERE DATE(h."MOVE_DATE") BETWEEN %s AND %s
+                GROUP BY h."MOVE_CODE", gas_name
+                ORDER BY h."MOVE_CODE", cnt DESC
+            ''', [start_date, end_date])
+            
+            for row in cursor.fetchall():
+                move_code = row[0].strip() if row[0] else ''
+                gas_name = row[1].strip() if row[1] else '미분류'
+                count = row[2]
+                move_label = move_code_labels.get(move_code, move_code)
+                
+                # 이동유형별 집계
+                if move_label not in move_summary:
+                    move_summary[move_label] = {'code': move_code, 'count': 0}
+                move_summary[move_label]['count'] += count
+                
+                # 제품명별 집계
+                if gas_name not in item_summary:
+                    item_summary[gas_name] = 0
+                item_summary[gas_name] += count
+            
+            # 입하 통계
+            cursor.execute('''
+                SELECT COUNT(*) FROM fcms_cdc.tr_cylinder_status_histories
+                WHERE DATE("MOVE_DATE") BETWEEN %s AND %s AND "MOVE_CODE" = '10'
+            ''', [start_date, end_date])
+            arrival_summary['total'] = cursor.fetchone()[0] or 0
     
-    for row in current_inventory:
-        key = f"{row.get('gas_name')}_{row.get('status')}"
-        current_summary[key] = row.get('qty', 0)
+    except Exception as e:
+        logger.error(f"주간 보고서 조회 오류: {e}")
     
-    for snapshot in week_ago_snapshots:
-        key = f"{snapshot.gas_name}_{snapshot.status}"
-        week_ago_summary[key] = week_ago_summary.get(key, 0) + snapshot.qty
+    # 정렬
+    summary_list = [
+        {'label': k, 'code': v['code'], 'count': v['count']}
+        for k, v in sorted(move_summary.items(), key=lambda x: -x[1]['count'])
+    ]
     
-    # 비교 데이터 생성
-    comparison_data = []
-    all_keys = set(current_summary.keys()) | set(week_ago_summary.keys())
-    for key in all_keys:
-        gas_name, status = key.rsplit('_', 1)
-        current_qty = current_summary.get(key, 0)
-        week_ago_qty = week_ago_summary.get(key, 0)
-        delta = current_qty - week_ago_qty
-        comparison_data.append({
-            'gas_name': gas_name,
-            'status': status,
-            'current_qty': current_qty,
-            'week_ago_qty': week_ago_qty,
-            'delta': delta,
-        })
+    item_summary_list = [
+        {'item_name': k, 'count': v}
+        for k, v in sorted(item_summary.items(), key=lambda x: -x[1])
+    ][:20]
     
-    comparison_data.sort(key=lambda x: abs(x['delta']), reverse=True)
+    total_movements = sum(v['count'] for v in move_summary.values())
     
     context = {
         'start_date': start_date,
         'end_date': end_date,
-        'current_inventory': current_inventory[:50],  # 최대 50개
-        'comparison_data': comparison_data[:20],  # Top 20 변동
+        'report_type': '주간',
+        'move_summary': summary_list,
+        'item_summary': item_summary_list,
+        'total_movements': total_movements,
+        'arrival_summary': arrival_summary,
+        'generated_at': timezone.now(),
     }
     return render(request, 'reports/weekly.html', context)
 
 
 def monthly_report(request):
-    """월간 보고서"""
+    """월간 보고서 - 일일보고서 스타일"""
     # 이번 달 데이터
     today = timezone.now().date()
     start_date = today.replace(day=1)  # 이번 달 1일
     end_date = today
     
-    # 현재 인벤토리
-    current_inventory = CylinderRepository.get_inventory_summary()
+    # MOVE_CODE 라벨 매핑
+    move_code_labels = {
+        '00': '신규구매', '01': '신규등록', '10': '입하', '14': '회수완료',
+        '16': '회수없음', '17': '재보관', '19': '이상처리', '21': '충전선택', '22': '충전완료',
+        '30': '창고출고', '31': '외부충전', '41': '분석중', '42': '분석완료',
+        '50': '창고입고', '51': '수주연결', '52': '연결해제', '60': '출하',
+        '65': '영업외출하', '70': '반품', '85': '전출', '86': '전입', '99': '폐기',
+    }
     
-    # 지난 달 말일 스냅샷
-    last_month_end = (start_date - timedelta(days=1))
-    last_month_snapshots = HistInventorySnapshot.objects.filter(
-        snapshot_datetime__date=last_month_end,
-        snapshot_type='DAILY'
-    )
+    move_summary = {}
+    item_summary = {}
+    arrival_summary = {'total': 0, 'expired': 0, 'expiring_soon': 0}
     
-    # 현재와 비교를 위한 집계
-    current_summary = {}
-    last_month_summary = {}
+    try:
+        with connection.cursor() as cursor:
+            # 월간 이동 내역 집계
+            cursor.execute('''
+                SELECT 
+                    h."MOVE_CODE",
+                    COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", c."ITEM_CODE", '미분류') as gas_name,
+                    COUNT(*) as cnt
+                FROM fcms_cdc.tr_cylinder_status_histories h
+                LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
+                LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
+                WHERE DATE(h."MOVE_DATE") BETWEEN %s AND %s
+                GROUP BY h."MOVE_CODE", gas_name
+                ORDER BY h."MOVE_CODE", cnt DESC
+            ''', [start_date, end_date])
+            
+            for row in cursor.fetchall():
+                move_code = row[0].strip() if row[0] else ''
+                gas_name = row[1].strip() if row[1] else '미분류'
+                count = row[2]
+                move_label = move_code_labels.get(move_code, move_code)
+                
+                # 이동유형별 집계
+                if move_label not in move_summary:
+                    move_summary[move_label] = {'code': move_code, 'count': 0}
+                move_summary[move_label]['count'] += count
+                
+                # 제품명별 집계
+                if gas_name not in item_summary:
+                    item_summary[gas_name] = 0
+                item_summary[gas_name] += count
+            
+            # 입하 통계
+            cursor.execute('''
+                SELECT COUNT(*) FROM fcms_cdc.tr_cylinder_status_histories
+                WHERE DATE("MOVE_DATE") BETWEEN %s AND %s AND "MOVE_CODE" = '10'
+            ''', [start_date, end_date])
+            arrival_summary['total'] = cursor.fetchone()[0] or 0
     
-    for row in current_inventory:
-        key = f"{row.get('gas_name')}_{row.get('status')}"
-        current_summary[key] = row.get('qty', 0)
+    except Exception as e:
+        logger.error(f"월간 보고서 조회 오류: {e}")
     
-    for snapshot in last_month_snapshots:
-        key = f"{snapshot.gas_name}_{snapshot.status}"
-        last_month_summary[key] = last_month_summary.get(key, 0) + snapshot.qty
+    # 정렬
+    summary_list = [
+        {'label': k, 'code': v['code'], 'count': v['count']}
+        for k, v in sorted(move_summary.items(), key=lambda x: -x[1]['count'])
+    ]
     
-    # 비교 데이터 생성
-    comparison_data = []
-    all_keys = set(current_summary.keys()) | set(last_month_summary.keys())
-    for key in all_keys:
-        gas_name, status = key.rsplit('_', 1)
-        current_qty = current_summary.get(key, 0)
-        last_month_qty = last_month_summary.get(key, 0)
-        delta = current_qty - last_month_qty
-        comparison_data.append({
-            'gas_name': gas_name,
-            'status': status,
-            'current_qty': current_qty,
-            'last_month_qty': last_month_qty,
-            'delta': delta,
-        })
+    item_summary_list = [
+        {'item_name': k, 'count': v}
+        for k, v in sorted(item_summary.items(), key=lambda x: -x[1])
+    ][:20]
     
-    comparison_data.sort(key=lambda x: abs(x['delta']), reverse=True)
+    total_movements = sum(v['count'] for v in move_summary.values())
     
     context = {
         'start_date': start_date,
         'end_date': end_date,
-        'current_inventory': current_inventory[:50],  # 최대 50개
-        'comparison_data': comparison_data[:20],  # Top 20 변동
+        'report_type': '월간',
+        'report_month': start_date.strftime('%Y년 %m월'),
+        'move_summary': summary_list,
+        'item_summary': item_summary_list,
+        'total_movements': total_movements,
+        'arrival_summary': arrival_summary,
+        'generated_at': timezone.now(),
     }
     return render(request, 'reports/monthly.html', context)
 
@@ -810,3 +876,187 @@ def arrival_report(request):
         'generated_at': timezone.now(),
     }
     return render(request, 'reports/arrival.html', context)
+
+
+def weekly_arrival_report(request):
+    """주간 입하 보고서 - PDF 출력용"""
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=6)
+    
+    return _period_arrival_report(request, start_date, end_date, '주간')
+
+
+def monthly_arrival_report(request):
+    """월간 입하 보고서 - PDF 출력용"""
+    today = timezone.now().date()
+    start_date = today.replace(day=1)
+    end_date = today
+    
+    return _period_arrival_report(request, start_date, end_date, '월간')
+
+
+def _period_arrival_report(request, start_date, end_date, report_type):
+    """기간별 입하 보고서 공통 로직"""
+    
+    remove_patterns = ['general Y', 'HAMAI', 'NERIKI', 'SHOT-Y In-screw']
+    
+    def clean_spec(spec):
+        if not spec:
+            return ''
+        result = spec
+        for pattern in remove_patterns:
+            result = result.replace(pattern, '')
+        result = ' '.join(result.split())
+        return result.strip()
+    
+    arrivals = []
+    summary = {
+        'total': 0,
+        'expired': 0,
+        'expiring_soon': 0,
+        'normal': 0,
+        'by_item': {},
+        'by_enduser': {},
+        'by_date': {},
+    }
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    h."CYLINDER_NO",
+                    h."MOVE_DATE",
+                    h."SUPPLIER_USER_NAME",
+                    h."CUSTOMER_USER_NAME",
+                    h."MOVE_REPORT_NO",
+                    COALESCE(i."DISPLAY_NAME", i."FORMAL_NAME", c."ITEM_CODE", '미분류') as gas_name,
+                    c."CAPACITY",
+                    COALESCE(vs."NAME", '') as valve_spec,
+                    COALESCE(cs."NAME", '') as cylinder_spec,
+                    COALESCE(cc.dashboard_enduser, '') as enduser,
+                    c."WITHSTAND_PRESSURE_MAINTE_DATE",
+                    c."WITHSTAND_PRESSURE_TEST_TERM",
+                    CASE 
+                        WHEN c."WITHSTAND_PRESSURE_MAINTE_DATE" IS NULL THEN NULL
+                        WHEN c."WITHSTAND_PRESSURE_TEST_TERM" IS NULL THEN NULL
+                        ELSE c."WITHSTAND_PRESSURE_MAINTE_DATE" + (c."WITHSTAND_PRESSURE_TEST_TERM" * INTERVAL '1 year')
+                    END as pressure_expiry_date
+                FROM fcms_cdc.tr_cylinder_status_histories h
+                LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
+                LEFT JOIN fcms_cdc.ma_items i ON TRIM(c."ITEM_CODE") = TRIM(i."ITEM_CODE")
+                LEFT JOIN fcms_cdc.ma_valve_specs vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_CODE"
+                LEFT JOIN fcms_cdc.ma_cylinder_specs cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE"
+                LEFT JOIN public.cy_cylinder_current cc ON TRIM(h."CYLINDER_NO") = TRIM(cc.cylinder_no)
+                WHERE DATE(h."MOVE_DATE") BETWEEN %s AND %s
+                  AND h."MOVE_CODE" = '10'
+                ORDER BY h."MOVE_DATE", i."DISPLAY_NAME", h."CYLINDER_NO"
+            ''', [start_date, end_date])
+            
+            today = end_date
+            for row in cursor.fetchall():
+                expiry_date = row[12]
+                is_expired = False
+                is_expiring_soon = False
+                pressure_status = '정상'
+                
+                if expiry_date:
+                    expiry_date_only = expiry_date.date() if hasattr(expiry_date, 'date') else expiry_date
+                    if expiry_date_only < today:
+                        is_expired = True
+                        summary['expired'] += 1
+                        pressure_status = '내압만료'
+                    elif expiry_date_only < today + timedelta(days=90):
+                        is_expiring_soon = True
+                        summary['expiring_soon'] += 1
+                        pressure_status = '만료임박'
+                    else:
+                        summary['normal'] += 1
+                else:
+                    summary['normal'] += 1
+                
+                gas_name = row[5].strip() if row[5] else '미분류'
+                capacity = row[6] or 0
+                valve_spec = clean_spec(row[7].strip() if row[7] else '')
+                cylinder_spec = clean_spec(row[8].strip() if row[8] else '')
+                enduser = row[9].strip() if row[9] else ''
+                move_date = row[1]
+                
+                item_name_parts = [gas_name]
+                if capacity:
+                    item_name_parts.append(f"{int(capacity)}L")
+                if valve_spec:
+                    item_name_parts.append(valve_spec)
+                if cylinder_spec:
+                    item_name_parts.append(cylinder_spec)
+                if enduser:
+                    item_name_parts.append(enduser)
+                item_name = ' / '.join(item_name_parts)
+                
+                summary['total'] += 1
+                
+                # 날짜별 집계
+                date_key = move_date.date() if hasattr(move_date, 'date') else move_date
+                if date_key not in summary['by_date']:
+                    summary['by_date'][date_key] = 0
+                summary['by_date'][date_key] += 1
+                
+                # 제품별 집계
+                if item_name not in summary['by_item']:
+                    summary['by_item'][item_name] = {'count': 0, 'expired': 0, 'normal': 0}
+                summary['by_item'][item_name]['count'] += 1
+                if is_expired:
+                    summary['by_item'][item_name]['expired'] += 1
+                else:
+                    summary['by_item'][item_name]['normal'] += 1
+                
+                # EndUser별 집계
+                if enduser:
+                    if enduser not in summary['by_enduser']:
+                        summary['by_enduser'][enduser] = 0
+                    summary['by_enduser'][enduser] += 1
+                
+                arrivals.append({
+                    'cylinder_no': row[0].strip() if row[0] else '',
+                    'move_date': move_date,
+                    'supplier': row[2].strip() if row[2] else '',
+                    'customer': row[3].strip() if row[3] else '',
+                    'move_report_no': row[4].strip() if row[4] else '',
+                    'gas_name': gas_name,
+                    'capacity': capacity,
+                    'item_name': item_name,
+                    'pressure_expiry_date': expiry_date,
+                    'pressure_status': pressure_status,
+                    'is_expired': is_expired,
+                    'is_expiring_soon': is_expiring_soon,
+                })
+    
+    except Exception as e:
+        logger.error(f"{report_type} 입하 보고서 조회 오류: {e}")
+    
+    by_item_list = [
+        {'item_name': k, 'count': v['count'], 'expired': v['expired'], 'normal': v['normal']}
+        for k, v in sorted(summary['by_item'].items(), key=lambda x: -x[1]['count'])
+    ]
+    
+    by_enduser_list = [
+        {'enduser': k, 'count': v}
+        for k, v in sorted(summary['by_enduser'].items(), key=lambda x: -x[1])
+    ]
+    
+    by_date_list = [
+        {'date': k, 'count': v}
+        for k, v in sorted(summary['by_date'].items())
+    ]
+    
+    context = {
+        'start_date': start_date,
+        'end_date': end_date,
+        'report_type': report_type,
+        'arrivals': arrivals,
+        'summary': summary,
+        'by_item': by_item_list,
+        'by_enduser': by_enduser_list,
+        'by_date': by_date_list,
+        'generated_at': timezone.now(),
+    }
+    return render(request, 'reports/arrival_period.html', context)
