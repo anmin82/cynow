@@ -275,9 +275,10 @@ class InventoryService:
         }
         
         synced = 0
+        updated = 0
         with transaction.atomic():
-            # 기존 재고 삭제 (재동기화)
-            deleted = CylinderInventory.objects.all().delete()[0]
+            # 기존 재고 모두 0으로 초기화 (이후 업데이트되지 않은 항목 식별용)
+            CylinderInventory.objects.all().update(quantity=0)
             
             for row in rows:
                 type_key = row[0]
@@ -293,21 +294,29 @@ class InventoryService:
                 # 상태 변환
                 status = status_map.get(raw_status, 'OTHER')
                 
-                CylinderInventory.objects.create(
+                obj, created = CylinderInventory.objects.update_or_create(
                     cylinder_type_key=type_key,
-                    gas_name=gas_name,
-                    capacity=capacity,
-                    valve_spec=valve_spec,
-                    cylinder_spec=cylinder_spec,
-                    enduser_code=enduser_code,
                     status=status,
                     location=location,
-                    quantity=count,
+                    defaults={
+                        'gas_name': gas_name,
+                        'capacity': capacity,
+                        'valve_spec': valve_spec,
+                        'cylinder_spec': cylinder_spec,
+                        'enduser_code': enduser_code,
+                        'quantity': count,
+                    }
                 )
-                synced += 1
+                if created:
+                    synced += 1
+                else:
+                    updated += 1
+            
+            # 수량 0인 항목 삭제 (더 이상 존재하지 않는 조합)
+            deleted = CylinderInventory.objects.filter(quantity=0).delete()[0]
         
-        logger.info(f"용기 재고 동기화 완료: {synced}건 생성, {deleted}건 삭제")
-        return {'synced': synced, 'deleted': deleted}
+        logger.info(f"용기 재고 동기화 완료: 신규 {synced}건, 갱신 {updated}건, 삭제 {deleted}건")
+        return {'synced': synced, 'updated': updated, 'deleted': deleted}
     
     # ============================================
     # 제품 재고 트랜잭션 처리
