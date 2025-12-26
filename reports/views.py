@@ -363,7 +363,7 @@ def daily_report(request):
                 pressure_test_date = row[14]
                 pressure_test_term = row[15] or 0
                 
-                # 제품명: 대시보드와 동일하게 가스명/용량/밸브/용기/EndUser 형식
+                # 제품명: 가스명/용량/밸브/용기 형식 (EndUser 코드는 제외)
                 item_name_parts = [gas_name]
                 if capacity:
                     item_name_parts.append(f"{int(capacity)}L")
@@ -371,8 +371,6 @@ def daily_report(request):
                     item_name_parts.append(valve_spec)
                 if cylinder_spec:
                     item_name_parts.append(cylinder_spec)
-                if enduser:
-                    item_name_parts.append(enduser)
                 item_name = ' / '.join(item_name_parts)
                 
                 # 내압만료 계산
@@ -482,12 +480,11 @@ def daily_report(request):
                         is_expiring_soon = True
                         arrival_summary['expiring_soon'] += 1
                 
-                # 제품명: 대시보드와 동일하게 가스명/용량/밸브/용기/EndUser 형식
+                # 제품명: 가스명/용량/밸브/용기 형식 (EndUser 코드는 제외)
                 gas_name = row[4].strip() if row[4] else '미분류'
                 capacity = row[5] or 0
                 valve_spec = row[6].strip() if row[6] else ''
                 cylinder_spec = row[7].strip() if row[7] else ''
-                enduser = row[8].strip() if row[8] else ''
                 
                 item_name_parts = [gas_name]
                 if capacity:
@@ -496,8 +493,6 @@ def daily_report(request):
                     item_name_parts.append(valve_spec)
                 if cylinder_spec:
                     item_name_parts.append(cylinder_spec)
-                if enduser:
-                    item_name_parts.append(enduser)
                 item_name = ' / '.join(item_name_parts)
                 
                 arrival_summary['total'] += 1
