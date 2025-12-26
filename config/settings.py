@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'simulation',
     'products',
     'voucher',  # 전표/견적서 생성
+    'inventory',  # 재고 관리
 ]
 
 MIDDLEWARE = [
