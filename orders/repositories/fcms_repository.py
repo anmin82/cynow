@@ -612,6 +612,7 @@ class FcmsRepository:
     def get_move_report_detail(move_report_no: str) -> Optional[Dict[str, Any]]:
         """
         이동서번호로 상세 정보 및 용기번호 리스트 조회
+        TR_ORDERS 기준으로 조회 (아직 충전 안 된 이동서도 조회 가능)
         
         Returns:
             {
@@ -621,11 +622,11 @@ class FcmsRepository:
         """
         try:
             with connection.cursor() as cursor:
-                # 이동서 기본 정보
+                # 이동서 기본 정보 (TR_ORDERS 기준)
                 cursor.execute('''
                     SELECT 
-                        m."MOVE_REPORT_NO",
-                        m."PROGRESS_CODE",
+                        o."ARRIVAL_SHIPPING_NO",
+                        COALESCE(m."PROGRESS_CODE", '') as progress_code,
                         m."FILLING_DATE",
                         m."SHIPPING_DATE",
                         CONCAT(
@@ -649,12 +650,12 @@ class FcmsRepository:
                         oi."SALES_REMARKS",
                         oi."BUSINESS_REMARKS",
                         oi."PRODUCTION_REMARKS"
-                    FROM fcms_cdc.tr_move_reports m
-                    LEFT JOIN fcms_cdc.tr_orders o 
-                        ON TRIM(m."MOVE_REPORT_NO") = TRIM(o."ARRIVAL_SHIPPING_NO")
+                    FROM fcms_cdc.tr_orders o
+                    LEFT JOIN fcms_cdc.tr_move_reports m 
+                        ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(m."MOVE_REPORT_NO")
                     LEFT JOIN fcms_cdc.tr_order_informations oi
-                        ON TRIM(m."MOVE_REPORT_NO") = TRIM(oi."MOVE_REPORT_NO")
-                    WHERE TRIM(m."MOVE_REPORT_NO") = %s
+                        ON TRIM(o."ARRIVAL_SHIPPING_NO") = TRIM(oi."MOVE_REPORT_NO")
+                    WHERE TRIM(o."ARRIVAL_SHIPPING_NO") = %s
                 ''', [move_report_no.strip()])
                 
                 row = cursor.fetchone()
