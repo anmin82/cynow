@@ -1200,3 +1200,33 @@ def api_check_move_no(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@require_GET
+def api_move_report_detail(request, move_report_no):
+    """
+    이동서 상세 정보 및 용기번호 리스트 API
+    
+    GET /orders/api/move-report/<move_report_no>/
+    """
+    try:
+        result = FcmsRepository.get_move_report_detail(move_report_no)
+        
+        if not result:
+            return JsonResponse({'error': '이동서를 찾을 수 없습니다.'}, status=404)
+        
+        # 날짜 필드 직렬화
+        move_report = result['move_report']
+        for key in ['filling_date', 'shipping_date', 'delivery_date', 
+                    'filling_plan_date', 'warehousing_plan_date', 'shipping_plan_date']:
+            if move_report.get(key):
+                move_report[key] = move_report[key].strftime('%Y-%m-%d')
+        
+        for cyl in result['cylinders']:
+            if cyl.get('last_update_date'):
+                cyl['last_update_date'] = cyl['last_update_date'].strftime('%Y-%m-%d %H:%M')
+        
+        return JsonResponse(result)
+    except Exception as e:
+        logger.error(f"이동서 상세 API 오류: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+

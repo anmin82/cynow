@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/fcms-progress/<str:customer_order_no>/', views.api_fcms_progress, name='api_fcms_progress'),
     path('api/next-move-no/', views.api_next_move_no, name='api_next_move_no'),
     path('api/check-move-no/', views.api_check_move_no, name='api_check_move_no'),
+    path('api/move-report/<str:move_report_no>/', views.api_move_report_detail, name='api_move_report_detail'),
     
     # ⚠️ customer_order_no 기반 경로는 맨 아래 배치
     path('<str:customer_order_no>/', views.po_detail, name='detail'),

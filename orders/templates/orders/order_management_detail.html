@@ -114,7 +114,10 @@
                     {% for order in item_data.orders %}
                     <tr>
                         <td>
-                            <code class="text-success fw-bold">{{ order.arrival_shipping_no }}</code>
+                            <a href="#" class="move-report-link text-decoration-none" 
+                               data-move-report-no="{{ order.arrival_shipping_no }}">
+                                <code class="text-success fw-bold">{{ order.arrival_shipping_no }}</code>
+                            </a>
                         </td>
                         <td class="text-center">
                             <span class="fw-bold">{{ order.instruction_count }}</span>
@@ -212,6 +215,97 @@
     </div>
 </div>
 
+<!-- 이동서 상세 모달 -->
+<div class="modal fade" id="moveReportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-alt me-2"></i>이동서 상세: <span id="modalMoveReportNo"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 이동서 정보 -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light py-2">
+                        <strong><i class="fas fa-info-circle me-1"></i>이동서 정보</strong>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="row small">
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless mb-0">
+                                    <tr><th style="width:100px">고객사</th><td id="modalSupplier">-</td></tr>
+                                    <tr><th>제품</th><td id="modalItem">-</td></tr>
+                                    <tr><th>포장</th><td id="modalPacking">-</td></tr>
+                                    <tr><th>지시수량</th><td id="modalInstruction">-</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless mb-0">
+                                    <tr><th style="width:100px">납기</th><td id="modalDelivery">-</td></tr>
+                                    <tr><th>충전LOT</th><td id="modalLot">-</td></tr>
+                                    <tr><th>충전일</th><td id="modalFillingDate">-</td></tr>
+                                    <tr><th>출하일</th><td id="modalShippingDate">-</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="row small mt-2">
+                            <div class="col-md-4">
+                                <span class="text-muted">충전예정:</span> <span id="modalFillingPlan">-</span>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">입고예정:</span> <span id="modalWarehousingPlan">-</span>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted">출하예정:</span> <span id="modalShippingPlan">-</span>
+                            </div>
+                        </div>
+                        <div id="modalRemarks" class="mt-2 small" style="display:none;">
+                            <hr class="my-2">
+                            <div id="modalSalesRemarks"></div>
+                            <div id="modalBusinessRemarks"></div>
+                            <div id="modalProductionRemarks"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 용기번호 리스트 -->
+                <div class="card">
+                    <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+                        <strong><i class="fas fa-cylinder me-1"></i>용기번호 리스트</strong>
+                        <span class="badge bg-primary" id="modalCylinderCount">0개</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="modalCylinderLoading" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 text-muted">로딩 중...</p>
+                        </div>
+                        <table class="table table-sm table-hover mb-0" id="modalCylinderTable" style="display:none;">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th style="width:50px">#</th>
+                                    <th>용기번호</th>
+                                    <th style="width:100px" class="text-center">상태</th>
+                                    <th style="width:140px">최종처리일시</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalCylinderBody"></tbody>
+                        </table>
+                        <div id="modalNoCylinders" class="text-center py-4 text-muted" style="display:none;">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <p>연결된 용기가 없습니다</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .border-start.border-4 {
     border-left-width: 4px !important;
@@ -219,5 +313,117 @@
 .progress {
     border-radius: 8px;
 }
+.move-report-link:hover code {
+    text-decoration: underline;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = new bootstrap.Modal(document.getElementById('moveReportModal'));
+    
+    // 이동서 링크 클릭 이벤트
+    document.querySelectorAll('.move-report-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const moveReportNo = this.dataset.moveReportNo;
+            loadMoveReportDetail(moveReportNo);
+        });
+    });
+    
+    function loadMoveReportDetail(moveReportNo) {
+        // 모달 초기화
+        document.getElementById('modalMoveReportNo').textContent = moveReportNo;
+        document.getElementById('modalCylinderLoading').style.display = 'block';
+        document.getElementById('modalCylinderTable').style.display = 'none';
+        document.getElementById('modalNoCylinders').style.display = 'none';
+        
+        modal.show();
+        
+        // API 호출
+        fetch(`/cynow/orders/api/move-report/${moveReportNo}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    modal.hide();
+                    return;
+                }
+                
+                const mr = data.move_report;
+                
+                // 이동서 정보 표시
+                document.getElementById('modalSupplier').textContent = mr.supplier_user_name || '-';
+                document.getElementById('modalItem').textContent = mr.item_name || '-';
+                document.getElementById('modalPacking').textContent = mr.packing_name || '-';
+                document.getElementById('modalInstruction').textContent = mr.instruction_count ? `${mr.instruction_count}병` : '-';
+                document.getElementById('modalDelivery').textContent = mr.delivery_date || '-';
+                document.getElementById('modalLot').innerHTML = mr.filling_lot_no ? `<code>${mr.filling_lot_no}</code>` : '-';
+                document.getElementById('modalFillingDate').innerHTML = mr.filling_date ? 
+                    `<span class="badge bg-warning text-dark">${mr.filling_date}</span>` : '-';
+                document.getElementById('modalShippingDate').innerHTML = mr.shipping_date ? 
+                    `<span class="badge bg-success">${mr.shipping_date}</span>` : '-';
+                
+                document.getElementById('modalFillingPlan').textContent = mr.filling_plan_date || '-';
+                document.getElementById('modalWarehousingPlan').textContent = mr.warehousing_plan_date || '-';
+                document.getElementById('modalShippingPlan').textContent = mr.shipping_plan_date || '-';
+                
+                // 메모
+                const remarksDiv = document.getElementById('modalRemarks');
+                const hasRemarks = mr.sales_remarks || mr.business_remarks || mr.production_remarks;
+                remarksDiv.style.display = hasRemarks ? 'block' : 'none';
+                document.getElementById('modalSalesRemarks').innerHTML = mr.sales_remarks ? 
+                    `<span class="badge bg-primary me-1">수주</span>${mr.sales_remarks}` : '';
+                document.getElementById('modalBusinessRemarks').innerHTML = mr.business_remarks ? 
+                    `<span class="badge bg-secondary me-1">업무</span>${mr.business_remarks}` : '';
+                document.getElementById('modalProductionRemarks').innerHTML = mr.production_remarks ? 
+                    `<span class="badge bg-dark me-1">제조</span>${mr.production_remarks}` : '';
+                
+                // 용기 리스트
+                document.getElementById('modalCylinderLoading').style.display = 'none';
+                const cylinders = data.cylinders || [];
+                document.getElementById('modalCylinderCount').textContent = `${cylinders.length}개`;
+                
+                if (cylinders.length === 0) {
+                    document.getElementById('modalNoCylinders').style.display = 'block';
+                } else {
+                    document.getElementById('modalCylinderTable').style.display = 'table';
+                    const tbody = document.getElementById('modalCylinderBody');
+                    tbody.innerHTML = '';
+                    
+                    cylinders.forEach((cyl, idx) => {
+                        const moveCodeBadge = getMoveCodeBadge(cyl.last_move_code);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="text-muted">${idx + 1}</td>
+                            <td><code class="fw-bold">${cyl.cylinder_no}</code></td>
+                            <td class="text-center">${moveCodeBadge}</td>
+                            <td class="small text-muted">${cyl.last_update_date || '-'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('이동서 정보를 불러오는데 실패했습니다.');
+                modal.hide();
+            });
+    }
+    
+    function getMoveCodeBadge(code) {
+        const codes = {
+            '10': ['입고', 'bg-info'],
+            '20': ['충전', 'bg-warning text-dark'],
+            '30': ['검사', 'bg-secondary'],
+            '40': ['입고대기', 'bg-primary'],
+            '50': ['입고완료', 'bg-primary'],
+            '60': ['출하', 'bg-success'],
+        };
+        if (!code) return '<span class="badge bg-light text-dark">-</span>';
+        const [label, cls] = codes[code] || [code, 'bg-secondary'];
+        return `<span class="badge ${cls}">${label}</span>`;
+    }
+});
+</script>
 {% endblock %}

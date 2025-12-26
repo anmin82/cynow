@@ -605,6 +605,121 @@ class FcmsRepository:
             return {'instruction_count': 0, 'filled_count': 0}
     
     # ============================================
+    # 이동서 상세 조회
+    # ============================================
+    
+    @staticmethod
+    def get_move_report_detail(move_report_no: str) -> Optional[Dict[str, Any]]:
+        """
+        이동서번호로 상세 정보 및 용기번호 리스트 조회
+        
+        Returns:
+            {
+                'move_report': {...},  # 이동서 기본 정보
+                'cylinders': [...]      # 연결된 용기번호 리스트
+            }
+        """
+        try:
+            with connection.cursor() as cursor:
+                # 이동서 기본 정보
+                cursor.execute('''
+                    SELECT 
+                        m."MOVE_REPORT_NO",
+                        m."PROGRESS_CODE",
+                        m."FILLING_DATE",
+                        m."SHIPPING_DATE",
+                        CONCAT(
+                            COALESCE(m."FILLING_LOT_HEADER", ''),
+                            COALESCE(m."FILLING_LOT_NO", ''),
+                            CASE WHEN m."FILLING_LOT_BRANCH" IS NOT NULL AND m."FILLING_LOT_BRANCH" != '' 
+                                 THEN '-' || m."FILLING_LOT_BRANCH" 
+                                 ELSE '' 
+                            END
+                        ) as filling_lot_no,
+                        o."CUSTOMER_ORDER_NO",
+                        o."SUPPLIER_USER_NAME",
+                        o."ITEM_NAME",
+                        o."PACKING_NAME",
+                        o."INSTRUCTION_COUNT",
+                        o."INSTRUCTION_QUANTITY",
+                        o."DELIVERY_DATE",
+                        oi."FILLING_PLAN_DATE",
+                        oi."WAREHOUSING_PLAN_DATE",
+                        oi."SHIPPING_PLAN_DATE",
+                        oi."SALES_REMARKS",
+                        oi."BUSINESS_REMARKS",
+                        oi."PRODUCTION_REMARKS"
+                    FROM fcms_cdc.tr_move_reports m
+                    LEFT JOIN fcms_cdc.tr_orders o 
+                        ON TRIM(m."MOVE_REPORT_NO") = TRIM(o."ARRIVAL_SHIPPING_NO")
+                    LEFT JOIN fcms_cdc.tr_order_informations oi
+                        ON TRIM(m."MOVE_REPORT_NO") = TRIM(oi."MOVE_REPORT_NO")
+                    WHERE TRIM(m."MOVE_REPORT_NO") = %s
+                ''', [move_report_no.strip()])
+                
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                
+                move_report = {
+                    'move_report_no': row[0].strip() if row[0] else '',
+                    'progress_code': row[1].strip() if row[1] else '',
+                    'filling_date': row[2],
+                    'shipping_date': row[3],
+                    'filling_lot_no': row[4].strip() if row[4] else '',
+                    'customer_order_no': row[5].strip() if row[5] else '',
+                    'supplier_user_name': row[6].strip() if row[6] else '',
+                    'item_name': row[7].strip() if row[7] else '',
+                    'packing_name': row[8].strip() if row[8] else '',
+                    'instruction_count': row[9] or 0,
+                    'instruction_quantity': row[10] or 0,
+                    'delivery_date': row[11],
+                    'filling_plan_date': row[12],
+                    'warehousing_plan_date': row[13],
+                    'shipping_plan_date': row[14],
+                    'sales_remarks': row[15].strip() if row[15] else '',
+                    'business_remarks': row[16].strip() if row[16] else '',
+                    'production_remarks': row[17].strip() if row[17] else '',
+                }
+                
+                # 용기번호 리스트
+                cursor.execute('''
+                    SELECT 
+                        d."CYLINDER_NO",
+                        d."SEQ_NO",
+                        h."MOVE_CODE" as last_move_code,
+                        h."UPDATE_DATE" as last_update_date
+                    FROM fcms_cdc.tr_move_report_details d
+                    LEFT JOIN LATERAL (
+                        SELECT "MOVE_CODE", "UPDATE_DATE"
+                        FROM fcms_cdc.tr_cylinder_status_histories
+                        WHERE "CYLINDER_NO" = d."CYLINDER_NO"
+                          AND "MOVE_REPORT_NO" = d."MOVE_REPORT_NO"
+                        ORDER BY "UPDATE_DATE" DESC
+                        LIMIT 1
+                    ) h ON true
+                    WHERE TRIM(d."MOVE_REPORT_NO") = %s
+                    ORDER BY d."SEQ_NO", d."CYLINDER_NO"
+                ''', [move_report_no.strip()])
+                
+                cylinders = []
+                for cyl_row in cursor.fetchall():
+                    cylinders.append({
+                        'cylinder_no': cyl_row[0].strip() if cyl_row[0] else '',
+                        'seq_no': cyl_row[1] or 0,
+                        'last_move_code': cyl_row[2].strip() if cyl_row[2] else '',
+                        'last_update_date': cyl_row[3],
+                    })
+                
+                return {
+                    'move_report': move_report,
+                    'cylinders': cylinders,
+                }
+        except Exception as e:
+            logger.error(f"이동서 상세 조회 실패 ({move_report_no}): {e}")
+            return None
+    
+    # ============================================
     # 유틸리티 메서드
     # ============================================
     
