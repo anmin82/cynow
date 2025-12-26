@@ -94,3 +94,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("한쪽만 존재: CDC 싱크 또는 스냅샷 적재 경로를 확인하세요."))
 
 
+
