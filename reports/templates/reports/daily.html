@@ -178,10 +178,10 @@
     <div class="col-md-4 mb-4">
         <div class="card h-100">
             <div class="card-header">
-                <i class="bi bi-bar-chart me-2"></i>이동 유형별 현황
+                <i class="bi bi-bar-chart me-2"></i>이동 유형별 현황 <small class="text-muted">(클릭시 상세)</small>
             </div>
             <div class="card-body p-0">
-                <table class="table table-sm mb-0">
+                <table class="table table-sm table-hover mb-0">
                     <thead>
                         <tr>
                             <th>이동 유형</th>
@@ -190,11 +190,11 @@
                     </thead>
                     <tbody>
                         {% for item in move_summary %}
-                        <tr>
+                        <tr class="move-type-row" data-code="{{ item.code }}" data-label="{{ item.label }}" style="cursor: pointer;">
                             <td>
                                 <span class="move-badge move-{{ item.code }}">{{ item.label }}</span>
                             </td>
-                            <td class="text-end fw-bold">{{ item.count|intcomma }}</td>
+                            <td class="text-end fw-bold">{{ item.count|intcomma }} <i class="bi bi-chevron-right text-muted"></i></td>
                         </tr>
                         {% empty %}
                         <tr>
@@ -397,6 +397,39 @@
     </div>
 </div>
 
+<!-- 이동 유형별 상세 모달 -->
+<div class="modal fade" id="moveDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <span id="modalMoveLabel" class="move-badge"></span> 상세 목록
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>용기번호</th>
+                            <th>이동서번호</th>
+                            <th>고객/공급처</th>
+                            <th>충전LOT</th>
+                            <th>비고</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalMoveBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <span id="modalMoveCount" class="me-auto text-muted"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 인쇄용 푸터 -->
 <div class="text-center text-muted mt-4 small print-footer" style="display: none;">
     <p>CYNOW 용기 관리 시스템 | 생성: {{ generated_at|date:"Y-m-d H:i" }}</p>
@@ -407,5 +440,62 @@
     .print-footer { display: block !important; }
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 이동 데이터를 JavaScript 객체로 저장
+    const movements = [
+        {% for m in movements %}
+        {
+            cylinder_no: "{{ m.cylinder_no }}",
+            move_code: "{{ m.move_code }}",
+            move_label: "{{ m.move_label }}",
+            move_report_no: "{{ m.move_report_no }}",
+            supplier: "{{ m.supplier }}",
+            customer: "{{ m.customer }}",
+            filling_lot: "{{ m.filling_lot }}",
+            remarks: "{{ m.remarks|escapejs }}"
+        },
+        {% endfor %}
+    ];
+    
+    const modal = new bootstrap.Modal(document.getElementById('moveDetailModal'));
+    
+    // 이동 유형 행 클릭 이벤트
+    document.querySelectorAll('.move-type-row').forEach(row => {
+        row.addEventListener('click', function() {
+            const code = this.dataset.code;
+            const label = this.dataset.label;
+            
+            // 해당 유형의 이동만 필터링
+            const filtered = movements.filter(m => m.move_code === code);
+            
+            // 모달 제목 설정
+            document.getElementById('modalMoveLabel').textContent = label;
+            document.getElementById('modalMoveLabel').className = 'move-badge move-' + code;
+            document.getElementById('modalMoveCount').textContent = `총 ${filtered.length}건`;
+            
+            // 테이블 바디 생성
+            const tbody = document.getElementById('modalMoveBody');
+            tbody.innerHTML = '';
+            
+            filtered.forEach((m, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="text-muted">${idx + 1}</td>
+                    <td><code class="fw-bold">${m.cylinder_no}</code></td>
+                    <td>${m.move_report_no ? '<code class="text-success">' + m.move_report_no + '</code>' : '-'}</td>
+                    <td>${m.customer || m.supplier || '-'}</td>
+                    <td>${m.filling_lot ? '<code class="small">' + m.filling_lot + '</code>' : '-'}</td>
+                    <td class="small text-muted">${m.remarks || '-'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            modal.show();
+        });
+    });
+});
+</script>
 {% endblock %}
 
