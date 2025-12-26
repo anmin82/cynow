@@ -5,483 +5,429 @@
 
 {% block extra_css %}
 <style>
-    @page {
-        size: A4;
-        margin: 15mm;
-    }
-    
-    @media print {
-        body { 
-            font-size: 11px !important;
-            background: white !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        .no-print { display: none !important; }
-        .container { max-width: 100% !important; padding: 0 !important; }
-        .card { border: 1px solid #dee2e6 !important; box-shadow: none !important; }
-        .card-header { background-color: #f8f9fa !important; }
-        .page-break { page-break-before: always; }
-        .print-header { display: block !important; }
-        
-        /* 테이블 인쇄 최적화 */
-        table { page-break-inside: auto; }
-        tr { page-break-inside: avoid; page-break-after: auto; }
-        thead { display: table-header-group; }  /* 각 페이지마다 헤더 반복 */
-        tfoot { display: table-footer-group; }
-        
-        /* 섹션 제목이 테이블과 분리되지 않도록 */
-        .section-title { page-break-after: avoid; }
-        .report-section { page-break-inside: avoid; }
-        .briefing-box { page-break-inside: avoid; }
-    }
-    
-    .print-header {
-        display: none;
-        text-align: center;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #333;
-    }
-    
-    .print-header h1 {
-        font-size: 24px;
-        font-weight: 800;
-        margin: 0;
-        color: #1C1C1E;
-    }
-    
-    .print-header .subtitle {
-        font-size: 14px;
-        color: #666;
-        margin-top: 5px;
-    }
-    
-    .report-section {
-        margin-bottom: 25px;
-    }
-    
-    .section-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #1C1C1E;
-        margin-bottom: 15px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid #007AFF;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 15px;
-        margin-bottom: 25px;
-    }
-    
-    .summary-card {
-        background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-    }
-    
-    .summary-card.success { background: linear-gradient(135deg, #34C759 0%, #30D158 100%); }
-    .summary-card.danger { background: linear-gradient(135deg, #FF3B30 0%, #FF453A 100%); }
-    .summary-card.warning { background: linear-gradient(135deg, #FF9500 0%, #FF6B00 100%); }
-    .summary-card.info { background: linear-gradient(135deg, #5AC8FA 0%, #32ADE6 100%); }
-    
-    .summary-card .value {
-        font-size: 36px;
-        font-weight: 800;
-        line-height: 1;
-    }
-    
-    .summary-card .label {
-        font-size: 13px;
-        opacity: 0.9;
-        margin-top: 5px;
-    }
-    
-    .briefing-box {
+    /* 기본 스타일 */
+    .info-table th {
+        width: 120px;
         background: #f8f9fa;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
+        font-weight: 500;
     }
     
-    .briefing-box h5 {
-        font-weight: 700;
-        color: #1C1C1E;
-        margin-bottom: 15px;
+    .items-table {
+        font-size: 0.9rem;
     }
-    
-    .briefing-item {
-        display: flex;
-        justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px solid #e5e5ea;
+    .items-table th {
+        background: #f8f9fa;
+        font-weight: 500;
+        white-space: nowrap;
     }
-    
-    .briefing-item:last-child {
-        border-bottom: none;
-    }
-    
-    .briefing-item .label {
-        color: #666;
-    }
-    
-    .briefing-item .value {
-        font-weight: 700;
-        color: #1C1C1E;
+    .items-table td {
+        vertical-align: middle;
     }
     
     .status-badge {
         display: inline-block;
-        padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.75rem;
         font-weight: 600;
     }
+    .status-normal { background: #d4edda; color: #155724; }
+    .status-warning { background: #fff3cd; color: #856404; }
+    .status-danger { background: #f8d7da; color: #721c24; }
     
-    .status-badge.normal { background: rgba(52, 199, 89, 0.15); color: #34C759; }
-    .status-badge.warning { background: rgba(255, 149, 0, 0.15); color: #FF9500; }
-    .status-badge.danger { background: rgba(255, 59, 48, 0.15); color: #FF3B30; }
-    
-    .item-table th {
-        background: #f8f9fa;
+    .totals-row {
+        background: #e7f3ff !important;
         font-weight: 600;
-        font-size: 12px;
+    }
+    .totals-row td {
+        border-top: 2px solid #0d6efd;
     }
     
-    .item-table td {
-        font-size: 11px;
-        vertical-align: middle;
+    /* 인쇄 스타일 */
+    @media print {
+        .no-print { display: none !important; }
+        
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        
+        body { 
+            background: white !important;
+            font-size: 9pt !important;
+            line-height: 1.4 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
+        .container-fluid, .container {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
+        
+        .row { margin: 0 !important; }
+        
+        .card { 
+            box-shadow: none !important;
+            border: 1px solid #ccc !important;
+            margin-bottom: 10px !important;
+            break-inside: avoid;
+        }
+        .card-header {
+            background: #333 !important;
+            color: white !important;
+            padding: 5px 10px !important;
+            font-size: 10pt !important;
+        }
+        .card-body {
+            padding: 10px !important;
+        }
+        
+        .navbar, nav.breadcrumb, .breadcrumb { display: none !important; }
+        
+        /* 인쇄 헤더 */
+        .print-header {
+            display: block !important;
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 3px double #333;
+        }
+        .print-header h1 {
+            font-size: 20pt;
+            font-weight: bold;
+            margin: 0 0 5px 0;
+        }
+        .print-header p {
+            font-size: 9pt;
+            margin: 0;
+            color: #333;
+        }
+        
+        /* 정보 테이블 */
+        .info-table {
+            font-size: 9pt !important;
+        }
+        .info-table th {
+            width: 80px !important;
+            padding: 3px 8px !important;
+            background: #f0f0f0 !important;
+        }
+        .info-table td {
+            padding: 3px 8px !important;
+        }
+        
+        /* 품목 테이블 */
+        .items-table {
+            font-size: 8pt !important;
+            width: 100% !important;
+        }
+        .items-table th {
+            background: #e0e0e0 !important;
+            padding: 4px 5px !important;
+            font-size: 8pt !important;
+            border: 1px solid #999 !important;
+        }
+        .items-table td {
+            padding: 3px 5px !important;
+            border: 1px solid #ccc !important;
+        }
+        
+        /* 테이블 페이지 처리 */
+        table { page-break-inside: auto; }
+        tr { page-break-inside: avoid; }
+        thead { display: table-header-group; }
+        
+        .totals-row {
+            background: #f5f5f5 !important;
+        }
+        .totals-row td {
+            border-top: 2px solid #333 !important;
+        }
+        
+        /* 인쇄 푸터 */
+        .print-footer {
+            display: block !important;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+            text-align: center;
+            font-size: 8pt;
+            color: #666;
+        }
+        
+        @page {
+            size: A4;
+            margin: 12mm 10mm;
+        }
     }
     
-    .highlight-row {
-        background: rgba(255, 59, 48, 0.05);
-    }
-    
-    .filter-bar {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 15px 20px;
-        margin-bottom: 20px;
-    }
-    
-    .print-footer {
-        text-align: center;
-        color: #999;
-        font-size: 10px;
-        margin-top: 30px;
-        padding-top: 15px;
-        border-top: 1px solid #ddd;
-    }
+    .print-header { display: none; }
+    .print-footer { display: none; }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- 인쇄용 헤더 -->
 <div class="print-header">
-    <h1>입하 보고서</h1>
-    <div class="subtitle">{{ report_date|date:"Y년 m월 d일 (l)" }} | 작성: {{ generated_at|date:"H:i" }} | KDFPK Co., Ltd.</div>
+    <h1>입 하 보 고 서</h1>
+    <p>KDFPK Co., Ltd. | {{ report_date|date:"Y년 m월 d일" }} | 작성: {{ generated_at|date:"H:i" }}</p>
 </div>
 
-<!-- 필터 섹션 -->
-<div class="filter-bar no-print">
-    <div class="row align-items-center">
-        <div class="col-md-6">
-            <h4 class="mb-0">
-                <i class="bi bi-box-arrow-in-down me-2"></i>입하 보고서
-            </h4>
-            <small class="text-muted">{{ report_date|date:"Y년 m월 d일 (l)" }} 기준</small>
-        </div>
-        <div class="col-md-6 text-end">
-            <form method="get" class="d-inline-flex gap-2">
-                <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control form-control-sm" style="width: auto;">
-                <button type="submit" class="btn btn-sm btn-primary">조회</button>
-            </form>
-            <button onclick="printReport()" class="btn btn-sm btn-outline-primary ms-2">
-                <i class="bi bi-printer me-1"></i>PDF 출력
-            </button>
-            <a href="{% url 'reports:daily' %}?date={{ report_date|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary ms-2">
-                <i class="bi bi-arrow-left me-1"></i>일일보고서
-            </a>
-        </div>
+<!-- 필터 섹션 (화면용) -->
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+    <div>
+        <h4 class="mb-0"><i class="bi bi-box-arrow-in-down me-2"></i>입하 보고서</h4>
+        <small class="text-muted">{{ report_date|date:"Y년 m월 d일 (l)" }} 기준</small>
+    </div>
+    <div>
+        <form method="get" class="d-inline-flex gap-2">
+            <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control form-control-sm" style="width: auto;">
+            <button type="submit" class="btn btn-sm btn-primary">조회</button>
+        </form>
+        <button onclick="printReport()" class="btn btn-sm btn-outline-primary ms-2">
+            <i class="bi bi-printer me-1"></i>PDF 출력
+        </button>
+        <a href="{% url 'reports:daily' %}?date={{ report_date|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary ms-2">
+            <i class="bi bi-arrow-left me-1"></i>일일보고서
+        </a>
     </div>
 </div>
 
 <div class="row">
-    <!-- 브리핑 요약 -->
-    <div class="col-md-6 mb-4">
-        <div class="briefing-box">
-            <h5><i class="bi bi-megaphone me-2"></i>브리핑 요약</h5>
-            <div class="briefing-item">
-                <span class="label">보고 일자</span>
-                <span class="value">{{ report_date|date:"Y년 m월 d일 (l)" }}</span>
+    <!-- 기본 정보 -->
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <i class="bi bi-info-circle me-1"></i>보고서 정보
             </div>
-            <div class="briefing-item">
-                <span class="label">🕐 작성 시간</span>
-                <span class="value">{{ generated_at|date:"H:i" }}</span>
-            </div>
-            <div class="briefing-item">
-                <span class="label">금일 입하 총량</span>
-                <span class="value">{{ summary.total }}건</span>
-            </div>
-            <div class="briefing-item">
-                <span class="label">정상 가용 용기</span>
-                <span class="value text-success">{{ summary.normal }}건</span>
-            </div>
-            {% if summary.expired > 0 %}
-            <div class="briefing-item">
-                <span class="label">⚠️ 내압 만료 용기</span>
-                <span class="value text-danger">{{ summary.expired }}건 (즉시 조치 필요)</span>
-            </div>
-            {% endif %}
-            {% if summary.expiring_soon > 0 %}
-            <div class="briefing-item">
-                <span class="label">📋 만료 임박 용기</span>
-                <span class="value text-warning">{{ summary.expiring_soon }}건 (90일 이내 만료)</span>
-            </div>
-            {% endif %}
-            <div class="briefing-item">
-                <span class="label">제품 종류</span>
-                <span class="value">{{ by_item|length }}종</span>
-            </div>
-            <div class="briefing-item">
-                <span class="label">엔드유저</span>
-                <span class="value">{{ by_enduser|length }}곳</span>
+            <div class="card-body p-0">
+                <table class="table table-sm info-table mb-0">
+                    <tr>
+                        <th>보고일자</th>
+                        <td>{{ report_date|date:"Y년 m월 d일 (l)" }}</td>
+                    </tr>
+                    <tr>
+                        <th>작성시간</th>
+                        <td>{{ generated_at|date:"H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <th>입하총량</th>
+                        <td><strong class="text-primary">{{ summary.total }}건</strong></td>
+                    </tr>
+                    <tr>
+                        <th>정상용기</th>
+                        <td><strong class="text-success">{{ summary.normal }}건</strong></td>
+                    </tr>
+                    {% if summary.expired > 0 or summary.expiring_soon > 0 %}
+                    <tr>
+                        <th>주의용기</th>
+                        <td>
+                            {% if summary.expired > 0 %}<span class="text-danger">내압만료 {{ summary.expired }}건</span>{% endif %}
+                            {% if summary.expiring_soon > 0 %}<span class="text-warning ms-2">만료임박 {{ summary.expiring_soon }}건</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
             </div>
         </div>
     </div>
     
     <!-- 엔드유저별 현황 -->
-    <div class="col-md-6 mb-4">
-        <div class="briefing-box">
-            <h5><i class="bi bi-people me-2"></i>엔드유저별 입하 현황</h5>
-            {% for e in by_enduser %}
-            <div class="briefing-item">
-                <span class="label">{{ e.enduser }}</span>
-                <span class="value">{{ e.count }}건</span>
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <i class="bi bi-people me-1"></i>엔드유저별 입하
             </div>
-            {% empty %}
-            <div class="text-muted text-center py-3">엔드유저 정보 없음</div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<!-- 현재 보유 가용 용기 현황 -->
-<div class="report-section">
-    <div class="section-title">
-        <i class="bi bi-archive"></i>
-        현재 보유 가용 용기 현황
-        <span class="badge bg-success ms-auto">가용 {{ total_available|intcomma }}본 / 전체 {{ total_inventory|intcomma }}본</span>
-    </div>
-    <div class="card">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover item-table mb-0">
-                    <thead>
-                        <tr>
-                            <th style="width: 40px;">#</th>
-                            <th>제품</th>
-                            <th class="text-center" style="width: 80px;">가용</th>
-                            <th class="text-center" style="width: 80px;">전체</th>
-                            <th class="text-center" style="width: 100px;">가용률</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for inv in inventory_list %}
-                        <tr>
-                            <td class="text-muted">{{ forloop.counter }}</td>
-                            <td><strong>{{ inv.item_name }}</strong></td>
-                            <td class="text-center">
-                                <strong class="{% if inv.available_qty == 0 %}text-danger{% elif inv.available_qty < 5 %}text-warning{% else %}text-success{% endif %}">
-                                    {{ inv.available_qty }}
-                                </strong>
-                            </td>
-                            <td class="text-center text-muted">{{ inv.total_qty }}</td>
-                            <td class="text-center">
-                                {% if inv.total_qty > 0 %}
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar bg-success" style="width: {% widthratio inv.available_qty inv.total_qty 100 %}%;"></div>
-                                </div>
-                                <small class="text-muted">{% widthratio inv.available_qty inv.total_qty 100 %}%</small>
-                                {% else %}
-                                -
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">데이터 없음</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
+            <div class="card-body p-0">
+                <table class="table table-sm info-table mb-0">
+                    {% for e in by_enduser %}
+                    <tr>
+                        <th>{{ e.enduser }}</th>
+                        <td><strong>{{ e.count }}건</strong></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-muted text-center py-3">데이터 없음</td>
+                    </tr>
+                    {% endfor %}
                 </table>
             </div>
-        </div>
-        <div class="card-footer text-muted small">
-            <i class="bi bi-info-circle me-1"></i>가용 수량 기준 상위 15개 용기종류 표시
         </div>
     </div>
 </div>
 
 <!-- 제품별 입하 현황 -->
-<div class="report-section">
-    <div class="section-title">
-        <i class="bi bi-box-seam"></i>
-        제품별 입하 현황
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <i class="bi bi-box-seam me-1"></i>제품별 입하 현황
     </div>
-    <div class="card">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover item-table mb-0">
-                    <thead>
-                        <tr>
-                            <th style="width: 40px;">#</th>
-                            <th>제품</th>
-                            <th class="text-center" style="width: 80px;">수량</th>
-                            <th class="text-center" style="width: 80px;">정상</th>
-                            <th class="text-center" style="width: 80px;">만료</th>
-                            <th class="text-center" style="width: 100px;">비율</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in by_item %}
-                        <tr class="{% if item.expired > 0 %}highlight-row{% endif %}">
-                            <td class="text-muted">{{ forloop.counter }}</td>
-                            <td><strong>{{ item.item_name }}</strong></td>
-                            <td class="text-center">{{ item.count }}</td>
-                            <td class="text-center text-success">{{ item.normal }}</td>
-                            <td class="text-center {% if item.expired > 0 %}text-danger fw-bold{% endif %}">{{ item.expired }}</td>
-                            <td class="text-center">
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar bg-success" style="width: {% widthratio item.normal item.count 100 %}%;"></div>
-                                    <div class="progress-bar bg-danger" style="width: {% widthratio item.expired item.count 100 %}%;"></div>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">입하 내역이 없습니다</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover items-table mb-0">
+            <thead>
+                <tr>
+                    <th class="text-center" style="width: 40px;">No</th>
+                    <th>제품</th>
+                    <th class="text-center" style="width: 70px;">수량</th>
+                    <th class="text-center" style="width: 70px;">정상</th>
+                    <th class="text-center" style="width: 70px;">만료</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in by_item %}
+                <tr>
+                    <td class="text-center text-muted">{{ forloop.counter }}</td>
+                    <td>{{ item.item_name }}</td>
+                    <td class="text-center"><strong>{{ item.count }}</strong></td>
+                    <td class="text-center text-success">{{ item.normal }}</td>
+                    <td class="text-center {% if item.expired > 0 %}text-danger fw-bold{% endif %}">{{ item.expired }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-3 text-muted">입하 내역 없음</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="totals-row">
+                    <td></td>
+                    <td class="text-end"><strong>합계</strong></td>
+                    <td class="text-center"><strong>{{ summary.total }}</strong></td>
+                    <td class="text-center text-success"><strong>{{ summary.normal }}</strong></td>
+                    <td class="text-center text-danger"><strong>{{ summary.expired }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
     </div>
 </div>
 
 {% if summary.expired > 0 or summary.expiring_soon > 0 %}
 <!-- 주의 용기 목록 -->
-<div class="report-section">
-    <div class="section-title text-danger">
-        <i class="bi bi-exclamation-triangle"></i>
-        주의 필요 용기 목록
+<div class="card mb-3">
+    <div class="card-header py-2 bg-danger text-white">
+        <i class="bi bi-exclamation-triangle me-1"></i>주의 필요 용기
     </div>
-    <div class="card border-danger">
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover items-table mb-0">
+            <thead>
+                <tr>
+                    <th class="text-center" style="width: 40px;">No</th>
+                    <th>용기번호</th>
+                    <th>제품</th>
+                    <th class="text-center">내압만료일</th>
+                    <th class="text-center">상태</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in arrivals %}
+                {% if a.is_expired or a.is_expiring_soon %}
+                <tr>
+                    <td class="text-center text-muted">{{ forloop.counter }}</td>
+                    <td><code>{{ a.cylinder_no }}</code></td>
+                    <td>{{ a.gas_name }} {% if a.capacity %}({{ a.capacity }}L){% endif %}</td>
+                    <td class="text-center">{{ a.pressure_expiry_date|date:"Y-m-d"|default:"-" }}</td>
+                    <td class="text-center">
+                        {% if a.is_expired %}
+                        <span class="status-badge status-danger">내압만료</span>
+                        {% else %}
+                        <span class="status-badge status-warning">만료임박</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- 현재 보유 가용 용기 현황 -->
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <i class="bi bi-archive me-1"></i>현재 보유 가용 용기 현황
+        <span class="badge bg-success float-end">가용 {{ total_available|intcomma }}본 / 전체 {{ total_inventory|intcomma }}본</span>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-hover items-table mb-0">
+            <thead>
+                <tr>
+                    <th class="text-center" style="width: 40px;">No</th>
+                    <th>제품</th>
+                    <th class="text-center" style="width: 70px;">가용</th>
+                    <th class="text-center" style="width: 70px;">전체</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in inventory_list %}
+                <tr>
+                    <td class="text-center text-muted">{{ forloop.counter }}</td>
+                    <td>{{ inv.item_name }}</td>
+                    <td class="text-center">
+                        <strong class="{% if inv.available_qty == 0 %}text-danger{% elif inv.available_qty < 5 %}text-warning{% else %}text-success{% endif %}">
+                            {{ inv.available_qty }}
+                        </strong>
+                    </td>
+                    <td class="text-center text-muted">{{ inv.total_qty }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-3 text-muted">데이터 없음</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer text-muted small py-1">
+        <i class="bi bi-info-circle me-1"></i>가용 수량 기준 상위 15개 표시
+    </div>
+</div>
+
+<!-- 전체 입하 목록 (화면용) -->
+<div class="card mb-3 no-print">
+    <div class="card-header py-2" data-bs-toggle="collapse" data-bs-target="#fullList" style="cursor: pointer;">
+        <i class="bi bi-list-ul me-1"></i>전체 입하 목록
+        <i class="bi bi-chevron-down float-end"></i>
+        <span class="badge bg-primary float-end me-2">{{ arrivals|length }}건</span>
+    </div>
+    <div class="collapse" id="fullList">
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover item-table mb-0">
-                    <thead class="table-danger">
+            <div class="table-responsive" style="max-height: 400px;">
+                <table class="table table-sm table-hover items-table mb-0">
+                    <thead class="sticky-top bg-light">
                         <tr>
-                            <th style="width: 40px;">#</th>
+                            <th class="text-center" style="width: 40px;">No</th>
                             <th>용기번호</th>
                             <th>제품</th>
-                            <th>공급처</th>
-                            <th class="text-center">내압만료일</th>
+                            <th>이동서번호</th>
                             <th class="text-center">상태</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for a in arrivals %}
-                        {% if a.is_expired or a.is_expiring_soon %}
-                        <tr class="{% if a.is_expired %}table-danger{% else %}table-warning{% endif %}">
-                            <td class="text-muted">{{ forloop.counter }}</td>
-                            <td><code class="fw-bold">{{ a.cylinder_no }}</code></td>
-                            <td>{{ a.gas_name }} {% if a.capacity %}({{ a.capacity }}L){% endif %}</td>
-                            <td>{{ a.supplier|default:"-" }}</td>
-                            <td class="text-center">
-                                {% if a.pressure_expiry_date %}
-                                {{ a.pressure_expiry_date|date:"Y-m-d" }}
-                                {% else %}-{% endif %}
-                            </td>
+                        <tr>
+                            <td class="text-center text-muted">{{ forloop.counter }}</td>
+                            <td><code>{{ a.cylinder_no }}</code></td>
+                            <td>{{ a.item_name }}</td>
+                            <td>{{ a.move_report_no|default:"-" }}</td>
                             <td class="text-center">
                                 {% if a.is_expired %}
-                                <span class="status-badge danger">내압만료</span>
+                                <span class="status-badge status-danger">내압만료</span>
+                                {% elif a.is_expiring_soon %}
+                                <span class="status-badge status-warning">만료임박</span>
                                 {% else %}
-                                <span class="status-badge warning">만료임박</span>
+                                <span class="status-badge status-normal">정상</span>
                                 {% endif %}
                             </td>
                         </tr>
-                        {% endif %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-3 text-muted">입하 내역 없음</td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- 전체 입하 목록 (접이식) -->
-<div class="report-section no-print">
-    <div class="section-title" data-bs-toggle="collapse" data-bs-target="#fullList" style="cursor: pointer;">
-        <i class="bi bi-list-ul"></i>
-        전체 입하 목록 <i class="bi bi-chevron-down ms-2"></i>
-        <span class="badge bg-primary ms-auto">{{ arrivals|length }}건</span>
-    </div>
-    <div class="collapse" id="fullList">
-        <div class="card">
-            <div class="card-body p-0">
-                <div class="table-responsive" style="max-height: 400px;">
-                    <table class="table table-sm table-hover item-table mb-0">
-                        <thead class="table-light sticky-top">
-                            <tr>
-                                <th style="width: 40px;">#</th>
-                                <th>용기번호</th>
-                                <th>제품</th>
-                                <th>공급처</th>
-                                <th>이동서번호</th>
-                                <th class="text-center">상태</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for a in arrivals %}
-                            <tr class="{% if a.is_expired %}table-danger{% elif a.is_expiring_soon %}table-warning{% endif %}">
-                                <td class="text-muted">{{ forloop.counter }}</td>
-                                <td><code class="fw-bold">{{ a.cylinder_no }}</code></td>
-                                <td>{{ a.item_name }}</td>
-                                <td>{{ a.supplier|default:"-" }}</td>
-                                <td>
-                                    {% if a.move_report_no %}
-                                    <code class="text-success">{{ a.move_report_no }}</code>
-                                    {% else %}-{% endif %}
-                                </td>
-                                <td class="text-center">
-                                    {% if a.is_expired %}
-                                    <span class="status-badge danger">내압만료</span>
-                                    {% elif a.is_expiring_soon %}
-                                    <span class="status-badge warning">만료임박</span>
-                                    {% else %}
-                                    <span class="status-badge normal">정상</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">입하 내역이 없습니다</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
     </div>
@@ -490,25 +436,22 @@
 <!-- 인쇄용 푸터 -->
 <div class="print-footer">
     <p>본 보고서는 CYNOW 용기 관리 시스템에서 자동 생성되었습니다.</p>
-    <p>생성일시: {{ generated_at|date:"Y-m-d H:i" }} | KDFPK Co., Ltd.</p>
+    <p>KDFPK Co., Ltd. | {{ generated_at|date:"Y-m-d H:i" }}</p>
 </div>
 
 <script>
 function printReport() {
-    // 파일명에 날짜/시간 포함
     const originalTitle = document.title;
-    const now = new Date();
     const dateStr = '{{ report_date|date:"Ymd" }}';
+    const now = new Date();
     const timeStr = now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0');
     document.title = `입하보고서_${dateStr}_${timeStr}`;
     
     window.print();
     
-    // 원래 제목으로 복원
     setTimeout(() => {
         document.title = originalTitle;
     }, 1000);
 }
 </script>
 {% endblock %}
-
