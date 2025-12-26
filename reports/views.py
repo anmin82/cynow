@@ -1,11 +1,15 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.utils import timezone
-from datetime import timedelta
+from django.db import connection
+from datetime import timedelta, datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 from core.repositories.cylinder_repository import CylinderRepository
 from history.models import HistInventorySnapshot
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def weekly_report(request):
@@ -276,3 +280,111 @@ def export_monthly_excel(request):
     wb.save(response)
     
     return response
+
+
+def daily_report(request):
+    """일일 보고서 - 오늘 하루 용기 이동 현황"""
+    # 날짜 파라미터 (기본: 오늘)
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            report_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            report_date = timezone.now().date()
+    else:
+        report_date = timezone.now().date()
+    
+    # MOVE_CODE 라벨 매핑
+    move_code_labels = {
+        '00': '신규구매', '01': '신규등록', '10': '입하', '14': '회수완료',
+        '16': '회수없음', '17': '재보관', '21': '충전선택', '22': '충전완료',
+        '30': '창고출고', '31': '외부충전', '41': '분석중', '42': '분석완료',
+        '50': '창고입고', '51': '수주연결', '52': '연결해제', '60': '출하',
+        '65': '영업외출하', '70': '반품', '85': '전출', '86': '전입', '99': '폐기',
+    }
+    
+    # 오늘 이동된 용기 조회
+    movements = []
+    move_summary = {}
+    
+    try:
+        with connection.cursor() as cursor:
+            # 오늘 이동 내역 조회
+            cursor.execute('''
+                SELECT 
+                    h."CYLINDER_NO",
+                    h."MOVE_CODE",
+                    h."MOVE_DATE",
+                    h."MOVE_REPORT_NO",
+                    h."SUPPLIER_USER_NAME",
+                    h."CUSTOMER_USER_NAME",
+                    h."POSITION_USER_NAME",
+                    h."REMARKS",
+                    CONCAT(
+                        COALESCE(h."FILLING_LOT_HEADER", ''),
+                        COALESCE(h."FILLING_LOT_NO", ''),
+                        CASE WHEN h."FILLING_LOT_BRANCH" IS NOT NULL AND h."FILLING_LOT_BRANCH" != '' 
+                             THEN '-' || h."FILLING_LOT_BRANCH" 
+                             ELSE '' 
+                        END
+                    ) as filling_lot
+                FROM fcms_cdc.tr_cylinder_status_histories h
+                WHERE h."MOVE_DATE" = %s
+                ORDER BY h."MOVE_CODE", h."CYLINDER_NO"
+            ''', [report_date])
+            
+            for row in cursor.fetchall():
+                move_code = row[1].strip() if row[1] else ''
+                move_label = move_code_labels.get(move_code, move_code)
+                
+                movements.append({
+                    'cylinder_no': row[0].strip() if row[0] else '',
+                    'move_code': move_code,
+                    'move_label': move_label,
+                    'move_date': row[2],
+                    'move_report_no': row[3].strip() if row[3] else '',
+                    'supplier': row[4].strip() if row[4] else '',
+                    'customer': row[5].strip() if row[5] else '',
+                    'position': row[6].strip() if row[6] else '',
+                    'remarks': row[7].strip() if row[7] else '',
+                    'filling_lot': row[8].strip() if row[8] else '',
+                })
+                
+                # 요약 집계
+                if move_label not in move_summary:
+                    move_summary[move_label] = {'code': move_code, 'count': 0}
+                move_summary[move_label]['count'] += 1
+    
+    except Exception as e:
+        logger.error(f"일일 보고서 조회 오류: {e}")
+    
+    # 요약 정렬 (건수 많은 순)
+    summary_list = [
+        {'label': k, 'code': v['code'], 'count': v['count']}
+        for k, v in sorted(move_summary.items(), key=lambda x: -x[1]['count'])
+    ]
+    
+    # 현재 인벤토리
+    current_inventory = CylinderRepository.get_inventory_summary()
+    
+    # 상태별 집계
+    status_summary = {}
+    total_cylinders = 0
+    for row in current_inventory:
+        status = row.get('status', '기타')
+        qty = row.get('qty', 0)
+        if status not in status_summary:
+            status_summary[status] = 0
+        status_summary[status] += qty
+        total_cylinders += qty
+    
+    context = {
+        'report_date': report_date,
+        'movements': movements,
+        'move_summary': summary_list,
+        'total_movements': len(movements),
+        'status_summary': status_summary,
+        'total_cylinders': total_cylinders,
+        'generated_at': timezone.now(),
+    }
+    return render(request, 'reports/daily.html', context)

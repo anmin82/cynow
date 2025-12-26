@@ -4,6 +4,7 @@ from . import views
 app_name = 'reports'
 
 urlpatterns = [
+    path('daily/', views.daily_report, name='daily'),
     path('weekly/', views.weekly_report, name='weekly'),
     path('monthly/', views.monthly_report, name='monthly'),
     path('weekly/export.xlsx', views.export_weekly_excel, name='export_weekly_excel'),

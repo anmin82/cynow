@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}일일 보고서 - {{ report_date }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .navbar, .no-print, .filter-section { display: none !important; }
+        .main-container { padding: 0 !important; max-width: 100% !important; }
+        .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+        .print-header { display: block !important; }
+        body { background: white !important; font-size: 12px !important; }
+        .table { font-size: 11px !important; }
+        .metric-value { font-size: 28px !important; }
+        @page { margin: 15mm; size: A4 landscape; }
+    }
+    
+    .print-header {
+        display: none;
+        text-align: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #333;
+    }
+    
+    .print-header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0;
+        color: #1C1C1E;
+    }
+    
+    .print-header .subtitle {
+        font-size: 14px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .summary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+    }
+    
+    .summary-card.primary { background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%); }
+    .summary-card.success { background: linear-gradient(135deg, #34C759 0%, #30D158 100%); }
+    .summary-card.warning { background: linear-gradient(135deg, #FF9500 0%, #FF6B00 100%); }
+    .summary-card.info { background: linear-gradient(135deg, #5AC8FA 0%, #32ADE6 100%); }
+    .summary-card.purple { background: linear-gradient(135deg, #AF52DE 0%, #BF5AF2 100%); }
+    
+    .summary-card .value {
+        font-size: 32px;
+        font-weight: 800;
+        line-height: 1;
+    }
+    
+    .summary-card .label {
+        font-size: 13px;
+        opacity: 0.9;
+        margin-top: 4px;
+    }
+    
+    .move-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .move-10 { background: rgba(90, 200, 250, 0.2); color: #0A84FF; }
+    .move-21, .move-22, .move-31 { background: rgba(255, 204, 0, 0.2); color: #D4A600; }
+    .move-41, .move-42 { background: rgba(175, 82, 222, 0.2); color: #AF52DE; }
+    .move-50, .move-51 { background: rgba(0, 122, 255, 0.2); color: #007AFF; }
+    .move-60, .move-65 { background: rgba(52, 199, 89, 0.2); color: #34C759; }
+    .move-70 { background: rgba(255, 59, 48, 0.2); color: #FF3B30; }
+    
+    .status-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    
+    .briefing-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .briefing-section h5 {
+        color: #1C1C1E;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+    
+    .briefing-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #e5e5ea;
+    }
+    
+    .briefing-item:last-child {
+        border-bottom: none;
+    }
+    
+    .briefing-item .label {
+        color: #666;
+    }
+    
+    .briefing-item .value {
+        font-weight: 700;
+        color: #1C1C1E;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 인쇄용 헤더 -->
+<div class="print-header">
+    <h1>CYNOW 일일 보고서</h1>
+    <div class="subtitle">{{ report_date|date:"Y년 m월 d일 (l)" }} 용기 이동 현황</div>
+</div>
+
+<!-- 필터 섹션 -->
+<div class="filter-section no-print">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h4 class="mb-0">
+                <i class="bi bi-calendar-day me-2"></i>일일 보고서
+            </h4>
+            <small class="text-muted">{{ report_date|date:"Y년 m월 d일 (l)" }} 기준</small>
+        </div>
+        <div class="col-md-6 text-end">
+            <form method="get" class="d-inline-flex gap-2">
+                <input type="date" name="date" value="{{ report_date|date:'Y-m-d' }}" class="form-control form-control-sm" style="width: auto;">
+                <button type="submit" class="btn btn-sm btn-primary">조회</button>
+            </form>
+            <button onclick="window.print()" class="btn btn-sm btn-outline-primary ms-2">
+                <i class="bi bi-printer me-1"></i>인쇄
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 요약 카드 -->
+<div class="summary-grid">
+    <div class="summary-card primary">
+        <div class="value">{{ total_movements|intcomma }}</div>
+        <div class="label">오늘 이동</div>
+    </div>
+    <div class="summary-card success">
+        <div class="value">{{ total_cylinders|intcomma }}</div>
+        <div class="label">전체 용기</div>
+    </div>
+    {% for label, count in status_summary.items %}
+    {% if count > 0 %}
+    <div class="summary-card {% cycle 'info' 'warning' 'purple' %}">
+        <div class="value">{{ count|intcomma }}</div>
+        <div class="label">{{ label }}</div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+<div class="row">
+    <!-- 이동 요약 -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-bar-chart me-2"></i>이동 유형별 현황
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>이동 유형</th>
+                            <th class="text-end">건수</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in move_summary %}
+                        <tr>
+                            <td>
+                                <span class="move-badge move-{{ item.code }}">{{ item.label }}</span>
+                            </td>
+                            <td class="text-end fw-bold">{{ item.count|intcomma }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center text-muted py-4">
+                                오늘 이동 내역이 없습니다
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 브리핑 요약 -->
+    <div class="col-md-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="bi bi-megaphone me-2"></i>브리핑 요약
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="briefing-section">
+                            <h5><i class="bi bi-box-arrow-in-down me-2"></i>입하/회수</h5>
+                            {% for item in move_summary %}
+                            {% if item.code == '10' or item.code == '14' %}
+                            <div class="briefing-item">
+                                <span class="label">{{ item.label }}</span>
+                                <span class="value">{{ item.count }}건</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            {% if not move_summary %}
+                            <div class="text-muted small">해당 없음</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="briefing-section">
+                            <h5><i class="bi bi-droplet me-2"></i>충전</h5>
+                            {% for item in move_summary %}
+                            {% if item.code == '21' or item.code == '22' or item.code == '31' %}
+                            <div class="briefing-item">
+                                <span class="label">{{ item.label }}</span>
+                                <span class="value">{{ item.count }}건</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="briefing-section">
+                            <h5><i class="bi bi-search me-2"></i>분석</h5>
+                            {% for item in move_summary %}
+                            {% if item.code == '41' or item.code == '42' %}
+                            <div class="briefing-item">
+                                <span class="label">{{ item.label }}</span>
+                                <span class="value">{{ item.count }}건</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="briefing-section">
+                            <h5><i class="bi bi-truck me-2"></i>출하</h5>
+                            {% for item in move_summary %}
+                            {% if item.code == '60' or item.code == '65' %}
+                            <div class="briefing-item">
+                                <span class="label">{{ item.label }}</span>
+                                <span class="value">{{ item.count }}건</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 상세 이동 목록 -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>이동 상세 목록</span>
+        <span class="badge bg-primary">{{ movements|length }}건</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>용기번호</th>
+                        <th>이동유형</th>
+                        <th>이동서번호</th>
+                        <th>고객사</th>
+                        <th>충전LOT</th>
+                        <th>비고</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movements %}
+                    <tr>
+                        <td class="text-muted">{{ forloop.counter }}</td>
+                        <td><code class="fw-bold">{{ m.cylinder_no }}</code></td>
+                        <td><span class="move-badge move-{{ m.move_code }}">{{ m.move_label }}</span></td>
+                        <td>
+                            {% if m.move_report_no %}
+                            <code class="text-success">{{ m.move_report_no }}</code>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>{{ m.customer|default:m.supplier|default:"-" }}</td>
+                        <td>
+                            {% if m.filling_lot %}
+                            <code class="small">{{ m.filling_lot }}</code>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="small text-muted">{{ m.remarks|default:"-"|truncatechars:30 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fa-3x mb-3 d-block"></i>
+                            오늘 이동 내역이 없습니다
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 인쇄용 푸터 -->
+<div class="text-center text-muted mt-4 small print-footer" style="display: none;">
+    <p>CYNOW 용기 관리 시스템 | 생성: {{ generated_at|date:"Y-m-d H:i" }}</p>
+</div>
+
+<style>
+@media print {
+    .print-footer { display: block !important; }
+}
+</style>
+{% endblock %}
+
