@@ -293,7 +293,9 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{% url 'orders:edit' po.customer_order_no %}" class="btn btn-outline-primary btn-sm">
+                    <a href="{% url 'orders:edit' po.customer_order_no %}"
+                       class="btn btn-outline-primary btn-sm"
+                       onclick="return confirm('수주를 수정하시겠습니까?');">
                         <i class="bi bi-pencil"></i> 수정
                     </a>
                     <button class="btn btn-outline-success btn-sm" onclick="alert('예약번호 생성 기능은 추후 구현됩니다.')">

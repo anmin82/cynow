@@ -237,9 +237,13 @@
             <button onclick="window.print()" class="btn btn-outline-secondary">
                 <i class="bi bi-printer"></i> 인쇄
             </button>
-            <a href="{% url 'orders:edit' po.customer_order_no %}" class="btn btn-warning">
-                <i class="bi bi-pencil"></i> 수정
-            </a>
+            <button type="button"
+                    class="btn btn-outline-warning btn-sm"
+                    data-bs-toggle="modal"
+                    data-bs-target="#editModal"
+                    title="수정">
+                <i class="bi bi-pencil"></i>
+            </button>
             <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal">
                 <i class="bi bi-trash"></i>
             </button>
@@ -375,48 +379,6 @@
 
         <!-- 우측: 가이드 및 매칭 -->
         <div class="col-lg-4 no-print">
-            <!-- 이동서번호 가이드 -->
-            <div class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>이동서번호 가이드</h5>
-                    <form method="post" action="{% url 'orders:generate_guide' po.customer_order_no %}" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-primary">
-                            <i class="bi bi-plus-circle"></i> 생성
-                        </button>
-                    </form>
-                </div>
-                <div class="card-body">
-                    {% if guides %}
-                        <div class="text-center py-3">
-                            <div class="text-muted mb-1">추천 이동서번호</div>
-                            <div class="guide-number">{{ guides.0.suggested_move_no }}</div>
-                            <small class="text-muted">
-                                생성: {{ guides.0.created_at|kst|date:"Y-m-d H:i" }}
-                            </small>
-                        </div>
-                        <hr>
-                        <div class="alert alert-warning mb-0 small">
-                            <i class="bi bi-exclamation-triangle me-1"></i>
-                            이 번호는 참고용 추천값입니다.<br>
-                            FCMS에 직접 입력 시 다른 번호를 사용할 수 있습니다.
-                        </div>
-                        
-                        {% if guides.0.fcms_actual_move_no %}
-                        <div class="mt-3">
-                            <strong>FCMS 실제 번호:</strong>
-                            <code>{{ guides.0.fcms_actual_move_no }}</code>
-                        </div>
-                        {% endif %}
-                    {% else %}
-                        <div class="text-center text-muted py-3">
-                            <i class="bi bi-lightbulb" style="font-size: 2rem; opacity: 0.3;"></i>
-                            <p class="mt-2 mb-0">아직 가이드가 생성되지 않았습니다.</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
             <!-- FCMS 매칭 상태 -->
             <div class="card mb-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -559,6 +521,42 @@
     </div>
 </div>
 
+<!-- 수정 확인(잠금 해제) 모달 -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="editModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>수주 수정
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'orders:edit_unlock' po.customer_order_no %}" id="editUnlockForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>확인:</strong> 수정은 실수 방지를 위해 한 번 더 확인합니다.<br>
+                        수정을 진행하려면 PO번호를 한 번 더 입력해 주세요.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">수정을 진행하려면 PO번호를 입력하세요:</label>
+                        <input type="text" class="form-control" id="confirmPoNumberEdit" name="confirm_customer_order_no"
+                               placeholder="{{ po.customer_order_no }}" autocomplete="off" required>
+                        <div class="form-text">정확히 <code>{{ po.customer_order_no }}</code>를 입력하세요.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-warning" id="editBtn" disabled>
+                        <i class="bi bi-pencil me-1"></i>수정 진행
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- 삭제 확인 모달 -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -598,12 +596,23 @@
 document.addEventListener('DOMContentLoaded', function() {
     const confirmInput = document.getElementById('confirmPoNumber');
     const deleteBtn = document.getElementById('deleteBtn');
+    const editConfirmInput = document.getElementById('confirmPoNumberEdit');
+    const editBtn = document.getElementById('editBtn');
     const expectedValue = '{{ po.customer_order_no }}';
     
     if (confirmInput && deleteBtn) {
         confirmInput.addEventListener('input', function() {
             deleteBtn.disabled = this.value !== expectedValue;
         });
+    }
+
+    function updateEditButtonState() {
+        const poOk = (editConfirmInput.value || '').trim() === expectedValue;
+        editBtn.disabled = !poOk;
+    }
+
+    if (editConfirmInput && editBtn) {
+        editConfirmInput.addEventListener('input', updateEditButtonState);
     }
 });
 </script>

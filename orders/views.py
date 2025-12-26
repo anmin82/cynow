@@ -19,11 +19,56 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.db.models import Sum, Q
 from django.db.utils import ProgrammingError, OperationalError
+import logging
 
 from .models import PO, POItem, MoveNoGuide, FCMSMatchStatus, FCMSProductionProgress, PlannedMoveReport
 from .forms import POForm, POItemFormSet
 from .repositories.fcms_repository import FcmsRepository
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
+
+_EDIT_UNLOCK_TTL_SECONDS = 5 * 60  # 5분: 삭제와 유사한 수준의 "한 번 더" 확인 마찰
+
+
+def _edit_unlock_session_key(customer_order_no: str) -> str:
+    return f"orders:edit-unlock:{customer_order_no}"
+
+
+@require_POST
+def po_edit_unlock(request, customer_order_no):
+    """
+    수주 수정 '잠금 해제' (삭제처럼 쉽게 못 하게 하기)
+
+    - 상세 화면에서 PO번호 재입력을 요구 (삭제 버튼과 동일한 2-step 확인 UX)
+    - 성공 시 세션에 짧은 TTL 토큰 저장 후 edit 화면으로 이동
+    - 사용자가 /edit/ URL을 직접 입력해도 토큰 없으면 차단됨 (po_edit에서 검증)
+    """
+    po = get_object_or_404(PO, customer_order_no=customer_order_no)
+
+    confirm_no = (request.POST.get("confirm_customer_order_no") or "").strip()
+    # 사유는 선택 입력 (UI/요청에 따라 제거/비활성화될 수 있음)
+    reason = (request.POST.get("edit_reason") or "").strip()
+
+    if confirm_no != po.customer_order_no:
+        messages.error(request, "PO번호가 일치하지 않습니다. 수정은 진행할 수 없습니다.")
+        return redirect("orders:detail", customer_order_no=customer_order_no)
+
+    request.session[_edit_unlock_session_key(customer_order_no)] = {
+        "ts": int(timezone.now().timestamp()),
+        "reason": reason,
+        "by": request.user.username if getattr(request, "user", None) and request.user.is_authenticated else None,
+    }
+    request.session.modified = True
+
+    logger.info(
+        "orders.po_edit_unlock: customer_order_no=%s by=%s reason=%s",
+        customer_order_no,
+        request.user.username if getattr(request, "user", None) and request.user.is_authenticated else "anonymous",
+        reason,
+    )
+
+    return redirect("orders:edit", customer_order_no=customer_order_no)
 
 
 def po_list(request):
@@ -120,9 +165,6 @@ def po_detail(request, customer_order_no):
     # 품목
     items = po.items.all()
     
-    # 이동서번호 가이드
-    guides = po.move_guides.all()
-    
     # FCMS 매칭 상태
     try:
         match_status = po.fcms_match_status
@@ -132,7 +174,6 @@ def po_detail(request, customer_order_no):
     context = {
         'po': po,
         'items': items,
-        'guides': guides,
         'match_status': match_status,
     }
     
@@ -209,6 +250,21 @@ def po_create(request):
 def po_edit(request, customer_order_no):
     """수주 수정"""
     po = get_object_or_404(PO, customer_order_no=customer_order_no)
+
+    # 수정은 "잠금 해제" 절차 후에만 허용 (상세 화면에서 POST로 unlock)
+    unlock_key = _edit_unlock_session_key(customer_order_no)
+    unlock = request.session.get(unlock_key)
+    now_ts = int(timezone.now().timestamp())
+    unlock_ts = int(unlock.get("ts", 0)) if isinstance(unlock, dict) else 0
+
+    if not unlock_ts:
+        messages.warning(request, "수정은 확인 절차(PO번호/사유 입력) 후 진행할 수 있습니다.")
+        return redirect("orders:detail", customer_order_no=customer_order_no)
+
+    if now_ts - unlock_ts > _EDIT_UNLOCK_TTL_SECONDS:
+        request.session.pop(unlock_key, None)
+        messages.warning(request, "수정 확인 시간이 만료되었습니다. 다시 시도해 주세요.")
+        return redirect("orders:detail", customer_order_no=customer_order_no)
     
     if request.method == 'POST':
         form = POForm(request.POST, instance=po)
@@ -227,6 +283,8 @@ def po_edit(request, customer_order_no):
                 po.save(update_fields=['status'])
             
             messages.success(request, f'수주 {po.customer_order_no}가 수정되었습니다.')
+            # 수정 완료 후 토큰 제거 (한 번 더 확인 요구)
+            request.session.pop(unlock_key, None)
             return redirect('orders:detail', customer_order_no=customer_order_no)
     else:
         form = POForm(instance=po)
