@@ -159,17 +159,11 @@
         <div class="value">{{ total_movements|intcomma }}</div>
         <div class="label">오늘 이동</div>
     </div>
-    <div class="summary-card success">
-        <div class="value">{{ total_cylinders|intcomma }}</div>
-        <div class="label">전체 용기</div>
+    {% for item in item_summary|slice:":5" %}
+    <div class="summary-card {% cycle 'info' 'success' 'warning' 'purple' 'primary' %}">
+        <div class="value">{{ item.count|intcomma }}</div>
+        <div class="label">{{ item.item_code }}</div>
     </div>
-    {% for label, count in status_summary.items %}
-    {% if count > 0 %}
-    <div class="summary-card {% cycle 'info' 'warning' 'purple' %}">
-        <div class="value">{{ count|intcomma }}</div>
-        <div class="label">{{ label }}</div>
-    </div>
-    {% endif %}
     {% endfor %}
 </div>
 
@@ -209,69 +203,38 @@
         </div>
     </div>
     
-    <!-- 브리핑 요약 -->
+    <!-- 제품코드별 이동 현황 -->
     <div class="col-md-8 mb-4">
         <div class="card h-100">
             <div class="card-header">
-                <i class="bi bi-megaphone me-2"></i>브리핑 요약
+                <i class="bi bi-grid me-2"></i>제품코드별 이동 현황
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="briefing-section">
-                            <h5><i class="bi bi-box-arrow-in-down me-2"></i>입하/회수</h5>
-                            {% for item in move_summary %}
-                            {% if item.code == '10' or item.code == '14' %}
-                            <div class="briefing-item">
-                                <span class="label">{{ item.label }}</span>
-                                <span class="value">{{ item.count }}건</span>
-                            </div>
-                            {% endif %}
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>제품코드</th>
+                                <th>이동유형</th>
+                                <th class="text-end">건수</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in move_by_item %}
+                            <tr>
+                                <td><code class="fw-bold">{{ item.item_code }}</code></td>
+                                <td><span class="move-badge move-{{ item.move_code }}">{{ item.move_label }}</span></td>
+                                <td class="text-end fw-bold">{{ item.count }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                    오늘 이동 내역이 없습니다
+                                </td>
+                            </tr>
                             {% endfor %}
-                            {% if not move_summary %}
-                            <div class="text-muted small">해당 없음</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="briefing-section">
-                            <h5><i class="bi bi-droplet me-2"></i>충전</h5>
-                            {% for item in move_summary %}
-                            {% if item.code == '21' or item.code == '22' or item.code == '31' %}
-                            <div class="briefing-item">
-                                <span class="label">{{ item.label }}</span>
-                                <span class="value">{{ item.count }}건</span>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="briefing-section">
-                            <h5><i class="bi bi-search me-2"></i>분석</h5>
-                            {% for item in move_summary %}
-                            {% if item.code == '41' or item.code == '42' %}
-                            <div class="briefing-item">
-                                <span class="label">{{ item.label }}</span>
-                                <span class="value">{{ item.count }}건</span>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="briefing-section">
-                            <h5><i class="bi bi-truck me-2"></i>출하</h5>
-                            {% for item in move_summary %}
-                            {% if item.code == '60' or item.code == '65' %}
-                            <div class="briefing-item">
-                                <span class="label">{{ item.label }}</span>
-                                <span class="value">{{ item.count }}건</span>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -413,10 +376,10 @@
                         <tr>
                             <th style="width: 50px;">#</th>
                             <th>용기번호</th>
+                            <th>제품코드</th>
                             <th>이동서번호</th>
                             <th>고객/공급처</th>
                             <th>충전LOT</th>
-                            <th>비고</th>
                         </tr>
                     </thead>
                     <tbody id="modalMoveBody"></tbody>
@@ -454,7 +417,9 @@ document.addEventListener('DOMContentLoaded', function() {
             supplier: "{{ m.supplier }}",
             customer: "{{ m.customer }}",
             filling_lot: "{{ m.filling_lot }}",
-            remarks: "{{ m.remarks|escapejs }}"
+            remarks: "{{ m.remarks|escapejs }}",
+            item_code: "{{ m.item_code }}",
+            capacity: {{ m.capacity }}
         },
         {% endfor %}
     ];
@@ -484,10 +449,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 tr.innerHTML = `
                     <td class="text-muted">${idx + 1}</td>
                     <td><code class="fw-bold">${m.cylinder_no}</code></td>
+                    <td><code>${m.item_code}</code></td>
                     <td>${m.move_report_no ? '<code class="text-success">' + m.move_report_no + '</code>' : '-'}</td>
                     <td>${m.customer || m.supplier || '-'}</td>
                     <td>${m.filling_lot ? '<code class="small">' + m.filling_lot + '</code>' : '-'}</td>
-                    <td class="small text-muted">${m.remarks || '-'}</td>
                 `;
                 tbody.appendChild(tr);
             });

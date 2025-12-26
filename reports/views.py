@@ -311,7 +311,7 @@ def daily_report(request):
     
     try:
         with connection.cursor() as cursor:
-            # 오늘 이동 내역 조회 (MOVE_DATE는 datetime이므로 DATE 비교)
+            # 오늘 이동 내역 조회 (MOVE_DATE는 datetime이므로 DATE 비교) - 용기 마스터 조인
             cursor.execute('''
                 SELECT 
                     h."CYLINDER_NO",
@@ -329,15 +329,23 @@ def daily_report(request):
                              THEN '-' || h."FILLING_LOT_BRANCH" 
                              ELSE '' 
                         END
-                    ) as filling_lot
+                    ) as filling_lot,
+                    COALESCE(c."ITEM_CODE", '') as item_code,
+                    COALESCE(c."CAPACITY", 0) as capacity
                 FROM fcms_cdc.tr_cylinder_status_histories h
+                LEFT JOIN fcms_cdc.ma_cylinders c ON TRIM(h."CYLINDER_NO") = TRIM(c."CYLINDER_NO")
                 WHERE DATE(h."MOVE_DATE") = %s
-                ORDER BY h."MOVE_CODE", h."CYLINDER_NO"
+                ORDER BY h."MOVE_CODE", c."ITEM_CODE", h."CYLINDER_NO"
             ''', [report_date])
+            
+            item_summary = {}  # 제품코드별 집계
+            move_by_item = {}  # 이동유형+제품코드별 집계
             
             for row in cursor.fetchall():
                 move_code = row[1].strip() if row[1] else ''
                 move_label = move_code_labels.get(move_code, move_code)
+                item_code = row[9].strip() if row[9] else '미분류'
+                capacity = row[10] or 0
                 
                 movements.append({
                     'cylinder_no': row[0].strip() if row[0] else '',
@@ -350,12 +358,25 @@ def daily_report(request):
                     'position': row[6].strip() if row[6] else '',
                     'remarks': row[7].strip() if row[7] else '',
                     'filling_lot': row[8].strip() if row[8] else '',
+                    'item_code': item_code,
+                    'capacity': capacity,
                 })
                 
-                # 요약 집계
+                # 이동유형별 요약 집계
                 if move_label not in move_summary:
                     move_summary[move_label] = {'code': move_code, 'count': 0}
                 move_summary[move_label]['count'] += 1
+                
+                # 제품코드별 집계
+                if item_code not in item_summary:
+                    item_summary[item_code] = {'count': 0, 'capacity': capacity}
+                item_summary[item_code]['count'] += 1
+                
+                # 이동유형+제품코드별 집계
+                key = f"{move_code}_{item_code}"
+                if key not in move_by_item:
+                    move_by_item[key] = {'move_code': move_code, 'move_label': move_label, 'item_code': item_code, 'count': 0}
+                move_by_item[key]['count'] += 1
             
             # 입하(10) 용기 상세 정보 조회 (내압검사 만료일 포함)
             cursor.execute('''
@@ -433,6 +454,18 @@ def daily_report(request):
         status_summary[status] += qty
         total_cylinders += qty
     
+    # 제품코드별 집계 정렬
+    item_summary_list = [
+        {'item_code': k, 'count': v['count'], 'capacity': v['capacity']}
+        for k, v in sorted(item_summary.items(), key=lambda x: -x[1]['count'])
+    ]
+    
+    # 이동유형+제품코드별 집계 정렬
+    move_by_item_list = sorted(
+        move_by_item.values(),
+        key=lambda x: (-move_code_labels.get(x['move_code'], ''), -x['count'])
+    )
+    
     context = {
         'report_date': report_date,
         'movements': movements,
@@ -442,6 +475,8 @@ def daily_report(request):
         'total_cylinders': total_cylinders,
         'arrival_details': arrival_details,
         'arrival_summary': arrival_summary,
+        'item_summary': item_summary_list,
+        'move_by_item': move_by_item_list,
         'generated_at': timezone.now(),
     }
     return render(request, 'reports/daily.html', context)
