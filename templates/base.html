@@ -615,15 +615,20 @@
                             <li><a class="dropdown-item" href="{% url 'inventory:index' %}"><i class="bi bi-box-seam me-2"></i>재고 현황</a></li>
                             <li><a class="dropdown-item" href="{% url 'inventory:product' %}"><i class="bi bi-box me-2"></i>제품 재고</a></li>
                             <li><a class="dropdown-item" href="{% url 'inventory:cylinder' %}"><i class="bi bi-cylinder me-2"></i>용기 재고</a></li>
-                            <li><a class="dropdown-item" href="{% url 'inventory:maintenance' %}"><i class="bi bi-wrench-adjustable me-2"></i>정비 입출고</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'reports:daily' %}"><i class="bi bi-calendar-day me-2"></i>일일 보고서</a></li>
                             <li><a class="dropdown-item" href="{% url 'reports:weekly' %}"><i class="bi bi-calendar-week me-2"></i>주간 보고서</a></li>
                             <li><a class="dropdown-item" href="{% url 'reports:monthly' %}"><i class="bi bi-calendar-month me-2"></i>월간 보고서</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'cylinders:list' %}">용기</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="cylinderDropdown" role="button" data-bs-toggle="dropdown">
+                            용기
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'cylinders:list' %}"><i class="bi bi-cylinder me-2"></i>용기 목록</a></li>
+                            <li><a class="dropdown-item" href="{% url 'inventory:maintenance' %}"><i class="bi bi-wrench-adjustable me-2"></i>정비 입출고</a></li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'alerts:alerts' %}">알림</a>
