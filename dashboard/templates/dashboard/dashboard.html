@@ -351,11 +351,58 @@ const cylinderTypesMap = {
 // 이동서 연결 상태 목록 (보관 제외)
 const moveReportLinkedStatuses = ['충전중', '충전완료', '분석중', '분석완료', '제품'];
 
-// 날짜 포맷팅 헬퍼
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return `${d.getMonth()+1}/${d.getDate()}`;
+// 날짜/일시 포맷팅 헬퍼
+// - 스케줄 배지: 월/일만 보여도 충분
+// - 표(이동일/내압만료): 연도 포함 + 이동일은 가능하면 시:분까지
+function pad2(n) {
+    return String(n).padStart(2, '0');
+}
+
+// ISO 문자열(YYYY-MM-DD / YYYY-MM-DDTHH:mm:ss...)을 로컬 기준으로 안전하게 파싱
+// (브라우저별 Date 파서/UTC 변환 차이로 날짜가 하루 밀리는 문제를 피하기 위해 수동 파싱 우선)
+function parseLocalDateTime(dateStr) {
+    if (!dateStr) return null;
+    const s = String(dateStr).trim();
+    // YYYY-MM-DD
+    const m1 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m1) {
+        return { y: Number(m1[1]), mo: Number(m1[2]), d: Number(m1[3]), h: null, mi: null };
+    }
+    // YYYY-MM-DDTHH:MM...
+    const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+    if (m2) {
+        return { y: Number(m2[1]), mo: Number(m2[2]), d: Number(m2[3]), h: Number(m2[4]), mi: Number(m2[5]) };
+    }
+    // fallback
+    const dt = new Date(s);
+    if (Number.isNaN(dt.getTime())) return null;
+    return { y: dt.getFullYear(), mo: dt.getMonth() + 1, d: dt.getDate(), h: dt.getHours(), mi: dt.getMinutes() };
+}
+
+function formatMD(dateStr) {
+    const p = parseLocalDateTime(dateStr);
+    if (!p) return '-';
+    return `${p.mo}/${p.d}`;
+}
+
+function formatYMD(dateStr) {
+    const p = parseLocalDateTime(dateStr);
+    if (!p) return '-';
+    return `${p.y}-${pad2(p.mo)}-${pad2(p.d)}`;
+}
+
+function formatYMDHM(dateStr) {
+    const p = parseLocalDateTime(dateStr);
+    if (!p) return '-';
+    if (p.h === null || p.mi === null) return `${p.y}-${pad2(p.mo)}-${pad2(p.d)}`;
+    return `${p.y}-${pad2(p.mo)}-${pad2(p.d)} ${pad2(p.h)}:${pad2(p.mi)}`;
+}
+
+function isPast(dateStr) {
+    const p = parseLocalDateTime(dateStr);
+    if (!p) return false;
+    const dt = new Date(p.y, p.mo - 1, p.d, p.h ?? 0, p.mi ?? 0);
+    return dt.getTime() < Date.now();
 }
 
 // 이동서별 용기 모달 열기
@@ -409,9 +456,9 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                     
                     // 충전
                     if (mr.filling_date) {
-                        scheduleHtml += `<span class="schedule-badge confirmed"><i class="bi bi-check-circle-fill"></i> 충전: ${formatDate(mr.filling_date)}</span>`;
+                        scheduleHtml += `<span class="schedule-badge confirmed"><i class="bi bi-check-circle-fill"></i> 충전: ${formatMD(mr.filling_date)}</span>`;
                     } else if (mr.filling_plan_date) {
-                        scheduleHtml += `<span class="schedule-badge planned">충전예정: ${formatDate(mr.filling_plan_date)}</span>`;
+                        scheduleHtml += `<span class="schedule-badge planned">충전예정: ${formatMD(mr.filling_plan_date)}</span>`;
                     }
                     
                     // 창입
@@ -420,13 +467,13 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                         if (status === '제품') {
                             scheduleHtml += `<span class="schedule-badge confirmed"><i class="bi bi-check-circle-fill"></i> 창입완료</span>`;
                         } else {
-                            scheduleHtml += `<span class="schedule-badge planned">창입예정: ${formatDate(mr.warehousing_plan_date)}</span>`;
+                            scheduleHtml += `<span class="schedule-badge planned">창입예정: ${formatMD(mr.warehousing_plan_date)}</span>`;
                         }
                     }
                     
                     // 출하
                     if (mr.shipping_plan_date) {
-                        scheduleHtml += `<span class="schedule-badge planned">출하예정: ${formatDate(mr.shipping_plan_date)}</span>`;
+                        scheduleHtml += `<span class="schedule-badge planned">출하예정: ${formatMD(mr.shipping_plan_date)}</span>`;
                     }
                     
                     scheduleHtml += '</div>';
@@ -478,8 +525,8 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                                     <td><a href="/cynow/cylinders/${encodeURIComponent(cyl.cylinder_no)}/" target="_blank" class="cylinder-link font-monospace" title="새 탭에서 용기 상세 보기">${cyl.cylinder_no}</a></td>
                                                     <td>${cyl.cylinder_weight ? cyl.cylinder_weight.toFixed(1) + 'kg' : '-'}</td>
                                                     <td class="${cyl.filling_weight ? 'fw-bold text-success' : ''}">${cyl.filling_weight ? cyl.filling_weight.toFixed(2) + 'kg' : '-'}</td>
-                                                    <td>${cyl.move_date ? formatDate(cyl.move_date) : '-'}</td>
-                                                    <td class="${cyl.pressure_expire_date && new Date(cyl.pressure_expire_date) < new Date() ? 'text-danger' : ''}">${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
+                                                    <td>${cyl.move_date ? formatYMDHM(cyl.move_date) : '-'}</td>
+                                                    <td class="${isPast(cyl.pressure_expire_date) ? 'text-danger' : ''}">${cyl.pressure_expire_date ? formatYMD(cyl.pressure_expire_date) : '-'}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -517,7 +564,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                         <td>${cyl.capacity || '-'}</td>
                                         <td>${cyl.cylinder_weight ? cyl.cylinder_weight.toFixed(1) + 'kg' : '-'}</td>
                                         <td class="${cyl.filling_weight ? 'fw-bold text-success' : ''}">${cyl.filling_weight ? cyl.filling_weight.toFixed(2) + 'kg' : '-'}</td>
-                                        <td>${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
+                                        <td>${cyl.pressure_expire_date ? formatYMD(cyl.pressure_expire_date) : '-'}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
