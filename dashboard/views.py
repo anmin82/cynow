@@ -1,11 +1,12 @@
 from django.shortcuts import render
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from core.repositories.cylinder_repository import CylinderRepository
 from core.utils.view_helper import extract_valve_type, group_cylinder_types
 from core.models import HiddenCylinderType
+from collections import defaultdict
 
 
 def dashboard(request):
@@ -333,3 +334,175 @@ def summary(request):
         'end_date': end_date,
     }
     return render(request, 'dashboard/summary.html', context)
+
+
+@require_GET
+def api_move_report_cylinders(request):
+    """
+    특정 상태의 용기들을 이동서별로 그룹화하여 반환하는 API
+    - 보관: 이동서 없이 용기 리스트만 반환
+    - 충전중~제품: 이동서 정보 + 예정일/확정일 + 용기 리스트
+    """
+    cylinder_type_keys = request.GET.get('cylinder_type_keys', '')
+    status = request.GET.get('status', '')
+    
+    if not cylinder_type_keys or not status:
+        return JsonResponse({'ok': False, 'error': '필수 파라미터 누락'}, status=400)
+    
+    keys_list = [k.strip() for k in cylinder_type_keys.split(',') if k.strip()]
+    
+    # 상태 매핑 (대시보드 상태 → DB MOVE_CODE)
+    # 보관 상태는 이 API 사용 안 함 (기존 로직 유지)
+    status_to_move_codes = {
+        '충전중': ['20'],
+        '충전완료': ['21'],
+        '분석중': ['30'],
+        '분석완료': ['31', '40'],  # 분석완료 또는 검사합격
+        '제품': ['50'],
+    }
+    
+    move_codes = status_to_move_codes.get(status, [])
+    if not move_codes:
+        return JsonResponse({'ok': False, 'error': f'지원하지 않는 상태: {status}'}, status=400)
+    
+    try:
+        with connection.cursor() as cursor:
+            # 해당 상태의 용기들을 이동서별로 그룹화하여 조회
+            # cy_cylinder_current에서 현재 상태가 해당 상태인 용기들의 최신 이동서 정보 조회
+            placeholders_keys = ', '.join(['%s'] * len(keys_list))
+            placeholders_codes = ', '.join(['%s'] * len(move_codes))
+            
+            query = f'''
+                WITH current_cylinders AS (
+                    -- 현재 해당 상태인 용기들
+                    SELECT 
+                        cc.cylinder_no,
+                        cc.cylinder_type_key,
+                        cc.dashboard_gas_name as gas_name,
+                        cc.dashboard_capacity as capacity,
+                        cc.dashboard_valve_spec_name as valve_spec,
+                        cc.dashboard_status as status,
+                        cc.pressure_expire_date
+                    FROM cy_cylinder_current cc
+                    WHERE cc.cylinder_type_key IN ({placeholders_keys})
+                      AND cc.dashboard_status = %s
+                ),
+                latest_history AS (
+                    -- 해당 용기들의 최신 이동서 정보 (현재 상태와 매칭되는 MOVE_CODE)
+                    SELECT DISTINCT ON (h."CYLINDER_NO")
+                        TRIM(h."CYLINDER_NO") as cylinder_no,
+                        TRIM(h."MOVE_REPORT_NO") as move_report_no,
+                        h."MOVE_DATE" as move_date,
+                        h."MOVE_CODE" as move_code
+                    FROM fcms_cdc.tr_cylinder_status_histories h
+                    WHERE TRIM(h."CYLINDER_NO") IN (SELECT cylinder_no FROM current_cylinders)
+                      AND h."MOVE_CODE" IN ({placeholders_codes})
+                    ORDER BY h."CYLINDER_NO", h."MOVE_DATE" DESC, h."HISTORY_SEQ" DESC
+                )
+                SELECT 
+                    cc.cylinder_no,
+                    cc.gas_name,
+                    cc.capacity,
+                    cc.valve_spec,
+                    cc.pressure_expire_date,
+                    lh.move_report_no,
+                    lh.move_date,
+                    lh.move_code,
+                    -- 주문 정보
+                    TRIM(o."CUSTOMER_ORDER_NO") as customer_order_no,
+                    TRIM(o."SUPPLIER_USER_NAME") as customer_name,
+                    TRIM(o."TRADE_CONDITION_CODE") as trade_condition_code,
+                    TRIM(o."ITEM_NAME") as item_name,
+                    o."INSTRUCTION_COUNT" as instruction_count,
+                    -- 예정일 (tr_order_informations)
+                    oi."FILLING_PLAN_DATE" as filling_plan_date,
+                    oi."WAREHOUSING_PLAN_DATE" as warehousing_plan_date,
+                    oi."SHIPPING_PLAN_DATE" as shipping_plan_date,
+                    -- 확정일 (tr_move_reports)
+                    m."FILLING_DATE" as filling_date,
+                    m."SHIPPING_DATE" as shipping_date
+                FROM current_cylinders cc
+                LEFT JOIN latest_history lh ON cc.cylinder_no = lh.cylinder_no
+                LEFT JOIN fcms_cdc.tr_orders o ON TRIM(lh.move_report_no) = TRIM(o."ARRIVAL_SHIPPING_NO")
+                LEFT JOIN fcms_cdc.tr_order_informations oi ON TRIM(lh.move_report_no) = TRIM(oi."MOVE_REPORT_NO")
+                LEFT JOIN fcms_cdc.tr_move_reports m ON TRIM(lh.move_report_no) = TRIM(m."MOVE_REPORT_NO")
+                ORDER BY lh.move_report_no, cc.cylinder_no
+            '''
+            
+            params = keys_list + [status] + move_codes
+            cursor.execute(query, params)
+            
+            columns = [col[0] for col in cursor.description]
+            rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        # 이동서별로 그룹화
+        move_reports = defaultdict(lambda: {
+            'move_report_no': None,
+            'customer_order_no': None,
+            'customer_name': None,
+            'trade_condition_code': None,
+            'item_name': None,
+            'instruction_count': 0,
+            'filling_plan_date': None,
+            'warehousing_plan_date': None,
+            'shipping_plan_date': None,
+            'filling_date': None,
+            'shipping_date': None,
+            'cylinders': [],
+            'cylinder_count': 0,
+        })
+        
+        no_move_report_cylinders = []  # 이동서 없는 용기들
+        
+        for row in rows:
+            mr_no = row.get('move_report_no')
+            
+            cylinder_info = {
+                'cylinder_no': row.get('cylinder_no', ''),
+                'gas_name': row.get('gas_name', ''),
+                'capacity': row.get('capacity', ''),
+                'valve_spec': row.get('valve_spec', ''),
+                'pressure_expire_date': row.get('pressure_expire_date').isoformat() if row.get('pressure_expire_date') else None,
+                'move_date': row.get('move_date').isoformat() if row.get('move_date') else None,
+            }
+            
+            if mr_no:
+                mr = move_reports[mr_no]
+                if mr['move_report_no'] is None:
+                    mr['move_report_no'] = mr_no
+                    mr['customer_order_no'] = row.get('customer_order_no') or ''
+                    mr['customer_name'] = row.get('customer_name') or ''
+                    mr['trade_condition_code'] = row.get('trade_condition_code') or ''
+                    mr['item_name'] = row.get('item_name') or ''
+                    mr['instruction_count'] = row.get('instruction_count') or 0
+                    # 예정일
+                    mr['filling_plan_date'] = row.get('filling_plan_date').isoformat() if row.get('filling_plan_date') else None
+                    mr['warehousing_plan_date'] = row.get('warehousing_plan_date').isoformat() if row.get('warehousing_plan_date') else None
+                    mr['shipping_plan_date'] = row.get('shipping_plan_date').isoformat() if row.get('shipping_plan_date') else None
+                    # 확정일
+                    mr['filling_date'] = row.get('filling_date').isoformat() if row.get('filling_date') else None
+                    mr['shipping_date'] = row.get('shipping_date').isoformat() if row.get('shipping_date') else None
+                
+                mr['cylinders'].append(cylinder_info)
+                mr['cylinder_count'] += 1
+            else:
+                no_move_report_cylinders.append(cylinder_info)
+        
+        # 리스트로 변환
+        result = {
+            'ok': True,
+            'status': status,
+            'move_reports': list(move_reports.values()),
+            'no_move_report_cylinders': no_move_report_cylinders,
+            'total_cylinder_count': len(rows),
+        }
+        
+        return JsonResponse(result)
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'ok': False, 
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)

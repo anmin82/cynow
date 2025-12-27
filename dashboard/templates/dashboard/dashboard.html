@@ -293,6 +293,33 @@
     </div>
 </div>
 
+<!-- 이동서별 용기 모달 -->
+<div class="modal fade" id="moveReportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <span id="mr-modal-status-badge" class="status-badge"></span>
+                    <span class="ms-2" id="mr-modal-title">이동서별 용기 현황</span>
+                    <span id="mr-modal-count" class="badge bg-secondary ms-2"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="mr-modal-body">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">이동서 정보를 불러오는 중...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 데이터를 JS로 전달 -->
 <script>
 const cylinderTypesMap = {
@@ -320,6 +347,179 @@ const cylinderTypesMap = {
     }{% if not forloop.last %},{% endif %}
     {% endfor %}
 };
+
+// 이동서 연결 상태 목록 (보관 제외)
+const moveReportLinkedStatuses = ['충전중', '충전완료', '분석중', '분석완료', '제품'];
+
+// 날짜 포맷팅 헬퍼
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+// 이동서별 용기 모달 열기
+function openMoveReportModal(cylinderTypeKeys, status) {
+    const modal = new bootstrap.Modal(document.getElementById('moveReportModal'));
+    const modalBody = document.getElementById('mr-modal-body');
+    const statusBadge = document.getElementById('mr-modal-status-badge');
+    const countBadge = document.getElementById('mr-modal-count');
+    
+    // 상태 배지 설정
+    statusBadge.textContent = status;
+    statusBadge.className = 'status-badge status-' + status.replace(':', '');
+    countBadge.textContent = '로딩중...';
+    
+    // 로딩 표시
+    modalBody.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">이동서 정보를 불러오는 중...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // API 호출
+    const keysParam = Array.isArray(cylinderTypeKeys) ? cylinderTypeKeys.join(',') : cylinderTypeKeys;
+    fetch(`{% url 'dashboard:api_move_report_cylinders' %}?cylinder_type_keys=${encodeURIComponent(keysParam)}&status=${encodeURIComponent(status)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.ok) {
+                modalBody.innerHTML = `<div class="alert alert-danger">${data.error || '데이터를 불러오지 못했습니다.'}</div>`;
+                return;
+            }
+            
+            countBadge.textContent = data.total_cylinder_count + '병';
+            
+            let html = '';
+            
+            // 이동서별 아코디언
+            if (data.move_reports && data.move_reports.length > 0) {
+                html += '<div class="accordion" id="moveReportAccordion">';
+                
+                data.move_reports.forEach((mr, idx) => {
+                    const collapseId = 'collapse' + idx;
+                    const isFirst = idx === 0;
+                    
+                    // 일정 표시 로직
+                    let scheduleHtml = '<div class="schedule-badges">';
+                    
+                    // 충전
+                    if (mr.filling_date) {
+                        scheduleHtml += `<span class="schedule-badge confirmed"><i class="bi bi-check-circle-fill"></i> 충전: ${formatDate(mr.filling_date)}</span>`;
+                    } else if (mr.filling_plan_date) {
+                        scheduleHtml += `<span class="schedule-badge planned">충전예정: ${formatDate(mr.filling_plan_date)}</span>`;
+                    }
+                    
+                    // 창입
+                    if (mr.warehousing_plan_date) {
+                        // 창입 확정일은 별도 컬럼이 없으므로 상태로 판단 (제품 상태면 창입 완료)
+                        if (status === '제품') {
+                            scheduleHtml += `<span class="schedule-badge confirmed"><i class="bi bi-check-circle-fill"></i> 창입완료</span>`;
+                        } else {
+                            scheduleHtml += `<span class="schedule-badge planned">창입예정: ${formatDate(mr.warehousing_plan_date)}</span>`;
+                        }
+                    }
+                    
+                    // 출하
+                    if (mr.shipping_plan_date) {
+                        scheduleHtml += `<span class="schedule-badge planned">출하예정: ${formatDate(mr.shipping_plan_date)}</span>`;
+                    }
+                    
+                    scheduleHtml += '</div>';
+                    
+                    html += `
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button ${isFirst ? '' : 'collapsed'}" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+                                    <div class="mr-header-content">
+                                        <div class="mr-header-main">
+                                            <span class="mr-no">${mr.move_report_no || '이동서 없음'}</span>
+                                            <span class="mr-customer">${mr.customer_name || '-'}</span>
+                                            <span class="mr-product">${mr.trade_condition_code || ''} ${mr.item_name || ''}</span>
+                                            <span class="mr-qty badge bg-primary">${mr.cylinder_count}병</span>
+                                        </div>
+                                        ${scheduleHtml}
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="${collapseId}" class="accordion-collapse collapse ${isFirst ? 'show' : ''}" 
+                                 data-bs-parent="#moveReportAccordion">
+                                <div class="accordion-body p-0">
+                                    <table class="table table-sm table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>용기번호</th>
+                                                <th>가스</th>
+                                                <th>용량</th>
+                                                <th>이동일</th>
+                                                <th>내압만료</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${mr.cylinders.map(cyl => `
+                                                <tr>
+                                                    <td><strong class="font-monospace">${cyl.cylinder_no}</strong></td>
+                                                    <td>${cyl.gas_name || '-'}</td>
+                                                    <td>${cyl.capacity || '-'}</td>
+                                                    <td>${cyl.move_date ? formatDate(cyl.move_date) : '-'}</td>
+                                                    <td class="${cyl.pressure_expire_date && new Date(cyl.pressure_expire_date) < new Date() ? 'text-danger' : ''}">${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            }
+            
+            // 이동서 없는 용기들
+            if (data.no_move_report_cylinders && data.no_move_report_cylinders.length > 0) {
+                html += `
+                    <div class="mt-4">
+                        <h6 class="text-muted"><i class="bi bi-exclamation-triangle"></i> 이동서 미연결 (${data.no_move_report_cylinders.length}병)</h6>
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>용기번호</th>
+                                    <th>가스</th>
+                                    <th>용량</th>
+                                    <th>내압만료</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.no_move_report_cylinders.map(cyl => `
+                                    <tr>
+                                        <td><strong class="font-monospace">${cyl.cylinder_no}</strong></td>
+                                        <td>${cyl.gas_name || '-'}</td>
+                                        <td>${cyl.capacity || '-'}</td>
+                                        <td>${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            
+            if (!html) {
+                html = '<div class="text-center py-5 text-muted">데이터가 없습니다.</div>';
+            }
+            
+            modalBody.innerHTML = html;
+        })
+        .catch(error => {
+            modalBody.innerHTML = `<div class="alert alert-danger">오류: ${error.message}</div>`;
+        });
+}
 
 function openDetailModal(typeKey) {
     const data = cylinderTypesMap[typeKey];
@@ -378,28 +578,47 @@ function openDetailModal(typeKey) {
         // 수량이 0보다 크면 클릭 가능하게
         if (qty > 0) {
             item.style.cursor = 'pointer';
-            item.title = '클릭하여 용기 리스트 보기';
+            
             // 카드 집계는 속성 기반 그룹화로 여러 cylinder_type_key를 합칠 수 있으므로,
             // 리스트 이동 시에도 동일한 집합이 조회되도록 cylinder_type_keys(IN)로 전달한다.
             const keysParam = (data.cylinder_type_keys && data.cylinder_type_keys.length > 0)
-                ? data.cylinder_type_keys.join(',')
-                : data.cylinder_type_key;
-            const baseUrl = '{% url "cylinders:list" %}?cylinder_type_keys=' + encodeURIComponent(keysParam);
-            let cylinderListUrl = baseUrl;
-            // 세부 상태는 기본적으로 status=로 전달한다.
-            // 단, '분석중'은 DB 레거시 상태('분석')로 저장된 케이스가 있어 클릭 시 매핑한다.
-            if (status === '분석중') {
-                // DB에 레거시 상태('분석')로 남아있는 케이스가 있어 그걸로 조회
-                cylinderListUrl += '&status=' + encodeURIComponent('분석');
-            } else if (status === '충전중') {
-                // 표시 수량에는 레거시 '충전'이 포함될 수 있으므로 함께 조회
-                cylinderListUrl += '&statuses=' + encodeURIComponent('충전중') + '&statuses=' + encodeURIComponent('충전');
+                ? data.cylinder_type_keys
+                : [data.cylinder_type_key];
+            
+            // 이동서 연결 상태인지 확인 (보관 제외)
+            if (moveReportLinkedStatuses.includes(status)) {
+                // 이동서별 용기 모달 열기
+                item.title = '클릭하여 이동서별 용기 현황 보기';
+                item.onclick = function() {
+                    // 먼저 상세 모달 닫기
+                    const detailModal = bootstrap.Modal.getInstance(document.getElementById('detailModal'));
+                    if (detailModal) detailModal.hide();
+                    // 이동서 모달 열기
+                    setTimeout(() => {
+                        openMoveReportModal(keysParam, status);
+                    }, 300);
+                };
             } else {
-                cylinderListUrl += '&status=' + encodeURIComponent(status);
+                // 기존 로직: 용기 리스트 페이지로 이동
+                item.title = '클릭하여 용기 리스트 보기';
+                const keysParamStr = keysParam.join(',');
+                const baseUrl = '{% url "cylinders:list" %}?cylinder_type_keys=' + encodeURIComponent(keysParamStr);
+                let cylinderListUrl = baseUrl;
+                // 세부 상태는 기본적으로 status=로 전달한다.
+                // 단, '분석중'은 DB 레거시 상태('분석')로 저장된 케이스가 있어 클릭 시 매핑한다.
+                if (status === '분석중') {
+                    // DB에 레거시 상태('분석')로 남아있는 케이스가 있어 그걸로 조회
+                    cylinderListUrl += '&status=' + encodeURIComponent('분석');
+                } else if (status === '충전중') {
+                    // 표시 수량에는 레거시 '충전'이 포함될 수 있으므로 함께 조회
+                    cylinderListUrl += '&statuses=' + encodeURIComponent('충전중') + '&statuses=' + encodeURIComponent('충전');
+                } else {
+                    cylinderListUrl += '&status=' + encodeURIComponent(status);
+                }
+                item.onclick = function() {
+                    window.location.href = cylinderListUrl;
+                };
             }
-            item.onclick = function() {
-                window.location.href = cylinderListUrl;
-            };
         } else {
             item.classList.add('empty');
         }
@@ -809,6 +1028,85 @@ function openDetailModal(typeKey) {
 .status-detail-item.status-정비 .status-qty { color: #cc7a00; }
 .status-detail-item.status-폐기 { background: rgba(142, 142, 147, 0.15); }
 .status-detail-item.status-폐기 .status-qty { color: var(--ios-gray-1); }
+
+/* ======== 이동서 모달 스타일 ======== */
+#moveReportModal .modal-dialog {
+    max-width: 900px;
+}
+#moveReportModal .accordion-button {
+    padding: 12px 16px;
+    background: #f8f9fa;
+}
+#moveReportModal .accordion-button:not(.collapsed) {
+    background: #e8f4ff;
+    color: var(--ios-blue);
+}
+.mr-header-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+.mr-header-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.mr-no {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1C1C1E;
+    font-family: 'JetBrains Mono', monospace;
+}
+.mr-customer {
+    font-size: 13px;
+    color: var(--ios-blue);
+    font-weight: 600;
+}
+.mr-product {
+    font-size: 12px;
+    color: var(--ios-gray-1);
+}
+.mr-qty {
+    font-size: 11px;
+}
+.schedule-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.schedule-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.schedule-badge.planned {
+    background: rgba(142, 142, 147, 0.15);
+    color: var(--ios-gray-1);
+    border: 1px dashed rgba(142, 142, 147, 0.4);
+}
+.schedule-badge.confirmed {
+    background: rgba(52, 199, 89, 0.15);
+    color: #1a7d3a;
+    border: 1px solid rgba(52, 199, 89, 0.3);
+}
+.schedule-badge.confirmed i {
+    color: var(--ios-green);
+}
+#moveReportModal .accordion-body table {
+    font-size: 13px;
+}
+#moveReportModal .accordion-body th {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ios-gray-1);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
 
 /* 숨김 버튼 */
 .btn-hide {
