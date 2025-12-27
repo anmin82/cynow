@@ -148,9 +148,35 @@
         <h4 class="mb-0"><i class="bi bi-calendar-week me-2"></i>주간 보고서</h4>
         <small class="text-muted">{{ start_date|date:"Y년 m월 d일" }} ~ {{ end_date|date:"m월 d일" }} (7일간)</small>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{% url 'reports:weekly_arrival' %}" class="btn btn-sm btn-primary">
-            <i class="bi bi-file-pdf me-1"></i>주간 입하보고서
+    <div class="d-flex gap-2 align-items-center">
+        <!-- 주차 네비게이션 -->
+        <div class="btn-group me-2">
+            <a href="?weeks_ago={{ prev_weeks_ago }}" class="btn btn-sm btn-outline-secondary" title="이전 주">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            {% if not is_current_week %}
+            <a href="?weeks_ago=0" class="btn btn-sm btn-outline-primary" title="이번 주로">
+                이번주
+            </a>
+            {% endif %}
+            {% if weeks_ago > 0 %}
+            <a href="?weeks_ago={{ next_weeks_ago }}" class="btn btn-sm btn-outline-secondary" title="다음 주">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            {% else %}
+            <button class="btn btn-sm btn-outline-secondary" disabled>
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            {% endif %}
+        </div>
+        <!-- 날짜 선택 -->
+        <form method="get" class="d-inline-flex gap-1">
+            <input type="date" name="date" class="form-control form-control-sm" style="width: 140px;" 
+                   value="{{ start_date|date:'Y-m-d' }}" title="해당 날짜가 포함된 주를 조회합니다">
+            <button type="submit" class="btn btn-sm btn-primary">조회</button>
+        </form>
+        <a href="{% url 'reports:weekly_arrival' %}{% if weeks_ago %}?weeks_ago={{ weeks_ago }}{% endif %}" class="btn btn-sm btn-info">
+            <i class="bi bi-file-pdf me-1"></i>입하보고서
         </a>
         <button onclick="printReport()" class="btn btn-sm btn-outline-primary">
             <i class="bi bi-printer me-1"></i>인쇄
@@ -166,7 +192,7 @@
         <div class="card summary-card text-center">
             <div class="card-body py-3">
                 <div class="stat-number">{{ total_movements|intcomma }}</div>
-                <div class="text-muted">총 이동 건수</div>
+                <div class="text-muted">총 이동 수량</div>
             </div>
         </div>
     </div>
@@ -176,7 +202,7 @@
                 <div class="stat-number text-info">{{ arrival_summary.total|intcomma }}</div>
                 <div class="text-muted">입하 (10)</div>
                 {% if arrival_summary.expired > 0 %}
-                <small class="text-danger">만료 {{ arrival_summary.expired }}건</small>
+                <small class="text-danger">만료 {{ arrival_summary.expired }}병</small>
                 {% endif %}
             </div>
         </div>
@@ -218,11 +244,11 @@
                     </tr>
                     <tr>
                         <th>총 이동</th>
-                        <td><strong class="text-primary">{{ total_movements|intcomma }}건</strong></td>
+                        <td><strong class="text-primary">{{ total_movements|intcomma }}병</strong></td>
                     </tr>
                     <tr>
                         <th>일평균</th>
-                        <td>{{ total_movements|floatformat:0|divisibleby:7 }}건/일</td>
+                        <td>약 {{ total_movements|divisibleby:7 }}병/일</td>
                     </tr>
                 </table>
             </div>
@@ -240,7 +266,7 @@
                     {% for item in move_summary|slice:":8" %}
                     <tr>
                         <th><span class="move-badge move-{{ item.code }}">{{ item.label }}</span></th>
-                        <td><strong>{{ item.count|intcomma }}건</strong></td>
+                        <td><strong>{{ item.count|intcomma }}병</strong></td>
                     </tr>
                     {% empty %}
                     <tr>
@@ -264,7 +290,7 @@
             <thead>
                 <tr>
                     <th class="text-center" style="width: 120px;">날짜</th>
-                    <th class="text-center" style="width: 80px;">총 건수</th>
+                    <th class="text-center" style="width: 80px;">수량</th>
                     <th>주요 이동유형</th>
                 </tr>
             </thead>
@@ -360,7 +386,7 @@
                         <td class="text-center text-muted" rowspan="{{ stats.by_item|slice:':5'|length }}">{{ forloop.parentloop.counter }}</td>
                         <td rowspan="{{ stats.by_item|slice:':5'|length }}">
                             <span class="move-badge move-{{ stats.code }}">{{ stats.label }}</span>
-                            <span class="badge bg-primary ms-1">{{ stats.total }}건</span>
+                            <span class="badge bg-primary ms-1">{{ stats.total }}병</span>
                         </td>
                         {% endif %}
                         <td>{{ item.item_name }}</td>
@@ -384,7 +410,7 @@
     <div class="card-header py-2 bg-info text-white" data-bs-toggle="collapse" data-bs-target="#arrivalList" style="cursor: pointer;">
         <i class="bi bi-box-arrow-in-down me-1"></i>입하 용기 상세
         <span class="badge bg-light text-dark float-end">
-            {{ arrival_summary.total }}건
+            {{ arrival_summary.total }}병
             {% if arrival_summary.expired > 0 %}<span class="text-danger ms-1">(만료 {{ arrival_summary.expired }})</span>{% endif %}
         </span>
         <i class="bi bi-chevron-down float-end me-2"></i>
@@ -435,7 +461,7 @@
     <div class="card-header py-2" data-bs-toggle="collapse" data-bs-target="#fullList" style="cursor: pointer;">
         <i class="bi bi-list-ul me-1"></i>전체 이동 목록
         <i class="bi bi-chevron-down float-end"></i>
-        <span class="badge bg-primary float-end me-2">{{ movements|length }}건{% if total_movements > 500 %} (최대 500건){% endif %}</span>
+        <span class="badge bg-primary float-end me-2">{{ movements|length }}병{% if total_movements > 500 %} (최대 500병){% endif %}</span>
     </div>
     <div class="collapse" id="fullList">
         <div class="card-body p-0">

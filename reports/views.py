@@ -14,9 +14,35 @@ logger = logging.getLogger(__name__)
 
 def weekly_report(request):
     """주간 보고서 - 일일보고서 수준의 상세 정보"""
-    # 날짜 범위 계산 (최근 7일)
-    end_date = timezone.now().date()
-    start_date = end_date - timedelta(days=6)  # 오늘 포함 7일
+    # 주차 파라미터 (0=이번주, 1=지난주, 2=지지난주...)
+    weeks_ago = request.GET.get('weeks_ago', '0')
+    try:
+        weeks_ago = int(weeks_ago)
+    except ValueError:
+        weeks_ago = 0
+    
+    # 특정 날짜 기준으로 조회 (해당 날짜가 포함된 주)
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            base_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            # 해당 날짜의 주 시작일(월요일)과 종료일(일요일) 계산
+            start_date = base_date - timedelta(days=base_date.weekday())
+            end_date = start_date + timedelta(days=6)
+        except ValueError:
+            # 날짜 파싱 실패 시 기본값
+            end_date = timezone.now().date()
+            start_date = end_date - timedelta(days=6)
+    else:
+        # weeks_ago 기준으로 날짜 범위 계산
+        today = timezone.now().date()
+        # 이번주 종료일 (오늘 기준 이번주 일요일)
+        days_until_sunday = 6 - today.weekday()  # 월=0, 일=6
+        this_week_end = today + timedelta(days=days_until_sunday)
+        
+        # weeks_ago 만큼 이전 주로 이동
+        end_date = this_week_end - timedelta(weeks=weeks_ago)
+        start_date = end_date - timedelta(days=6)
     
     # MOVE_CODE 라벨 매핑
     move_code_labels = {
@@ -329,6 +355,11 @@ def weekly_report(request):
         'status_summary': status_summary,
         'total_cylinders': total_cylinders,
         'generated_at': timezone.now(),
+        # 주차 네비게이션용
+        'weeks_ago': weeks_ago,
+        'prev_weeks_ago': weeks_ago + 1,
+        'next_weeks_ago': max(0, weeks_ago - 1),
+        'is_current_week': weeks_ago == 0,
     }
     return render(request, 'reports/weekly.html', context)
 
