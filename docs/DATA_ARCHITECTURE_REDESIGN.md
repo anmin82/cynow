@@ -1,7 +1,11 @@
-﻿# DEPRECATED
+﻿# DEPRECATED (寃쎈줈 ?명솚??
 
-This DDL-focused redesign draft is outdated. Please use:
-- docs/CYNOW_DATA_ARCHITECTURE.md
-- docs/DATABASE_SCHEMA_SETUP.md
+珥덇린 ?ъ꽕怨?珥덉븞(DDL ?꾩＜)?낅땲?? ?꾩옱 ?댁쁺 湲곗? ?뺣낯? ?꾨옒瑜?李멸퀬?섏꽭??
+- `docs/CYNOW_DATA_ARCHITECTURE.md`
+- `docs/DATABASE_SCHEMA_SETUP.md`
 
-Original content moved to: docs/archive/DATA_ARCHITECTURE_REDESIGN.md
+?먮Ц 蹂닿? ?꾩튂:
+- `docs/archive/DATA_ARCHITECTURE_REDESIGN.md`
+
+?뺥솗??湲곗?:
+- ???뺣낯 ?뚯씪??Git 理쒖떊 而ㅻ컠???곗꽑?⑸땲??

@@ -1,8 +1,12 @@
-﻿# DEPRECATED
+﻿# DEPRECATED (寃쎈줈 ?명솚??
 
-This document is kept for history. Please use:
-- docs/CYNOW_DATA_ARCHITECTURE.md (canonical)
-- docs/MIGRATION_GUIDE.md
-- docs/QUICK_START_SNAPSHOT.md
+???뚯씪? **以묐났 臾몄꽌**濡??명빐 ?섎せ 李몄“?섎뒗 寃껋쓣 留됯린 ?꾪븳 **由щ떎?대젆??stub)** ?낅땲??
 
-Original content moved to: docs/archive/ARCHITECTURE_DESIGN_COMPLETE.md
+?뺥솗??理쒖떊 ?댁슜? ?꾨옒 ?뺣낯???뺤씤?섏꽭??
+- `docs/CYNOW_DATA_ARCHITECTURE.md`
+
+?먮Ц 蹂닿? ?꾩튂:
+- `docs/archive/ARCHITECTURE_DESIGN_COMPLETE.md`
+
+?뺥솗??湲곗?(以묒슂):
+- Git 湲곗??쇰줈 理쒖떊 臾몄꽌瑜?遊낅땲?? `git log -1 -- docs/CYNOW_DATA_ARCHITECTURE.md`

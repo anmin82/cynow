@@ -1,6 +1,7 @@
-﻿# DEPRECATED
+﻿# DEPRECATED (寃쎈줈 ?명솚??
 
-This refactoring report is duplicated. Please use:
-- docs/FEATURE_UPGRADE_SUMMARY.md
+以묐났 由ы뙥?좊쭅 蹂닿퀬 臾몄꽌?낅땲?? 理쒖떊 ?붿빟? ?꾨옒瑜?李멸퀬?섏꽭??
+- `docs/FEATURE_UPGRADE_SUMMARY.md`
 
-Original content moved to: docs/archive/REFACTORING_SUMMARY.md
+?먮Ц 蹂닿? ?꾩튂:
+- `docs/archive/REFACTORING_SUMMARY.md`

@@ -1,6 +1,7 @@
-﻿# DEPRECATED
+﻿# DEPRECATED (寃쎈줈 ?명솚??
 
-This is duplicated with the upgrade summary. Please use:
-- docs/FEATURE_UPGRADE_SUMMARY.md
+以묐났 ?붿빟 臾몄꽌?낅땲?? 理쒖떊 ?붿빟? ?꾨옒瑜?李멸퀬?섏꽭??
+- `docs/FEATURE_UPGRADE_SUMMARY.md`
 
-Original content moved to: docs/archive/VIEW_UPGRADE_SUMMARY.md
+?먮Ц 蹂닿? ?꾩튂:
+- `docs/archive/VIEW_UPGRADE_SUMMARY.md`
