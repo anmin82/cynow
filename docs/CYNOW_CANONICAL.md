@@ -1,14 +1,13 @@
-﻿# CYNOW ?뺣낯(議깅낫) ??Single Source of Truth
+﻿# CYNOW 정본(족보) — Single Source of Truth
 
-
-> 李멸퀬: ?뺣낯 ??紐⑤뱺 臾몄꽌??`docs/_ref/` 濡??대룞???먯뿀?듬땲?? (docs ?대뜑瑜?源붾걫?섍쾶 ?좎?)
-
-> **?뺥솗??湲곗?(媛??以묒슂)**
-> - 臾몄꽌 媛??댁슜??異⑸룎?섎㈃ **Git 湲곗??쇰줈 媛??理쒓렐 而ㅻ컠???뺣낫**媛 ???뺥솗?⑸땲??
-> - 洹??ㅼ쓬 ?곗꽑?쒖쐞??**?ㅼ젣 肄붾뱶/SQL(?ㅼ젣 ?숈옉)** ?낅땲??
-> - 利? ?쒖젙蹂?臾몄꽌?앸씪??肄붾뱶瑜??닿린吏??紐삵빀?덈떎.
+> 참고: 정본 외 모든 문서는 `docs/_ref/` 로 이동해 두었습니다. (docs 폴더를 깔끔하게 유지)
 >
-> ?뺤씤 諛⑸쾿:
+> **정확도 기준(가장 중요)**
+> - 문서 간 내용이 충돌하면 **Git 기준으로 가장 최근 커밋된 정보**가 더 정확합니다.
+> - 그 다음 우선순위는 **실제 코드/SQL(실제 동작)** 입니다.
+> - 즉 “정본 문서”라도 코드를 이기지 못합니다.
+>
+> 확인 방법:
 >
 > ```bash
 > git log -1 -- docs/CYNOW_CANONICAL.md
@@ -16,188 +15,163 @@
 
 ---
 
-## 0) ??臾몄꽌??紐⑹쟻
+## 0) 이 문서의 목적
 
-- CYNOW 媛쒕컻/?댁쁺?먯꽌 諛섎났?곸쑝濡??꾩슂??**?곗씠???먮쫫, CDC ?뚯씠釉?而щ읆 ?섎?, 議곗씤 洹쒖튃, ?곹깭/肄붾뱶 留ㅽ븨, ?댁쁺 而ㅻ㎤??*瑜???怨녹뿉 ?뺣━?⑸땲??
-- 湲곕뒫??異붽????뚮쭏???쒕Ц???꾩닔 寃?졻??놁씠 ??臾몄꽌留?蹂대㈃ **?대뵒???대뼡 ?곗씠?곕? 媛?몄????섎뒗吏** ?????덇쾶 ?⑸땲??
-
----
-
-## 1) 吏꾩떎??洹쇱썝(Source of Truth) ?곗꽑?쒖쐞
-
-1. **?ㅼ젣 ?숈옉 SQL**: `sql/` ??DDL/Trigger/Function (`sync_cylinder_current_single`)  
-2. **?ㅼ젣 議고쉶 肄붾뱶**: Repository/Service/View???ㅼ젣 荑쇰━ (`core/repositories/`, `dashboard/views.py`, `inventory/services.py`)
-3. **?댁쁺 ?ㅽ겕由쏀듃/諛곗튂**: `deploy/` 諛??쒕쾭 cron ?ㅼ젙
-4. **臾몄꽌(docs)**: 李멸퀬????긽 理쒖떊 而ㅻ컠 ?щ? ?뺤씤)
+- CYNOW 개발/운영에서 반복적으로 필요한 **데이터 흐름, CDC 테이블/컬럼 의미, 조인 규칙, 상태/코드 매핑, 운영 커맨드**를 한 곳에 모읍니다.
+- 기능을 추가할 때마다 docs를 전수 검토하지 않고, **이 문서만 보고 “어디서 어떤 데이터를 가져오는지”** 판단할 수 있게 합니다.
 
 ---
 
-## 2) ?쒖뒪???꾩껜 援ъ“ (FCMS ??CDC ??CYNOW)
+## 1) 진실의 근원(Source of Truth) 우선순위
 
-- **FCMS(Oracle)**: ?먯쿇 ?쒖뒪??- **CDC(Debezium + Kafka)**: 蹂寃??대깽?몃? PostgreSQL濡?蹂듭젣
-- **PostgreSQL**:
-  - `fcms_cdc` ?ㅽ궎留? CDC濡?蹂듭젣???뚯씠釉붾뱾(?먯쿇, ?쎄린 ?꾩슜 痍④툒)
-  - `public` ?ㅽ궎留? CYNOW媛 吏곸젒 愿由ы븯???뚯씠釉??ㅻ깄??ORM
+1. **실제 동작 SQL**: `sql/` 의 DDL/Trigger/Function (`sync_cylinder_current_single`)
+2. **실제 조회 코드**: Repository/Service/View의 실제 쿼리 (`core/repositories/`, `dashboard/views.py`, `inventory/services.py`)
+3. **운영 스크립트/배치**: `deploy/` 및 서버 cron 설정
+4. **문서(docs)**: 참고용(항상 최신 커밋 여부 확인)
 
 ---
 
-## 3) ?듭떖 CDC ?뚯씠釉붽낵 ??븷
+## 2) 시스템 전체 구조 (FCMS → CDC → CYNOW)
 
-### 3.1 ?⑷린 留덉뒪???ㅽ럺
+- **FCMS(Oracle)**: 원천 시스템
+- **CDC(Debezium + Kafka)**: 변경 이벤트를 PostgreSQL로 복제
+- **PostgreSQL**
+  - `fcms_cdc` 스키마: CDC로 복제된 테이블(원천, 읽기 전용 취급)
+  - `public` 스키마: CYNOW가 직접 관리하는 테이블/스냅샷/ORM
 
-- **`fcms_cdc.ma_cylinders`**
-  - ?⑷린 湲곕낯?뺣낫(?⑷린踰덊샇, 媛?ㅼ븘?댄뀥, ?⑸웾, ?ㅽ럺肄붾뱶, ?댁븬????
-- **`fcms_cdc.ma_items`**
-  - 媛???꾩씠???쒖떆紐?`DISPLAY_NAME`), ?뺤떇紐?`FORMAL_NAME`)
-- **`fcms_cdc.ma_valve_specs`** / **`fcms_cdc.ma_cylinder_specs`**
-  - 諛몃툕/?⑷린 ?ㅽ럺 ?대쫫
+---
 
-### 3.2 ?⑷린 ?곹깭
+## 3) 핵심 CDC 테이블과 역할
 
-- **`fcms_cdc.tr_latest_cylinder_statuses`**
-  - ?쒗쁽???곹깭??1嫄?議곌굔肄붾뱶/?꾩튂/理쒓렐 ?대룞?쇱떆/理쒓렐 ?대룞?쒕쾲????
-- **`fcms_cdc.tr_cylinder_status_histories`**
-  - ?쒖씠?β??꾩껜
-  - ?쒖“LOT/異⑹쟾LOT/?대룞?쒕쾲???대룞肄붾뱶(MOVE_CODE) ???대젰 湲곕컲 遺꾩꽍???ъ슜
+### 3.1 용기 마스터/스펙
 
-### 3.3 臾몄꽌(二쇰Ц/?대룞??
+- **`fcms_cdc.ma_cylinders`**: 용기 기본정보(용기번호, 아이템, 용량, 스펙, 내압 관련)
+- **`fcms_cdc.ma_items`**: 가스/아이템 표시명(`DISPLAY_NAME`), 정식명(`FORMAL_NAME`)
+- **`fcms_cdc.ma_valve_specs`**, **`fcms_cdc.ma_cylinder_specs`**: 밸브/용기 스펙명
+
+### 3.2 용기 상태
+
+- **`fcms_cdc.tr_latest_cylinder_statuses`**: 현재 상태 1건(조건코드/위치/최근 이동일시/최근 이동서번호)
+- **`fcms_cdc.tr_cylinder_status_histories`**: 전체 이력(제조LOT/충전LOT/이동서번호/이동코드 등)
+
+### 3.3 문서(주문/이동서)
 
 - **`fcms_cdc.tr_orders`**
-  - ?대룞???⑥쐞 臾몄꽌
-  - **?쒗뭹肄붾뱶(KFxxx)**??`TRADE_CONDITION_CODE`
-  - ?대룞?쒕쾲?몃뒗 `ARRIVAL_SHIPPING_NO`
-- **`fcms_cdc.tr_order_informations`**
-  - ?덉젙??異⑹쟾/李쎌엯/異쒗븯 怨꾪쉷)
-- **`fcms_cdc.tr_move_reports`**
-  - ?뺤젙??異⑹쟾/異쒗븯) 諛??대룞??李⑥썝??LOT(異⑹쟾LOT)
-- **`fcms_cdc.tr_move_report_details`**
-  - ?대룞???곸꽭(?⑷린-?대룞???곌껐, `ROW_NO`(?ㅻ뜑踰덊샇), `FILLING_WEIGHT` ??
+  - 이동서 단위 문서
+  - **제품코드(KFxxx)** = `TRADE_CONDITION_CODE`
+  - 이동서번호 = `ARRIVAL_SHIPPING_NO`
+- **`fcms_cdc.tr_order_informations`**: 예정일(충전/창입/출하 계획)
+- **`fcms_cdc.tr_move_reports`**: 확정일(충전/출하) + 이동서 차원의 충전LOT
+- **`fcms_cdc.tr_move_report_details`**: 이동서 상세(용기-이동서 연결, `ROW_NO`, `FILLING_WEIGHT` 등)
 
 ---
 
-## 4) CYNOW ?듭떖 ?뚯씠釉??댁쁺 SSOT)
+## 4) CYNOW 핵심 테이블(운영 SSOT)
 
-### 4.1 `cy_cylinder_current` (??쒕낫??議고쉶 SSOT)
+### 4.1 `cy_cylinder_current` (대시보드/조회 SSOT)
 
-**?뺤쓽(DDL)**: `sql/create_cy_cylinder_current.sql`
+- **정의(DDL)**: `sql/create_cy_cylinder_current.sql`
+- Raw(원천): `raw_*`
+- Dashboard(정책+번역): `dashboard_*`
+- 집계 키: `cylinder_type_key` (MD5)
 
-- Raw(?먯쿇 洹몃?濡?: `raw_*`
-- Dashboard(?뺤콉+踰덉뿭 ?곸슜): `dashboard_*`
-- 吏묎퀎 ?? `cylinder_type_key` (MD5)
+**실제 생성/갱신의 진실**: `sql/create_sync_triggers.sql` 의 함수 `sync_cylinder_current_single()`
 
-**?ㅼ젣 ?앹꽦/媛깆떊??吏꾩떎**: `sql/create_sync_triggers.sql` ???⑥닔 `sync_cylinder_current_single()`
+- 상태 판단: `tr_latest_cylinder_statuses.CONDITION_CODE` → `dashboard_status`
+- EndUser 정책: `cy_enduser_exception` → `cy_enduser_default` → (없으면 `NULL`)
+- 밸브 그룹 정책: `cy_valve_group_mapping` / `cy_valve_group`
+- 번역 적용: `core_translation` (gas_name/valve_spec/cylinder_spec/location)
 
-- **?곹깭 ?먮떒**: `tr_latest_cylinder_statuses.CONDITION_CODE` 湲곕컲?쇰줈 `dashboard_status` ?앹꽦
-- **EndUser ?뺤콉**: `cy_enduser_exception` ??`cy_enduser_default` ??(?놁쑝硫?`NULL`)
-- **諛몃툕 洹몃９ ?뺤콉**: `cy_valve_group_mapping` / `cy_valve_group`
-- **踰덉뿭 ?곸슜**: `core_translation` (field_type: gas_name/valve_spec/cylinder_spec/location)
+> 주의: 과거 문서 일부는 `dashboard_enduser_code`, `dashboard_cylinder_type_key`, `cy_enduser_policy` 등 **구 설계 명칭**이 섞여 있을 수 있습니다. 최신 기준은 위 SQL/코드입니다.
 
-> 二쇱쓽: 怨쇨굅 臾몄꽌??以??쇰???`dashboard_enduser_code`, `dashboard_cylinder_type_key`, `cy_enduser_policy` 媛숈? **援??ㅺ퀎 而щ읆/?뚯씠釉?*???멸툒?⑸땲??
-> ?꾩옱 ?댁쁺??吏꾩떎? ??SQL/Repository 湲곗??낅땲??
+### 4.2 CYNOW 정책 테이블
 
-### 4.2 CYNOW ?뺤콉 ?뚯씠釉?
-**DDL**: `sql/create_cynow_policy_tables.sql`
-
-- `cy_enduser_default`: 媛???⑸웾/?ㅽ럺肄붾뱶 議고빀蹂?湲곕낯 EndUser
-- `cy_enduser_exception`: ?⑷린踰덊샇 ?⑥쐞 EndUser ?덉쇅
-- `cy_valve_group`: 諛몃툕 洹몃９
-- `cy_valve_group_mapping`: 諛몃툕 ?ㅽ럺 ??洹몃９ 留ㅽ븨(???諛몃툕 ?ы븿)
+- **DDL**: `sql/create_cynow_policy_tables.sql`
+- `cy_enduser_default`, `cy_enduser_exception`, `cy_valve_group`, `cy_valve_group_mapping`
 
 ---
 
-## 5) ?듭떖 ?곗씠???먮쫫(?낅Т 湲곗?)
+## 5) 핵심 데이터 흐름(업무 기준)
 
-### 5.1 ??쒕낫??移대뱶/?곹깭蹂?議고쉶
+### 5.1 대시보드 상태 클릭
 
-- **蹂닿?(蹂닿?:誘명쉶??蹂닿?:?뚯닔)**: 諛붾줈 ?⑷린 由ъ뒪?몃줈 ?대룞
-- **異⑹쟾~?쒗뭹(怨듭젙/?쒗뭹)**: ?대룞?쒕퀎 紐⑤떖
-  - ?⑷린 ???대룞???곌껐 ?곗꽑?쒖쐞:
-    1) `tr_move_report_details` (媛???좊ː)
-    2) ?꾩슂 ??`tr_cylinder_status_histories` (fallback)
+- **보관(보관:미회수/보관:회수)**: 용기 리스트 페이지로 이동
+- **충전~제품(공정/제품)**: 이동서별 모달
+  - 용기→이동서 연결 우선순위:
+    1) `tr_move_report_details` (우선)
+    2) `tr_cylinder_status_histories` (fallback)
 
-### 5.2 ?쒗뭹?ш퀬(?쒗뭹肄붾뱶 KFxxx) 怨꾩궛 湲곗?
+### 5.2 제품재고(제품코드 KFxxx) 계산 기준
 
-**肄붾뱶 湲곗?(吏꾩떎)**: `inventory/services.py` ??`sync_product_inventory_from_documents()`
+**코드 기준(진실)**: `inventory/services.py` 의 `sync_product_inventory_from_documents()`
 
-- ?⑷린蹂?理쒖떊 ?대젰 1嫄?DISTINCT ON)
-- 理쒖떊 `MOVE_CODE='50'`(李쎄퀬?낃퀬)???⑷린留??ш퀬濡?移댁슫??- `MOVE_REPORT_NO` ??`tr_orders.ARRIVAL_SHIPPING_NO` 議곗씤
-- ?쒗뭹肄붾뱶??`tr_orders.TRADE_CONDITION_CODE` (KFxxx)
+- 용기별 최신 이력 1건(DISTINCT ON)
+- 최신 `MOVE_CODE='50'`(창고입고)인 용기만 재고로 카운트
+- `MOVE_REPORT_NO` → `tr_orders.ARRIVAL_SHIPPING_NO` 조인
+- 제품코드 = `tr_orders.TRADE_CONDITION_CODE` (KFxxx)
 
-利? ?쒗뭹?ш퀬??**cylinder_type_key 湲곕컲???꾨땲??臾몄꽌 ?먮쫫(二쇰Ц/?대룞?? 湲곕컲**?낅땲??
+즉, 제품재고는 **cylinder_type_key 기반이 아니라 문서(주문/이동서) 흐름 기반**입니다.
 
-### 5.3 ?쇨컙 ?ㅻ깄???ш퀬)
+### 5.3 일간 스냅샷(재고)
 
-- ?⑷린?ш퀬: `cy_cylinder_current` ??`CylinderInventory` ?숆린????`CylinderInventorySnapshot`
-- ?쒗뭹?ш퀬: 臾몄꽌 湲곕컲 ?숆린????`ProductInventorySnapshot`
-- 留덇컧?쒓컙: 00:00 湲곗?(?댁쁺 ?뺤콉)
+- 용기재고: `cy_cylinder_current` → `CylinderInventory` 동기화 → `CylinderInventorySnapshot`
+- 제품재고: 문서 기반 동기화 → `ProductInventorySnapshot`
+- 마감시간: 00:00 기준(운영 정책)
 
 ---
 
-## 6) LOT / 臾닿쾶 / ?ㅻ뜑踰덊샇(ROW_NO) ?뺤쓽
+## 6) LOT / 무게 / 헤더번호(ROW_NO) 정의
 
-### 6.1 ?쒖“LOT
+### 6.1 제조LOT
 
-- ?대젰 湲곕컲: `tr_cylinder_status_histories.MANUFACTURE_LOT_*`
-- 議고빀 洹쒖튃(?덉떆):
-  - `MANUFACTURE_LOT_HEADER` + `MANUFACTURE_LOT_NO` + (`-MANUFACTURE_LOT_BRANCH` if exists)
+- 이력 기반: `tr_cylinder_status_histories.MANUFACTURE_LOT_*`
+- 조합: `MANUFACTURE_LOT_HEADER` + `MANUFACTURE_LOT_NO` + (branch 있으면 `-MANUFACTURE_LOT_BRANCH`)
 
-### 6.2 異⑹쟾LOT
+### 6.2 충전LOT
 
-- ?대룞???ㅻ뜑 湲곗?: `tr_move_reports.FILLING_LOT_*`
-- ?대젰?먯꽌??`tr_cylinder_status_histories.FILLING_LOT_*` 濡?議고쉶 媛??
-### 6.3 ?⑷린 臾닿쾶 / 異⑹쟾 媛?ㅻТ寃?
-- ?⑷린 臾닿쾶: `ma_cylinders.WEIGHT`
-- 異⑹쟾 媛?ㅻТ寃?
-  - ?곗꽑 `tr_move_report_details.FILLING_WEIGHT` (?대룞???곸꽭)
-  - 異붽? ?뺤젙 臾닿쾶媛 ?ㅻⅨ 而щ읆?몄? ?щ???FCMS 而щ읆 ?뺤씤 ?꾩슂(諛쒓껄 ????臾몄꽌 媛깆떊)
+- 이동서 헤더 기준: `tr_move_reports.FILLING_LOT_*`
+- 이력에서도 `tr_cylinder_status_histories.FILLING_LOT_*` 로 조회 가능
 
-### 6.4 ?ㅻ뜑踰덊샇
+### 6.3 용기무게 / 충전된 가스무게
+
+- 용기무게: `ma_cylinders.WEIGHT`
+- 충전된 가스무게: 우선 `tr_move_report_details.FILLING_WEIGHT`
+
+### 6.4 헤더번호
 
 - `tr_move_report_details.ROW_NO`
-- 紐⑤떖/由ъ뒪???뺣젹 ?곗꽑?쒖쐞:
-  1) `ROW_NO` 議댁옱 ??`ROW_NO` ASC
-  2) ?놁쑝硫?`cylinder_no` ASC
+- 정렬 우선순위: `ROW_NO` → `cylinder_no`
 
 ---
 
-## 7) 肄붾뱶/?곹깭 留ㅽ븨(?댁쁺?먯꽌 瑗??곕뒗 洹쒖튃)
+## 7) 코드/상태 매핑
 
-### 7.1 CONDITION_CODE ??dashboard_status
-
-?뺤쓽??`sql/create_sync_triggers.sql` ??CASE 濡쒖쭅??吏꾩떎?낅땲??
-(?? 100/102=蹂닿?, 210/220=異⑹쟾, 420=遺꾩꽍, 500=李쎌엯, 600=異쒗븯, 950/952=?뺣퉬, 990=?먭린)
-
-### 7.2 ?쒗뭹?ш퀬 湲곗? MOVE_CODE
-
-- 李쎄퀬 ?ш퀬 ?ы븿: `MOVE_CODE='50'`
-- 異쒗븯濡?鍮좎쭚: 理쒖떊 MOVE_CODE媛 `60`?대㈃ ?쒖쇅
+- **CONDITION_CODE → dashboard_status**: `sql/create_sync_triggers.sql` 의 CASE 로직이 기준
+- **제품재고 기준 MOVE_CODE**: 창고입고 `50` 포함, 최신이 `60`이면 제외
 
 ---
 
-## 8) ?댁쁺 Playbook (CDC / 蹂듦뎄 / 諛곗튂)
+## 8) 운영 Playbook (CDC / 복구)
 
-### 8.1 諛깆뾽 ?쒓컙 CDC pause/resume
-
-- Linux: `deploy/pause_debezium_for_backup.sh`
-- Windows: `deploy/pause_debezium_for_backup.ps1`
-
-### 8.2 ?덈꼍 諛깆뾽 ?μ븷 蹂듦뎄 ?꾨왂
-
-- `docs/_ref/CDC_BACKUP_TIME_RECOVERY_PLAN.md`
-- `docs/_ref/CDC_SMART_RECOVERY_GUIDE.md`
-- `docs/_ref/CDC_UBUNTU_SETUP_GUIDE.md`
+- 백업 시간 pause/resume
+  - Linux: `deploy/pause_debezium_for_backup.sh`
+  - Windows: `deploy/pause_debezium_for_backup.ps1`
+- 상세 운영 문서(참고):
+  - `docs/_ref/CDC_BACKUP_TIME_RECOVERY_PLAN.md`
+  - `docs/_ref/CDC_SMART_RECOVERY_GUIDE.md`
+  - `docs/_ref/CDC_UBUNTU_SETUP_GUIDE.md`
 
 ---
 
-## 9) 臾몄꽌 ?뺣━ ?먯튃(?욎쑝濡??좎?蹂댁닔 猷?
+## 9) 문서 유지보수 룰
 
-- ??湲곕뒫 異붽? ??
-  - 癒쇱? ??臾몄꽌(`docs/_ref/CYNOW_CANONICAL.md`)??愿???뱀뀡???낅뜲?댄듃
-  - ?좉퇋 臾몄꽌媛 ?꾩슂?섎㈃ "?뺣낯??蹂닿컯?섎뒗 遺濡??쇰줈留?異붽?
-  - **?뺣낯怨?異⑸룎?섎뒗 臾몄꽌**媛 ?앷린硫?利됱떆 archive ?대룞 + DEPRECATED 泥섎━
+- 새 기능 추가 시 먼저 **정본(`docs/CYNOW_CANONICAL.md`)**을 업데이트합니다.
+- 정본과 충돌하는 문서가 생기면 즉시 `docs/_ref/`로 이동(또는 archive)하고, 정본에 기준을 반영합니다.
 
 ---
 
-## 10) 蹂寃??대젰
+## 10) 변경 이력
 
-- 2025-12-27: docs ?꾩닔 寃??+ 肄붾뱶/SQL 湲곗??쇰줈 ?뺣낯 珥덉븞 ?묒꽦
+- 2025-12-27: docs 전수 검토 + 코드/SQL 기준으로 정본 작성
+
+ 
