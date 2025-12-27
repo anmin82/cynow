@@ -1,460 +1,468 @@
-# CYNOW 데이터 아키텍처 종합 가이드
+﻿# SUPERSEDED: ?곸꽭 李멸퀬 臾몄꽌
 
-## 개요
+??臾몄꽌???곸꽭 李멸퀬濡??좎??⑸땲?? **?뺥솗??理쒖떊 湲곗?(?뺣낯)? ?꾨옒 臾몄꽌瑜??곗꽑?⑸땲??**
 
-CYNOW 시스템의 전체 데이터 구조, CDC 테이블, CYNOW 테이블, 그리고 테이블 간 관계를 정리한 종합 문서입니다.
-새로운 기능 개발 시 이 문서를 참조하여 데이터 소스와 연결 관계를 파악할 수 있습니다.
-
-**최종 갱신**: 2024-12-27
+- `docs/CYNOW_CANONICAL.md`
 
 ---
 
-## 목차
+# CYNOW ?곗씠???꾪궎?띿쿂 醫낇빀 媛?대뱶
 
-1. [시스템 아키텍처](#1-시스템-아키텍처)
-2. [CDC 테이블 (FCMS 원천)](#2-cdc-테이블-fcms-원천)
-3. [CYNOW 테이블](#3-cynow-테이블)
-4. [주요 테이블 상세](#4-주요-테이블-상세)
-5. [데이터 흐름](#5-데이터-흐름)
-6. [ER 다이어그램](#6-er-다이어그램)
-7. [주요 쿼리 패턴](#7-주요-쿼리-패턴)
-8. [코드 매핑](#8-코드-매핑)
+## 媛쒖슂
+
+CYNOW ?쒖뒪?쒖쓽 ?꾩껜 ?곗씠??援ъ“, CDC ?뚯씠釉? CYNOW ?뚯씠釉? 洹몃━怨??뚯씠釉?媛?愿怨꾨? ?뺣━??醫낇빀 臾몄꽌?낅땲??
+?덈줈??湲곕뒫 媛쒕컻 ????臾몄꽌瑜?李몄“?섏뿬 ?곗씠???뚯뒪? ?곌껐 愿怨꾨? ?뚯븙?????덉뒿?덈떎.
+
+**理쒖쥌 媛깆떊**: 2024-12-27
 
 ---
 
-## 1. 시스템 아키텍처
+## 紐⑹감
+
+1. [?쒖뒪???꾪궎?띿쿂](#1-?쒖뒪???꾪궎?띿쿂)
+2. [CDC ?뚯씠釉?(FCMS ?먯쿇)](#2-cdc-?뚯씠釉?fcms-?먯쿇)
+3. [CYNOW ?뚯씠釉?(#3-cynow-?뚯씠釉?
+4. [二쇱슂 ?뚯씠釉??곸꽭](#4-二쇱슂-?뚯씠釉??곸꽭)
+5. [?곗씠???먮쫫](#5-?곗씠???먮쫫)
+6. [ER ?ㅼ씠?닿렇??(#6-er-?ㅼ씠?닿렇??
+7. [二쇱슂 荑쇰━ ?⑦꽩](#7-二쇱슂-荑쇰━-?⑦꽩)
+8. [肄붾뱶 留ㅽ븨](#8-肄붾뱶-留ㅽ븨)
+
+---
+
+## 1. ?쒖뒪???꾪궎?띿쿂
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        FCMS (Oracle DB)                              │
-│                    [원천 시스템 - 일본]                               │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │ CDC (Debezium)
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    PostgreSQL (cynow_db)                             │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │            fcms_cdc 스키마 (CDC 동기화 테이블)                 │   │
-│  │  - ma_cylinders, ma_items, ma_valve_specs...                  │   │
-│  │  - tr_latest_cylinder_statuses, tr_cylinder_status_histories  │   │
-│  │  - tr_orders, tr_move_reports, tr_move_report_details         │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │             public 스키마 (CYNOW 자체 테이블)                  │   │
-│  │  - cy_cylinder_current (용기 현재 상태 스냅샷)                 │   │
-│  │  - Django ORM 테이블들 (PO, ProductCode, Quote 등)            │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      CYNOW Django Application                        │
-│                     [대시보드, 수주관리, 보고서 등]                    │
-└─────────────────────────────────────────────────────────────────────┘
+?뚢???????????????????????????????????????????????????????????????????????
+??                       FCMS (Oracle DB)                              ??
+??                   [?먯쿇 ?쒖뒪??- ?쇰낯]                               ??
+?붴???????????????????????????????????????????????????????????????????????
+                                  ??
+                                  ??CDC (Debezium)
+                                  ??
+?뚢???????????????????????????????????????????????????????????????????????
+??                   PostgreSQL (cynow_db)                             ??
+?? ?뚢????????????????????????????????????????????????????????????????  ??
+?? ??           fcms_cdc ?ㅽ궎留?(CDC ?숆린???뚯씠釉?                 ??  ??
+?? ?? - ma_cylinders, ma_items, ma_valve_specs...                  ??  ??
+?? ?? - tr_latest_cylinder_statuses, tr_cylinder_status_histories  ??  ??
+?? ?? - tr_orders, tr_move_reports, tr_move_report_details         ??  ??
+?? ?붴????????????????????????????????????????????????????????????????  ??
+?? ?뚢????????????????????????????????????????????????????????????????  ??
+?? ??            public ?ㅽ궎留?(CYNOW ?먯껜 ?뚯씠釉?                  ??  ??
+?? ?? - cy_cylinder_current (?⑷린 ?꾩옱 ?곹깭 ?ㅻ깄??                 ??  ??
+?? ?? - Django ORM ?뚯씠釉붾뱾 (PO, ProductCode, Quote ??            ??  ??
+?? ?붴????????????????????????????????????????????????????????????????  ??
+?붴???????????????????????????????????????????????????????????????????????
+                                  ??
+                                  ??
+?뚢???????????????????????????????????????????????????????????????????????
+??                     CYNOW Django Application                        ??
+??                    [??쒕낫?? ?섏＜愿由? 蹂닿퀬????                    ??
+?붴???????????????????????????????????????????????????????????????????????
 ```
 
 ---
 
-## 2. CDC 테이블 (FCMS 원천)
+## 2. CDC ?뚯씠釉?(FCMS ?먯쿇)
 
-**스키마**: `fcms_cdc`
+**?ㅽ궎留?*: `fcms_cdc`
 
-### 2.1 마스터 테이블 (MA_*)
+### 2.1 留덉뒪???뚯씠釉?(MA_*)
 
-| 테이블명 | 용도 | PK | 주요 용도 |
+| ?뚯씠釉붾챸 | ?⑸룄 | PK | 二쇱슂 ?⑸룄 |
 |---------|------|-----|----------|
-| `ma_cylinders` | 용기 마스터 | CYLINDER_NO | 용기 기본정보, 스펙, 내압정보 |
-| `ma_items` | 가스/아이템 마스터 | ITEM_CODE | 가스명, 등급, 특성 |
-| `ma_valve_specs` | 밸브 스펙 마스터 | VALVE_SPEC_CODE | 밸브 타입(CGA/DISS/DIN) |
-| `ma_cylinder_specs` | 용기 스펙 마스터 | CYLINDER_SPEC_CODE | 용기 재질, 형식 |
-| `ma_parameters` | 코드 매핑 | TYPE, KEY1, KEY2, KEY3 | 상태코드, 위치코드 의미 |
+| `ma_cylinders` | ?⑷린 留덉뒪??| CYLINDER_NO | ?⑷린 湲곕낯?뺣낫, ?ㅽ럺, ?댁븬?뺣낫 |
+| `ma_items` | 媛???꾩씠??留덉뒪??| ITEM_CODE | 媛?ㅻ챸, ?깃툒, ?뱀꽦 |
+| `ma_valve_specs` | 諛몃툕 ?ㅽ럺 留덉뒪??| VALVE_SPEC_CODE | 諛몃툕 ???CGA/DISS/DIN) |
+| `ma_cylinder_specs` | ?⑷린 ?ㅽ럺 留덉뒪??| CYLINDER_SPEC_CODE | ?⑷린 ?ъ쭏, ?뺤떇 |
+| `ma_parameters` | 肄붾뱶 留ㅽ븨 | TYPE, KEY1, KEY2, KEY3 | ?곹깭肄붾뱶, ?꾩튂肄붾뱶 ?섎? |
 
-### 2.2 트랜잭션 테이블 (TR_*)
+### 2.2 ?몃옖??뀡 ?뚯씠釉?(TR_*)
 
-| 테이블명 | 용도 | PK/UK | 주요 용도 |
+| ?뚯씠釉붾챸 | ?⑸룄 | PK/UK | 二쇱슂 ?⑸룄 |
 |---------|------|-------|----------|
-| `tr_latest_cylinder_statuses` | 최신 용기 상태 | CYLINDER_NO | 현재 상태, 위치, 이동정보 |
-| `tr_cylinder_status_histories` | 용기 상태 이력 | CYLINDER_NO, HISTORY_SEQ | 전체 이동 이력, LOT정보 |
-| `tr_orders` | 주문(이동서) 정보 | ARRIVAL_SHIPPING_NO | 고객, 제품코드, 수량 |
-| `tr_order_informations` | 주문 상세 정보 | MOVE_REPORT_NO | 예정일(충전/창입/출하) |
-| `tr_move_reports` | 이동 보고서 | MOVE_REPORT_NO | 확정일, LOT번호 |
-| `tr_move_report_details` | 이동서 상세 | MOVE_REPORT_NO, CYLINDER_NO | 용기-이동서 연결, 무게 |
+| `tr_latest_cylinder_statuses` | 理쒖떊 ?⑷린 ?곹깭 | CYLINDER_NO | ?꾩옱 ?곹깭, ?꾩튂, ?대룞?뺣낫 |
+| `tr_cylinder_status_histories` | ?⑷린 ?곹깭 ?대젰 | CYLINDER_NO, HISTORY_SEQ | ?꾩껜 ?대룞 ?대젰, LOT?뺣낫 |
+| `tr_orders` | 二쇰Ц(?대룞?? ?뺣낫 | ARRIVAL_SHIPPING_NO | 怨좉컼, ?쒗뭹肄붾뱶, ?섎웾 |
+| `tr_order_informations` | 二쇰Ц ?곸꽭 ?뺣낫 | MOVE_REPORT_NO | ?덉젙??異⑹쟾/李쎌엯/異쒗븯) |
+| `tr_move_reports` | ?대룞 蹂닿퀬??| MOVE_REPORT_NO | ?뺤젙?? LOT踰덊샇 |
+| `tr_move_report_details` | ?대룞???곸꽭 | MOVE_REPORT_NO, CYLINDER_NO | ?⑷린-?대룞???곌껐, 臾닿쾶 |
 
 ---
 
-## 3. CYNOW 테이블
+## 3. CYNOW ?뚯씠釉?
 
-**스키마**: `public`
+**?ㅽ궎留?*: `public`
 
-### 3.1 핵심 운영 테이블
+### 3.1 ?듭떖 ?댁쁺 ?뚯씠釉?
 
-| 테이블명 | Django 모델 | 용도 |
+| ?뚯씠釉붾챸 | Django 紐⑤뜽 | ?⑸룄 |
 |---------|------------|------|
-| `cy_cylinder_current` | (Raw SQL) | 용기 현재 상태 스냅샷 (대시보드 핵심) |
+| `cy_cylinder_current` | (Raw SQL) | ?⑷린 ?꾩옱 ?곹깭 ?ㅻ깄??(??쒕낫???듭떖) |
 
-### 3.2 앱별 Django 모델
+### 3.2 ?깅퀎 Django 紐⑤뜽
 
 #### Core (core)
-| 모델 | 테이블명 | 용도 |
+| 紐⑤뜽 | ?뚯씠釉붾챸 | ?⑸룄 |
 |------|---------|------|
-| Translation | translation | FCMS 일본어 → 한국어 번역 |
-| EndUserMaster | enduser_master | EndUser 마스터 (SDC, LGD 등) |
-| EndUserDefault | enduser_default | 가스별 기본 EndUser 정책 |
-| EndUserException | enduser_exception | 용기번호별 EndUser 예외 |
-| ValveGroup | valve_group | 밸브 그룹 정의 |
-| ValveGroupMapping | valve_group_mapping | 밸브 스펙 → 그룹 매핑 |
-| HiddenCylinderType | hidden_cylinder_type | 대시보드 숨김 용기종류 |
+| Translation | translation | FCMS ?쇰낯?????쒓뎅??踰덉뿭 |
+| EndUserMaster | enduser_master | EndUser 留덉뒪??(SDC, LGD ?? |
+| EndUserDefault | enduser_default | 媛?ㅻ퀎 湲곕낯 EndUser ?뺤콉 |
+| EndUserException | enduser_exception | ?⑷린踰덊샇蹂?EndUser ?덉쇅 |
+| ValveGroup | valve_group | 諛몃툕 洹몃９ ?뺤쓽 |
+| ValveGroupMapping | valve_group_mapping | 諛몃툕 ?ㅽ럺 ??洹몃９ 留ㅽ븨 |
+| HiddenCylinderType | hidden_cylinder_type | ??쒕낫???④? ?⑷린醫낅쪟 |
 
-#### Orders (orders) - 수주관리
-| 모델 | 테이블명 | 용도 |
+#### Orders (orders) - ?섏＜愿由?
+| 紐⑤뜽 | ?뚯씠釉붾챸 | ?⑸룄 |
 |------|---------|------|
-| PO | po | 수주(Purchase Order) |
-| POItem | po_item | 수주 품목 |
-| PlannedMoveReport | planned_move_report | 가발행 이동서 |
-| FCMSMatchStatus | fcms_match_status | FCMS 매칭 상태 |
-| FCMSProductionProgress | fcms_production_progress | 생산 진척 동기화 |
+| PO | po | ?섏＜(Purchase Order) |
+| POItem | po_item | ?섏＜ ?덈ぉ |
+| PlannedMoveReport | planned_move_report | 媛諛쒗뻾 ?대룞??|
+| FCMSMatchStatus | fcms_match_status | FCMS 留ㅼ묶 ?곹깭 |
+| FCMSProductionProgress | fcms_production_progress | ?앹궛 吏꾩쿃 ?숆린??|
 
-#### Products (products) - 제품관리
-| 모델 | 테이블명 | 용도 |
+#### Products (products) - ?쒗뭹愿由?
+| 紐⑤뜽 | ?뚯씠釉붾챸 | ?⑸룄 |
 |------|---------|------|
-| ProductCode | product_code | 제품코드(KFxxx) 마스터 |
-| ProductPriceHistory | product_price_history | 단가 변경 이력 |
-| ProductCodeSync | product_code_sync | FCMS 동기화 이력 |
+| ProductCode | product_code | ?쒗뭹肄붾뱶(KFxxx) 留덉뒪??|
+| ProductPriceHistory | product_price_history | ?④? 蹂寃??대젰 |
+| ProductCodeSync | product_code_sync | FCMS ?숆린???대젰 |
 
-#### Inventory (inventory) - 재고관리
-| 모델 | 테이블명 | 용도 |
+#### Inventory (inventory) - ?ш퀬愿由?
+| 紐⑤뜽 | ?뚯씠釉붾챸 | ?⑸룄 |
 |------|---------|------|
-| InventorySettings | inventory_settings | 재고 설정 (마감시간 등) |
-| InventoryTransaction | inventory_transaction | 재고 트랜잭션 로그 |
-| CylinderInventory | cylinder_inventory | 용기 재고 (타입×상태×위치) |
-| ProductInventory | product_inventory | 제품 재고 (제품코드×창고) |
-| CylinderInventorySnapshot | cylinder_inventory_snapshot | 용기 재고 스냅샷 |
-| ProductInventorySnapshot | product_inventory_snapshot | 제품 재고 스냅샷 |
-| SnapshotLog | snapshot_log | 스냅샷 생성 로그 |
-| CylinderMaintenanceLog | cylinder_maintenance_log | 정비 입출고 로그 |
+| InventorySettings | inventory_settings | ?ш퀬 ?ㅼ젙 (留덇컧?쒓컙 ?? |
+| InventoryTransaction | inventory_transaction | ?ш퀬 ?몃옖??뀡 濡쒓렇 |
+| CylinderInventory | cylinder_inventory | ?⑷린 ?ш퀬 (??끖쀬긽?쑦쀬쐞移? |
+| ProductInventory | product_inventory | ?쒗뭹 ?ш퀬 (?쒗뭹肄붾뱶횞李쎄퀬) |
+| CylinderInventorySnapshot | cylinder_inventory_snapshot | ?⑷린 ?ш퀬 ?ㅻ깄??|
+| ProductInventorySnapshot | product_inventory_snapshot | ?쒗뭹 ?ш퀬 ?ㅻ깄??|
+| SnapshotLog | snapshot_log | ?ㅻ깄???앹꽦 濡쒓렇 |
+| CylinderMaintenanceLog | cylinder_maintenance_log | ?뺣퉬 ?낆텧怨?濡쒓렇 |
 
-#### History (history) - 이력/추이
-| 모델 | 테이블명 | 용도 |
+#### History (history) - ?대젰/異붿씠
+| 紐⑤뜽 | ?뚯씠釉붾챸 | ?⑸룄 |
 |------|---------|------|
-| HistInventorySnapshot | hist_inventory_snapshot | 재고 추이 스냅샷 |
-| HistSnapshotRequest | hist_snapshot_request | 스냅샷 요청 |
+| HistInventorySnapshot | hist_inventory_snapshot | ?ш퀬 異붿씠 ?ㅻ깄??|
+| HistSnapshotRequest | hist_snapshot_request | ?ㅻ깄???붿껌 |
 
-#### Plans (plans) - 계획관리
-| 모델 | 테이블명 | 용도 |
+#### Plans (plans) - 怨꾪쉷愿由?
+| 紐⑤뜽 | ?뚯씠釉붾챸 | ?⑸룄 |
 |------|---------|------|
-| PlanForecastMonthly | plan_forecast_monthly | 월별 출하 계획 |
-| PlanScheduledMonthly | plan_scheduled_monthly | 월별 투입 계획 |
-| PlanFillingMonthly | plan_filling_monthly | 월별 충전 계획 |
+| PlanForecastMonthly | plan_forecast_monthly | ?붾퀎 異쒗븯 怨꾪쉷 |
+| PlanScheduledMonthly | plan_scheduled_monthly | ?붾퀎 ?ъ엯 怨꾪쉷 |
+| PlanFillingMonthly | plan_filling_monthly | ?붾퀎 異⑹쟾 怨꾪쉷 |
 
-#### Voucher (voucher) - 견적/문서
-| 모델 | 테이블명 | 용도 |
+#### Voucher (voucher) - 寃ъ쟻/臾몄꽌
+| 紐⑤뜽 | ?뚯씠釉붾챸 | ?⑸룄 |
 |------|---------|------|
-| CompanyInfo | company_info | 자사 정보 |
-| Customer | customer | 고객사 정보 |
-| Quote | quote | 견적서 |
-| QuoteItem | quote_item | 견적 품목 |
-| DocumentTemplate | document_template | 문서 템플릿 |
+| CompanyInfo | company_info | ?먯궗 ?뺣낫 |
+| Customer | customer | 怨좉컼???뺣낫 |
+| Quote | quote | 寃ъ쟻??|
+| QuoteItem | quote_item | 寃ъ쟻 ?덈ぉ |
+| DocumentTemplate | document_template | 臾몄꽌 ?쒗뵆由?|
 
 ---
 
-## 4. 주요 테이블 상세
+## 4. 二쇱슂 ?뚯씠釉??곸꽭
 
-### 4.1 ma_cylinders (용기 마스터)
+### 4.1 ma_cylinders (?⑷린 留덉뒪??
 
 ```sql
--- 주요 컬럼
-CYLINDER_NO          -- PK, 용기번호 (12자리)
-ITEM_CODE            -- FK → ma_items, 가스 종류
-CAPACITY             -- 용량 (L)
-CYLINDER_SPEC_CODE   -- FK → ma_cylinder_specs
-VALVE_SPEC_CODE      -- FK → ma_valve_specs
-WEIGHT               -- 용기 무게 (kg)
-WITHSTAND_PRESSURE_MAINTE_DATE  -- 내압 시험일
-WITHSTAND_PRESSURE_TEST_TERM    -- 내압 주기 (년)
-MANUFACTURE_DATE     -- 제조일
+-- 二쇱슂 而щ읆
+CYLINDER_NO          -- PK, ?⑷린踰덊샇 (12?먮━)
+ITEM_CODE            -- FK ??ma_items, 媛??醫낅쪟
+CAPACITY             -- ?⑸웾 (L)
+CYLINDER_SPEC_CODE   -- FK ??ma_cylinder_specs
+VALVE_SPEC_CODE      -- FK ??ma_valve_specs
+WEIGHT               -- ?⑷린 臾닿쾶 (kg)
+WITHSTAND_PRESSURE_MAINTE_DATE  -- ?댁븬 ?쒗뿕??
+WITHSTAND_PRESSURE_TEST_TERM    -- ?댁븬 二쇨린 (??
+MANUFACTURE_DATE     -- ?쒖“??
 ```
 
-### 4.2 tr_cylinder_status_histories (용기 상태 이력)
+### 4.2 tr_cylinder_status_histories (?⑷린 ?곹깭 ?대젰)
 
 ```sql
--- 주요 컬럼
-CYLINDER_NO          -- 용기번호
-HISTORY_SEQ          -- 이력 순번
-MOVE_CODE            -- 이동 코드 (10=입하, 20=충전, 50=창입, 60=출하 등)
-MOVE_DATE            -- 이동일시
-MOVE_REPORT_NO       -- 이동서번호
-CONDITION_CODE       -- 상태 코드
+-- 二쇱슂 而щ읆
+CYLINDER_NO          -- ?⑷린踰덊샇
+HISTORY_SEQ          -- ?대젰 ?쒕쾲
+MOVE_CODE            -- ?대룞 肄붾뱶 (10=?낇븯, 20=異⑹쟾, 50=李쎌엯, 60=異쒗븯 ??
+MOVE_DATE            -- ?대룞?쇱떆
+MOVE_REPORT_NO       -- ?대룞?쒕쾲??
+CONDITION_CODE       -- ?곹깭 肄붾뱶
 
--- LOT 정보
-MANUFACTURE_LOT_HEADER, MANUFACTURE_LOT_NO, MANUFACTURE_LOT_BRANCH  -- 제조LOT
-FILLING_LOT_HEADER, FILLING_LOT_NO, FILLING_LOT_BRANCH              -- 충전LOT
-FILLING_WEIGHT       -- 충전 무게
+-- LOT ?뺣낫
+MANUFACTURE_LOT_HEADER, MANUFACTURE_LOT_NO, MANUFACTURE_LOT_BRANCH  -- ?쒖“LOT
+FILLING_LOT_HEADER, FILLING_LOT_NO, FILLING_LOT_BRANCH              -- 異⑹쟾LOT
+FILLING_WEIGHT       -- 異⑹쟾 臾닿쾶
 
--- 관련자 정보
-SUPPLIER_USER_NAME   -- 공급처
-CUSTOMER_USER_NAME   -- 고객사
-POSITION_USER_NAME   -- 위치
+-- 愿?⑥옄 ?뺣낫
+SUPPLIER_USER_NAME   -- 怨듦툒泥?
+CUSTOMER_USER_NAME   -- 怨좉컼??
+POSITION_USER_NAME   -- ?꾩튂
 ```
 
-### 4.3 tr_orders (주문/이동서 정보)
+### 4.3 tr_orders (二쇰Ц/?대룞???뺣낫)
 
 ```sql
--- 주요 컬럼
-ARRIVAL_SHIPPING_NO      -- PK, 이동서번호
-CUSTOMER_ORDER_NO        -- 고객 주문번호 (PO번호)
-SUPPLIER_USER_CODE/NAME  -- 고객사
-TRADE_CONDITION_CODE     -- 제품코드 (KFxxx)
-ITEM_NAME               -- 품목명
-INSTRUCTION_COUNT       -- 지시 수량
-DELIVERY_DATE           -- 납기일
-ORDER_DATE              -- 주문일
+-- 二쇱슂 而щ읆
+ARRIVAL_SHIPPING_NO      -- PK, ?대룞?쒕쾲??
+CUSTOMER_ORDER_NO        -- 怨좉컼 二쇰Ц踰덊샇 (PO踰덊샇)
+SUPPLIER_USER_CODE/NAME  -- 怨좉컼??
+TRADE_CONDITION_CODE     -- ?쒗뭹肄붾뱶 (KFxxx)
+ITEM_NAME               -- ?덈ぉ紐?
+INSTRUCTION_COUNT       -- 吏???섎웾
+DELIVERY_DATE           -- ?⑷린??
+ORDER_DATE              -- 二쇰Ц??
 ```
 
-### 4.4 tr_order_informations (주문 상세/일정)
+### 4.4 tr_order_informations (二쇰Ц ?곸꽭/?쇱젙)
 
 ```sql
--- 주요 컬럼
-MOVE_REPORT_NO           -- PK, 이동서번호
-FILLING_PLAN_DATE        -- 충전 예정일
-WAREHOUSING_PLAN_DATE    -- 창입 예정일
-SHIPPING_PLAN_DATE       -- 출하 예정일
-SALES_REMARKS            -- 영업 비고
-PRODUCTION_REMARKS       -- 생산 비고
+-- 二쇱슂 而щ읆
+MOVE_REPORT_NO           -- PK, ?대룞?쒕쾲??
+FILLING_PLAN_DATE        -- 異⑹쟾 ?덉젙??
+WAREHOUSING_PLAN_DATE    -- 李쎌엯 ?덉젙??
+SHIPPING_PLAN_DATE       -- 異쒗븯 ?덉젙??
+SALES_REMARKS            -- ?곸뾽 鍮꾧퀬
+PRODUCTION_REMARKS       -- ?앹궛 鍮꾧퀬
 ```
 
-### 4.5 tr_move_reports (이동 보고서)
+### 4.5 tr_move_reports (?대룞 蹂닿퀬??
 
 ```sql
--- 주요 컬럼
-MOVE_REPORT_NO           -- PK, 이동서번호
-PROGRESS_CODE            -- 진행 코드 (51=취소)
-FILLING_DATE             -- 충전 확정일
-SHIPPING_DATE            -- 출하 확정일
-FILLING_LOT_HEADER/NO/BRANCH  -- 충전LOT
+-- 二쇱슂 而щ읆
+MOVE_REPORT_NO           -- PK, ?대룞?쒕쾲??
+PROGRESS_CODE            -- 吏꾪뻾 肄붾뱶 (51=痍⑥냼)
+FILLING_DATE             -- 異⑹쟾 ?뺤젙??
+SHIPPING_DATE            -- 異쒗븯 ?뺤젙??
+FILLING_LOT_HEADER/NO/BRANCH  -- 異⑹쟾LOT
 ```
 
-### 4.6 tr_move_report_details (이동서 상세)
+### 4.6 tr_move_report_details (?대룞???곸꽭)
 
 ```sql
--- 주요 컬럼
-MOVE_REPORT_NO      -- 이동서번호
-CYLINDER_NO         -- 용기번호
-ROW_NO              -- 헤더번호 (순서)
-CYLINDER_WEIGHT     -- 용기 무게
-FILLING_WEIGHT      -- 충전 무게
-ADD_DATETIME        -- 등록일시
+-- 二쇱슂 而щ읆
+MOVE_REPORT_NO      -- ?대룞?쒕쾲??
+CYLINDER_NO         -- ?⑷린踰덊샇
+ROW_NO              -- ?ㅻ뜑踰덊샇 (?쒖꽌)
+CYLINDER_WEIGHT     -- ?⑷린 臾닿쾶
+FILLING_WEIGHT      -- 異⑹쟾 臾닿쾶
+ADD_DATETIME        -- ?깅줉?쇱떆
 ```
 
-### 4.7 cy_cylinder_current (CYNOW 용기 스냅샷)
+### 4.7 cy_cylinder_current (CYNOW ?⑷린 ?ㅻ깄??
 
 ```sql
--- 식별자
-cylinder_no              -- PK, 용기번호
+-- ?앸퀎??
+cylinder_no              -- PK, ?⑷린踰덊샇
 
--- Raw 값 (FCMS 원본)
+-- Raw 媛?(FCMS ?먮낯)
 raw_gas_name, raw_capacity, raw_valve_spec_code, raw_valve_spec_name
 raw_cylinder_spec_code, raw_cylinder_spec_name, raw_condition_code
 
--- Dashboard 값 (정책 적용)
+-- Dashboard 媛?(?뺤콉 ?곸슜)
 dashboard_gas_name, dashboard_capacity
 dashboard_valve_spec_name, dashboard_valve_group_name
 dashboard_cylinder_spec_name, dashboard_enduser, dashboard_status
 
--- 집계용
-cylinder_type_key        -- 용기종류 키 (MD5 해시)
-is_available             -- 가용 여부
+-- 吏묎퀎??
+cylinder_type_key        -- ?⑷린醫낅쪟 ??(MD5 ?댁떆)
+is_available             -- 媛???щ?
 
--- 메타데이터
-pressure_expire_date     -- 내압 만료일
-last_event_at            -- 마지막 이벤트
-snapshot_updated_at      -- 스냅샷 갱신 시각
+-- 硫뷀??곗씠??
+pressure_expire_date     -- ?댁븬 留뚮즺??
+last_event_at            -- 留덉?留??대깽??
+snapshot_updated_at      -- ?ㅻ깄??媛깆떊 ?쒓컖
 ```
 
 ---
 
-## 5. 데이터 흐름
+## 5. ?곗씠???먮쫫
 
-### 5.1 용기 조회 흐름
-
-```
-[대시보드 카드 클릭]
-       │
-       ▼
-cy_cylinder_current (현재 상태)
-       │
-       ├──[상태가 "보관"]──→ 용기 리스트 페이지로 이동
-       │
-       └──[상태가 "충전~제품"]──→ 이동서별 용기 모달
-                                     │
-                                     ├── tr_move_report_details (용기-이동서 연결)
-                                     ├── tr_orders (주문 정보)
-                                     ├── tr_order_informations (예정일)
-                                     └── tr_move_reports (확정일, LOT)
-```
-
-### 5.2 수주 → 출하 흐름
+### 5.1 ?⑷린 議고쉶 ?먮쫫
 
 ```
-[PO 등록] ──→ [POItem] ──→ [PlannedMoveReport]
-                                   │
-                                   ▼ FCMS 입력 후 CDC 동기화
-                           [tr_orders] ←───────────────┐
-                                   │                    │
-                           [tr_move_reports]            │
-                                   │                    │
-                           [tr_move_report_details]     │
-                                   │                    │
+[??쒕낫??移대뱶 ?대┃]
+       ??
+       ??
+cy_cylinder_current (?꾩옱 ?곹깭)
+       ??
+       ?쒋??[?곹깭媛 "蹂닿?"]?????⑷린 由ъ뒪???섏씠吏濡??대룞
+       ??
+       ?붴??[?곹깭媛 "異⑹쟾~?쒗뭹"]?????대룞?쒕퀎 ?⑷린 紐⑤떖
+                                     ??
+                                     ?쒋?? tr_move_report_details (?⑷린-?대룞???곌껐)
+                                     ?쒋?? tr_orders (二쇰Ц ?뺣낫)
+                                     ?쒋?? tr_order_informations (?덉젙??
+                                     ?붴?? tr_move_reports (?뺤젙?? LOT)
+```
+
+### 5.2 ?섏＜ ??異쒗븯 ?먮쫫
+
+```
+[PO ?깅줉] ????[POItem] ????[PlannedMoveReport]
+                                   ??
+                                   ??FCMS ?낅젰 ??CDC ?숆린??
+                           [tr_orders] ?먥?????????????????
+                                   ??                   ??
+                           [tr_move_reports]            ??
+                                   ??                   ??
+                           [tr_move_report_details]     ??
+                                   ??                   ??
                            [tr_cylinder_status_histories]
-                                   │
-              ┌────────────────────┼────────────────────┐
-              ▼                    ▼                    ▼
+                                   ??
+              ?뚢?????????????????????쇄??????????????????????
+              ??                   ??                   ??
         MOVE_CODE=20         MOVE_CODE=50         MOVE_CODE=60
-          (충전)               (창입)               (출하)
+          (異⑹쟾)               (李쎌엯)               (異쒗븯)
 ```
 
-### 5.3 재고 스냅샷 흐름
+### 5.3 ?ш퀬 ?ㅻ깄???먮쫫
 
 ```
-[매일 00:00 cron]
-       │
-       ▼
-create_inventory_snapshot 명령어
-       │
-       ├── sync_cylinder_inventory_from_current()
-       │      └── cy_cylinder_current → CylinderInventory
-       │
-       ├── sync_product_inventory_from_documents()
-       │      └── tr_cylinder_status_histories (MOVE_CODE=50) 
-       │          + tr_orders → ProductInventory
-       │
-       └── create_daily_snapshot()
-              ├── CylinderInventory → CylinderInventorySnapshot
-              └── ProductInventory → ProductInventorySnapshot
-```
-
----
-
-## 6. ER 다이어그램
-
-### 6.1 CDC 테이블 관계
-
-```
-┌─────────────────────┐     ┌─────────────────────┐
-│    ma_cylinders     │     │      ma_items       │
-│─────────────────────│     │─────────────────────│
-│ CYLINDER_NO (PK)    │────▶│ ITEM_CODE (PK)      │
-│ ITEM_CODE (FK)      │     │ DISPLAY_NAME        │
-│ CYLINDER_SPEC_CODE  │     │ FORMAL_NAME         │
-│ VALVE_SPEC_CODE     │     └─────────────────────┘
-│ CAPACITY, WEIGHT    │
-└──────────┬──────────┘
-           │
-           │     ┌─────────────────────┐
-           │     │  ma_cylinder_specs  │
-           ├────▶│─────────────────────│
-           │     │ CYLINDER_SPEC_CODE  │
-           │     │ NAME                │
-           │     └─────────────────────┘
-           │
-           │     ┌─────────────────────┐
-           │     │   ma_valve_specs    │
-           └────▶│─────────────────────│
-                 │ VALVE_SPEC_CODE     │
-                 │ NAME                │
-                 └─────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│              tr_cylinder_status_histories                    │
-│─────────────────────────────────────────────────────────────│
-│ CYLINDER_NO, HISTORY_SEQ (PK)                               │
-│ MOVE_CODE, MOVE_DATE, MOVE_REPORT_NO                        │
-│ MANUFACTURE_LOT_*, FILLING_LOT_*, FILLING_WEIGHT            │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              │ MOVE_REPORT_NO
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                        tr_orders                             │
-│─────────────────────────────────────────────────────────────│
-│ ARRIVAL_SHIPPING_NO (PK) = MOVE_REPORT_NO                   │
-│ CUSTOMER_ORDER_NO, SUPPLIER_USER_NAME                       │
-│ TRADE_CONDITION_CODE (제품코드 KFxxx)                        │
-│ INSTRUCTION_COUNT, DELIVERY_DATE                            │
-└─────────────────────────────────────────────────────────────┘
-          │                                    │
-          │ MOVE_REPORT_NO                     │ MOVE_REPORT_NO
-          ▼                                    ▼
-┌─────────────────────────┐    ┌─────────────────────────────┐
-│ tr_order_informations   │    │     tr_move_reports         │
-│─────────────────────────│    │─────────────────────────────│
-│ MOVE_REPORT_NO (PK)     │    │ MOVE_REPORT_NO (PK)         │
-│ FILLING_PLAN_DATE       │    │ FILLING_DATE (확정)         │
-│ WAREHOUSING_PLAN_DATE   │    │ SHIPPING_DATE (확정)        │
-│ SHIPPING_PLAN_DATE      │    │ FILLING_LOT_*               │
-└─────────────────────────┘    └─────────────────────────────┘
-                                              │
-                                              │ MOVE_REPORT_NO
-                                              ▼
-                               ┌─────────────────────────────┐
-                               │   tr_move_report_details    │
-                               │─────────────────────────────│
-                               │ MOVE_REPORT_NO, CYLINDER_NO │
-                               │ ROW_NO (헤더번호)            │
-                               │ CYLINDER_WEIGHT             │
-                               │ FILLING_WEIGHT              │
-                               └─────────────────────────────┘
-```
-
-### 6.2 CYNOW-FCMS 연결 관계
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CYNOW 테이블                              │
-└─────────────────────────────────────────────────────────────┘
-           │
-    ┌──────┴──────────────────────────────────────────┐
-    │                                                  │
-    ▼                                                  ▼
-┌──────────────────┐                    ┌──────────────────────┐
-│ cy_cylinder_     │                    │     ProductCode      │
-│ current          │                    │──────────────────────│
-│──────────────────│                    │ trade_condition_code │
-│ cylinder_no ─────┼───▶ ma_cylinders   │ (= KFxxx)            │
-│ cylinder_type_   │                    │                      │
-│ key              │                    └──────────┬───────────┘
-└──────────────────┘                               │
-                                                   │ 연결
-                                                   ▼
-                                    ┌──────────────────────────┐
-                                    │ tr_orders.               │
-                                    │ TRADE_CONDITION_CODE     │
-                                    └──────────────────────────┘
-
-┌──────────────────┐
-│       PO         │
-│──────────────────│
-│ customer_order_  │───▶ tr_orders.CUSTOMER_ORDER_NO
-│ no               │
-└──────────────────┘
+[留ㅼ씪 00:00 cron]
+       ??
+       ??
+create_inventory_snapshot 紐낅졊??
+       ??
+       ?쒋?? sync_cylinder_inventory_from_current()
+       ??     ?붴?? cy_cylinder_current ??CylinderInventory
+       ??
+       ?쒋?? sync_product_inventory_from_documents()
+       ??     ?붴?? tr_cylinder_status_histories (MOVE_CODE=50) 
+       ??         + tr_orders ??ProductInventory
+       ??
+       ?붴?? create_daily_snapshot()
+              ?쒋?? CylinderInventory ??CylinderInventorySnapshot
+              ?붴?? ProductInventory ??ProductInventorySnapshot
 ```
 
 ---
 
-## 7. 주요 쿼리 패턴
+## 6. ER ?ㅼ씠?닿렇??
 
-### 7.1 용기 현재 상태 조회
+### 6.1 CDC ?뚯씠釉?愿怨?
+
+```
+?뚢???????????????????????    ?뚢???????????????????????
+??   ma_cylinders     ??    ??     ma_items       ??
+?귘???????????????????????    ?귘???????????????????????
+??CYLINDER_NO (PK)    ?귘?????뜯봻 ITEM_CODE (PK)      ??
+??ITEM_CODE (FK)      ??    ??DISPLAY_NAME        ??
+??CYLINDER_SPEC_CODE  ??    ??FORMAL_NAME         ??
+??VALVE_SPEC_CODE     ??    ?붴???????????????????????
+??CAPACITY, WEIGHT    ??
+?붴???????????р????????????
+           ??
+           ??    ?뚢???????????????????????
+           ??    ?? ma_cylinder_specs  ??
+           ?쒋?????뜯봻???????????????????????
+           ??    ??CYLINDER_SPEC_CODE  ??
+           ??    ??NAME                ??
+           ??    ?붴???????????????????????
+           ??
+           ??    ?뚢???????????????????????
+           ??    ??  ma_valve_specs    ??
+           ?붴?????뜯봻???????????????????????
+                 ??VALVE_SPEC_CODE     ??
+                 ??NAME                ??
+                 ?붴???????????????????????
+
+?뚢???????????????????????????????????????????????????????????????
+??             tr_cylinder_status_histories                    ??
+?귘???????????????????????????????????????????????????????????????
+??CYLINDER_NO, HISTORY_SEQ (PK)                               ??
+??MOVE_CODE, MOVE_DATE, MOVE_REPORT_NO                        ??
+??MANUFACTURE_LOT_*, FILLING_LOT_*, FILLING_WEIGHT            ??
+?붴???????????????????????????????????????????????????????????????
+                              ??
+                              ??MOVE_REPORT_NO
+                              ??
+?뚢???????????????????????????????????????????????????????????????
+??                       tr_orders                             ??
+?귘???????????????????????????????????????????????????????????????
+??ARRIVAL_SHIPPING_NO (PK) = MOVE_REPORT_NO                   ??
+??CUSTOMER_ORDER_NO, SUPPLIER_USER_NAME                       ??
+??TRADE_CONDITION_CODE (?쒗뭹肄붾뱶 KFxxx)                        ??
+??INSTRUCTION_COUNT, DELIVERY_DATE                            ??
+?붴???????????????????????????????????????????????????????????????
+          ??                                   ??
+          ??MOVE_REPORT_NO                     ??MOVE_REPORT_NO
+          ??                                   ??
+?뚢???????????????????????????   ?뚢???????????????????????????????
+??tr_order_informations   ??   ??    tr_move_reports         ??
+?귘???????????????????????????   ?귘???????????????????????????????
+??MOVE_REPORT_NO (PK)     ??   ??MOVE_REPORT_NO (PK)         ??
+??FILLING_PLAN_DATE       ??   ??FILLING_DATE (?뺤젙)         ??
+??WAREHOUSING_PLAN_DATE   ??   ??SHIPPING_DATE (?뺤젙)        ??
+??SHIPPING_PLAN_DATE      ??   ??FILLING_LOT_*               ??
+?붴???????????????????????????   ?붴???????????????????????????????
+                                              ??
+                                              ??MOVE_REPORT_NO
+                                              ??
+                               ?뚢???????????????????????????????
+                               ??  tr_move_report_details    ??
+                               ?귘???????????????????????????????
+                               ??MOVE_REPORT_NO, CYLINDER_NO ??
+                               ??ROW_NO (?ㅻ뜑踰덊샇)            ??
+                               ??CYLINDER_WEIGHT             ??
+                               ??FILLING_WEIGHT              ??
+                               ?붴???????????????????????????????
+```
+
+### 6.2 CYNOW-FCMS ?곌껐 愿怨?
+
+```
+?뚢???????????????????????????????????????????????????????????????
+??                   CYNOW ?뚯씠釉?                             ??
+?붴???????????????????????????????????????????????????????????????
+           ??
+    ?뚢???????닳????????????????????????????????????????????
+    ??                                                 ??
+    ??                                                 ??
+?뚢????????????????????                   ?뚢????????????????????????
+??cy_cylinder_     ??                   ??    ProductCode      ??
+??current          ??                   ?귘????????????????????????
+?귘????????????????????                   ??trade_condition_code ??
+??cylinder_no ??????쇄?????ma_cylinders   ??(= KFxxx)            ??
+??cylinder_type_   ??                   ??                     ??
+??key              ??                   ?붴???????????р?????????????
+?붴????????????????????                              ??
+                                                   ???곌껐
+                                                   ??
+                                    ?뚢????????????????????????????
+                                    ??tr_orders.               ??
+                                    ??TRADE_CONDITION_CODE     ??
+                                    ?붴????????????????????????????
+
+?뚢????????????????????
+??      PO         ??
+?귘????????????????????
+??customer_order_  ?귘?????tr_orders.CUSTOMER_ORDER_NO
+??no               ??
+?붴????????????????????
+```
+
+---
+
+## 7. 二쇱슂 荑쇰━ ?⑦꽩
+
+### 7.1 ?⑷린 ?꾩옱 ?곹깭 議고쉶
 
 ```sql
 SELECT * FROM cy_cylinder_current
 WHERE cylinder_type_key = 'xxx'
-  AND dashboard_status = '충전중';
+  AND dashboard_status = '異⑹쟾以?;
 ```
 
-### 7.2 용기의 이동서 연결 조회
+### 7.2 ?⑷린???대룞???곌껐 議고쉶
 
 ```sql
--- tr_move_report_details 우선, 없으면 tr_cylinder_status_histories
+-- tr_move_report_details ?곗꽑, ?놁쑝硫?tr_cylinder_status_histories
 WITH detail_links AS (
     SELECT DISTINCT ON (TRIM(d."CYLINDER_NO"))
         TRIM(d."CYLINDER_NO") as cylinder_no,
@@ -466,7 +474,7 @@ WITH detail_links AS (
 SELECT * FROM detail_links;
 ```
 
-### 7.3 이동서 + 주문 + 일정 조회
+### 7.3 ?대룞??+ 二쇰Ц + ?쇱젙 議고쉶
 
 ```sql
 SELECT 
@@ -486,10 +494,10 @@ LEFT JOIN fcms_cdc.tr_order_informations oi ON o."ARRIVAL_SHIPPING_NO" = oi."MOV
 LEFT JOIN fcms_cdc.tr_move_reports m ON o."ARRIVAL_SHIPPING_NO" = m."MOVE_REPORT_NO";
 ```
 
-### 7.4 LOT 정보 구성
+### 7.4 LOT ?뺣낫 援ъ꽦
 
 ```sql
--- 제조LOT
+-- ?쒖“LOT
 CONCAT(
     COALESCE(h."MANUFACTURE_LOT_HEADER", ''),
     COALESCE(h."MANUFACTURE_LOT_NO", ''),
@@ -497,7 +505,7 @@ CONCAT(
          THEN '-' || h."MANUFACTURE_LOT_BRANCH" ELSE '' END
 ) as manufacture_lot
 
--- 충전LOT
+-- 異⑹쟾LOT
 CONCAT(
     COALESCE(h."FILLING_LOT_HEADER", ''),
     COALESCE(h."FILLING_LOT_NO", ''),
@@ -508,64 +516,64 @@ CONCAT(
 
 ---
 
-## 8. 코드 매핑
+## 8. 肄붾뱶 留ㅽ븨
 
-### 8.1 MOVE_CODE (이동 코드)
+### 8.1 MOVE_CODE (?대룞 肄붾뱶)
 
-| 코드 | 한글명 | 설명 |
+| 肄붾뱶 | ?쒓?紐?| ?ㅻ챸 |
 |------|-------|------|
-| 00 | 신규구매 | 새 용기 구매 |
-| 01 | 신규등록 | 시스템 등록 |
-| 10 | 입하 | 고객으로부터 용기 입하 |
-| 14 | 회수완료 | 회수 완료 |
-| 16 | 회수없음 | 회수 불가 |
-| 17 | 재보관 | 재보관 처리 |
-| 19 | 이상처리 | 이상 상태 처리 |
-| 20 | 충전(시작) | 충전 시작 |
-| 21 | 충전선택 | 충전 선택 |
-| 22 | 충전완료 | 충전 완료 |
-| 30 | 창고출고 | 창고에서 출고 |
-| 31 | 외부충전 | 외부 충전 |
-| 41 | 분석중 | 분석 진행 |
-| 42 | 분석완료 | 분석 완료 |
-| 50 | 창고입고 | 창고에 입고 (제품 완성) |
-| 51 | 수주연결 | 수주와 연결 |
-| 52 | 연결해제 | 수주 연결 해제 |
-| 60 | 출하 | 고객에게 출하 |
-| 65 | 영업외출하 | 영업 외 출하 |
-| 70 | 반품 | 반품 처리 |
-| 85 | 전출 | 타 사업장 전출 |
-| 86 | 전입 | 타 사업장 전입 |
-| 99 | 폐기 | 용기 폐기 |
+| 00 | ?좉퇋援щℓ | ???⑷린 援щℓ |
+| 01 | ?좉퇋?깅줉 | ?쒖뒪???깅줉 |
+| 10 | ?낇븯 | 怨좉컼?쇰줈遺???⑷린 ?낇븯 |
+| 14 | ?뚯닔?꾨즺 | ?뚯닔 ?꾨즺 |
+| 16 | ?뚯닔?놁쓬 | ?뚯닔 遺덇? |
+| 17 | ?щ낫愿 | ?щ낫愿 泥섎━ |
+| 19 | ?댁긽泥섎━ | ?댁긽 ?곹깭 泥섎━ |
+| 20 | 異⑹쟾(?쒖옉) | 異⑹쟾 ?쒖옉 |
+| 21 | 異⑹쟾?좏깮 | 異⑹쟾 ?좏깮 |
+| 22 | 異⑹쟾?꾨즺 | 異⑹쟾 ?꾨즺 |
+| 30 | 李쎄퀬異쒓퀬 | 李쎄퀬?먯꽌 異쒓퀬 |
+| 31 | ?몃?異⑹쟾 | ?몃? 異⑹쟾 |
+| 41 | 遺꾩꽍以?| 遺꾩꽍 吏꾪뻾 |
+| 42 | 遺꾩꽍?꾨즺 | 遺꾩꽍 ?꾨즺 |
+| 50 | 李쎄퀬?낃퀬 | 李쎄퀬???낃퀬 (?쒗뭹 ?꾩꽦) |
+| 51 | ?섏＜?곌껐 | ?섏＜? ?곌껐 |
+| 52 | ?곌껐?댁젣 | ?섏＜ ?곌껐 ?댁젣 |
+| 60 | 異쒗븯 | 怨좉컼?먭쾶 異쒗븯 |
+| 65 | ?곸뾽?몄텧??| ?곸뾽 ??異쒗븯 |
+| 70 | 諛섑뭹 | 諛섑뭹 泥섎━ |
+| 85 | ?꾩텧 | ? ?ъ뾽???꾩텧 |
+| 86 | ?꾩엯 | ? ?ъ뾽???꾩엯 |
+| 99 | ?먭린 | ?⑷린 ?먭린 |
 
-### 8.2 CONDITION_CODE (상태 코드) → dashboard_status
+### 8.2 CONDITION_CODE (?곹깭 肄붾뱶) ??dashboard_status
 
-| 코드 | dashboard_status | 설명 |
+| 肄붾뱶 | dashboard_status | ?ㅻ챸 |
 |------|-----------------|------|
-| 100, 102 | 보관:미회수, 보관:회수 | 창고 보관 상태 |
-| 210, 220 | 충전중, 충전완료 | 충전 공정 |
-| 300, 310, 320 | 분석중, 분석완료 | 분석/검사 공정 |
-| 420 | 분석 | 분석 상태 |
-| 500 | 제품 | 창고입고 완료 (출하 가능) |
-| 600 | 출하 | 고객에게 출하 완료 |
-| 190 | 이상 | 이상 상태 |
-| 950, 952 | 정비대상 | 내압만료 등 정비 필요 |
-| 990 | 폐기 | 폐기 완료 |
+| 100, 102 | 蹂닿?:誘명쉶?? 蹂닿?:?뚯닔 | 李쎄퀬 蹂닿? ?곹깭 |
+| 210, 220 | 異⑹쟾以? 異⑹쟾?꾨즺 | 異⑹쟾 怨듭젙 |
+| 300, 310, 320 | 遺꾩꽍以? 遺꾩꽍?꾨즺 | 遺꾩꽍/寃??怨듭젙 |
+| 420 | 遺꾩꽍 | 遺꾩꽍 ?곹깭 |
+| 500 | ?쒗뭹 | 李쎄퀬?낃퀬 ?꾨즺 (異쒗븯 媛?? |
+| 600 | 異쒗븯 | 怨좉컼?먭쾶 異쒗븯 ?꾨즺 |
+| 190 | ?댁긽 | ?댁긽 ?곹깭 |
+| 950, 952 | ?뺣퉬???| ?댁븬留뚮즺 ???뺣퉬 ?꾩슂 |
+| 990 | ?먭린 | ?먭린 ?꾨즺 |
 
-### 8.3 주요 상태 구분
+### 8.3 二쇱슂 ?곹깭 援щ텇
 
-| 구분 | 상태 | is_available |
+| 援щ텇 | ?곹깭 | is_available |
 |------|------|--------------|
-| **가용** | 보관:미회수, 보관:회수 | TRUE |
-| **공정중** | 충전중, 충전완료, 분석중, 분석완료, 제품 | FALSE |
-| **출하** | 출하 | FALSE |
-| **비가용** | 이상, 정비대상, 폐기, 기타 | FALSE |
+| **媛??* | 蹂닿?:誘명쉶?? 蹂닿?:?뚯닔 | TRUE |
+| **怨듭젙以?* | 異⑹쟾以? 異⑹쟾?꾨즺, 遺꾩꽍以? 遺꾩꽍?꾨즺, ?쒗뭹 | FALSE |
+| **異쒗븯** | 異쒗븯 | FALSE |
+| **鍮꾧???* | ?댁긽, ?뺣퉬??? ?먭린, 湲고? | FALSE |
 
 ---
 
-## 부록: 자주 사용되는 조인 패턴
+## 遺濡? ?먯＜ ?ъ슜?섎뒗 議곗씤 ?⑦꽩
 
-### A. 용기 기본정보 + 가스/스펙
+### A. ?⑷린 湲곕낯?뺣낫 + 媛???ㅽ럺
 
 ```sql
 SELECT 
@@ -580,7 +588,7 @@ LEFT JOIN fcms_cdc.ma_valve_specs vs ON c."VALVE_SPEC_CODE" = vs."VALVE_SPEC_COD
 LEFT JOIN fcms_cdc.ma_cylinder_specs cs ON c."CYLINDER_SPEC_CODE" = cs."CYLINDER_SPEC_CODE";
 ```
 
-### B. 용기 현재상태 + 히스토리
+### B. ?⑷린 ?꾩옱?곹깭 + ?덉뒪?좊━
 
 ```sql
 SELECT 
@@ -592,7 +600,7 @@ LEFT JOIN fcms_cdc.tr_latest_cylinder_statuses tcs
     ON cc.cylinder_no = TRIM(tcs."CYLINDER_NO");
 ```
 
-### C. 이동서 전체 정보
+### C. ?대룞???꾩껜 ?뺣낫
 
 ```sql
 SELECT 
@@ -603,13 +611,13 @@ SELECT
 FROM fcms_cdc.tr_orders o
 LEFT JOIN fcms_cdc.tr_order_informations oi ON o."ARRIVAL_SHIPPING_NO" = oi."MOVE_REPORT_NO"
 LEFT JOIN fcms_cdc.tr_move_reports m ON o."ARRIVAL_SHIPPING_NO" = m."MOVE_REPORT_NO"
-WHERE m."PROGRESS_CODE" IS NULL OR m."PROGRESS_CODE" != '51';  -- 취소 제외
+WHERE m."PROGRESS_CODE" IS NULL OR m."PROGRESS_CODE" != '51';  -- 痍⑥냼 ?쒖쇅
 ```
 
 ---
 
-## 변경 이력
+## 蹂寃??대젰
 
-| 날짜 | 변경 내용 |
+| ?좎쭨 | 蹂寃??댁슜 |
 |------|----------|
-| 2024-12-27 | 초기 작성 |
+| 2024-12-27 | 珥덇린 ?묒꽦 |
