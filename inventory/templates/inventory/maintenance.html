@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}정비 입출고{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-wrench-adjustable me-2"></i>정비 입출고 (FCMS 외)</h2>
+    <a href="{% url 'inventory:index' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>재고 현황
+    </a>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">등록</div>
+        <div class="card-body">
+          {% if not user.is_authenticated %}
+            <div class="alert alert-warning mb-3">
+              <i class="bi bi-lock me-2"></i>등록은 로그인 후 가능합니다.
+            </div>
+          {% endif %}
+          <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">용기번호 *</label>
+                <input name="cylinder_no" class="form-control" placeholder="예: CY123..." required {% if not user.is_authenticated %}disabled{% endif %}>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">구분 *</label>
+                <select name="event_type" class="form-select" required {% if not user.is_authenticated %}disabled{% endif %}>
+                  <option value="OUT">정비출고</option>
+                  <option value="IN">정비입고</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">일자</label>
+                <input name="event_date" type="date" class="form-control" value="{{ today|date:'Y-m-d' }}" {% if not user.is_authenticated %}disabled{% endif %}>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">정비처</label>
+                <input name="vendor_name" class="form-control" placeholder="업체명" {% if not user.is_authenticated %}disabled{% endif %}>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">참조번호</label>
+                <input name="reference_no" class="form-control" placeholder="문서번호/전표번호" {% if not user.is_authenticated %}disabled{% endif %}>
+              </div>
+              <div class="col-12">
+                <label class="form-label">비고</label>
+                <textarea name="remarks" class="form-control" rows="2" {% if not user.is_authenticated %}disabled{% endif %}></textarea>
+              </div>
+              <div class="col-12">
+                <button class="btn btn-primary" type="submit" {% if not user.is_authenticated %}disabled{% endif %}>
+                  <i class="bi bi-plus-circle me-1"></i>등록
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header">조회</div>
+        <div class="card-body">
+          <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">용기번호</label>
+              <input name="cylinder_no" class="form-control" value="{{ filter_cylinder_no }}" placeholder="부분검색">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">정비처</label>
+              <input name="vendor" class="form-control" value="{{ filter_vendor }}" placeholder="부분검색">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">필터</label>
+              <div class="d-flex gap-2">
+                <select name="open_only" class="form-select">
+                  <option value="1" {% if open_only == '1' %}selected{% endif %}>정비중만</option>
+                  <option value="0" {% if open_only != '1' %}selected{% endif %}>전체</option>
+                </select>
+                <button class="btn btn-primary" type="submit">
+                  <i class="bi bi-search"></i>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div class="alert alert-info mt-3 mb-0">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>정비중(OUT 미복귀):</strong> {{ total_open|intcomma }} 본
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">정비 현황 (용기별 최신)</div>
+    <div class="card-body">
+      {% if rows %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>구분</th>
+              <th>일자</th>
+              <th>용기번호</th>
+              <th>가스/용량</th>
+              <th>용기/밸브</th>
+              <th>정비처</th>
+              <th>참조</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td>
+                {% if r.event_type == 'OUT' %}
+                  <span class="badge bg-warning text-dark">정비출고</span>
+                {% else %}
+                  <span class="badge bg-success">정비입고</span>
+                {% endif %}
+              </td>
+              <td>{{ r.event_date }}</td>
+              <td class="fw-bold">{{ r.cylinder_no }}</td>
+              <td class="small">
+                {{ r.dashboard_gas_name|default:"-" }}
+                {% if r.dashboard_capacity %} {{ r.dashboard_capacity }}L{% endif %}
+              </td>
+              <td class="small text-muted">
+                {{ r.dashboard_cylinder_spec_name|default:"-" }}
+                {% if r.dashboard_valve_spec_name %}
+                  / {{ r.dashboard_valve_spec_name }}
+                {% endif %}
+              </td>
+              <td>{{ r.vendor_name|default:"-" }}</td>
+              <td class="small text-muted">{{ r.reference_no|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="text-center text-muted py-4">데이터가 없습니다.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+

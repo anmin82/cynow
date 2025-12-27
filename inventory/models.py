@@ -758,3 +758,83 @@ class SnapshotLog(models.Model):
     
     def __str__(self):
         return f"{self.snapshot_date} - {self.get_status_display()}"
+
+
+# ============================================
+# 8. 정비 입출고(FCMS 외) 로그
+# ============================================
+class CylinderMaintenanceLog(models.Model):
+    """
+    정비 입출고 로그 (FCMS 밖에서 관리되는 정비 출고/입고)
+
+    - 한 레코드 = 용기 1본의 이벤트(OUT/IN)
+    - 최신 이벤트가 OUT이고 이후 IN이 없으면 '정비중'으로 간주
+    """
+
+    EVENT_CHOICES = [
+        ("OUT", "정비출고"),
+        ("IN", "정비입고"),
+    ]
+
+    cylinder_no = models.CharField(
+        max_length=20,
+        db_index=True,
+        verbose_name="용기번호",
+    )
+
+    event_type = models.CharField(
+        max_length=10,
+        choices=EVENT_CHOICES,
+        db_index=True,
+        verbose_name="구분",
+    )
+
+    event_date = models.DateField(
+        default=timezone.localdate,
+        db_index=True,
+        verbose_name="일자",
+    )
+
+    vendor_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="정비처",
+        help_text="외주처/정비업체명",
+    )
+
+    reference_no = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        verbose_name="참조번호",
+        help_text="내부 문서번호/전표번호 등",
+    )
+
+    remarks = models.TextField(
+        blank=True,
+        verbose_name="비고",
+    )
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cylinder_maintenance_logs",
+        verbose_name="작성자",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="등록일시")
+
+    class Meta:
+        db_table = "cylinder_maintenance_log"
+        verbose_name = "정비 입출고 로그"
+        verbose_name_plural = "정비 입출고 로그"
+        ordering = ["-event_date", "-id"]
+        indexes = [
+            models.Index(fields=["cylinder_no", "-event_date"]),
+            models.Index(fields=["event_type", "-event_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.cylinder_no} - {self.get_event_type_display()} ({self.event_date})"

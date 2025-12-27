@@ -4,6 +4,9 @@
 from django.shortcuts import render
 from django.db.models import Sum, Count
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.db import connection
 
 from .models import (
     CylinderInventory,
@@ -11,6 +14,7 @@ from .models import (
     CylinderInventorySnapshot,
     ProductInventorySnapshot,
     SnapshotLog,
+    CylinderMaintenanceLog,
 )
 
 
@@ -163,3 +167,114 @@ def snapshot_list(request):
         'logs': logs,
     }
     return render(request, 'inventory/snapshot.html', context)
+
+
+def maintenance(request):
+    """
+    정비 입출고(FCMS 외) 관리
+    - 조회: 누구나 가능
+    - 등록: 로그인 필요 (POST)
+    """
+    # 등록 처리 (로그인 필요)
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            messages.error(request, "로그인이 필요합니다.")
+            return render(request, "inventory/maintenance.html", _maintenance_context(request))
+
+        cylinder_no = (request.POST.get("cylinder_no") or "").strip()
+        event_type = (request.POST.get("event_type") or "").strip().upper()
+        event_date_s = (request.POST.get("event_date") or "").strip()
+        vendor_name = (request.POST.get("vendor_name") or "").strip()
+        reference_no = (request.POST.get("reference_no") or "").strip()
+        remarks = (request.POST.get("remarks") or "").strip()
+
+        if not cylinder_no:
+            messages.error(request, "용기번호는 필수입니다.")
+            return render(request, "inventory/maintenance.html", _maintenance_context(request))
+        if event_type not in ("OUT", "IN"):
+            messages.error(request, "구분(정비출고/정비입고)을 선택해주세요.")
+            return render(request, "inventory/maintenance.html", _maintenance_context(request))
+
+        from datetime import datetime
+        from django.utils import timezone as dj_tz
+        try:
+            event_date = datetime.strptime(event_date_s, "%Y-%m-%d").date() if event_date_s else dj_tz.localdate()
+        except ValueError:
+            messages.error(request, "일자 형식이 올바르지 않습니다. (YYYY-MM-DD)")
+            return render(request, "inventory/maintenance.html", _maintenance_context(request))
+
+        CylinderMaintenanceLog.objects.create(
+            cylinder_no=cylinder_no,
+            event_type=event_type,
+            event_date=event_date,
+            vendor_name=vendor_name,
+            reference_no=reference_no,
+            remarks=remarks,
+            created_by=request.user,
+        )
+        messages.success(request, "정비 기록이 등록되었습니다.")
+
+    return render(request, "inventory/maintenance.html", _maintenance_context(request))
+
+
+def _maintenance_context(request):
+    """정비 화면 공통 컨텍스트 (목록/필터)"""
+    open_only = request.GET.get("open_only", "1")  # 기본: 정비중만
+    cylinder_no = (request.GET.get("cylinder_no") or "").strip()
+    vendor = (request.GET.get("vendor") or "").strip()
+
+    # 최신 이벤트(용기별)만 보여주기
+    # latest OUT = 정비중, latest IN = 복귀
+    query = """
+        WITH latest AS (
+            SELECT DISTINCT ON (l.cylinder_no)
+                l.id,
+                l.cylinder_no,
+                l.event_type,
+                l.event_date,
+                l.vendor_name,
+                l.reference_no,
+                l.remarks,
+                l.created_at
+            FROM cylinder_maintenance_log l
+            ORDER BY l.cylinder_no, l.event_date DESC, l.id DESC
+        )
+        SELECT
+            lt.*,
+            cc.dashboard_gas_name,
+            cc.dashboard_capacity,
+            cc.dashboard_valve_spec_name,
+            cc.dashboard_cylinder_spec_name
+        FROM latest lt
+        LEFT JOIN cy_cylinder_current cc
+            ON TRIM(cc.cylinder_no) = TRIM(lt.cylinder_no)
+        WHERE 1=1
+    """
+    params = []
+
+    if open_only == "1":
+        query += " AND lt.event_type = 'OUT'"
+    if cylinder_no:
+        query += " AND lt.cylinder_no ILIKE %s"
+        params.append(f"%{cylinder_no}%")
+    if vendor:
+        query += " AND lt.vendor_name ILIKE %s"
+        params.append(f"%{vendor}%")
+
+    query += " ORDER BY lt.event_type DESC, lt.event_date DESC, lt.cylinder_no"
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, params)
+        cols = [c[0] for c in cursor.description]
+        rows = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+    total_open = sum(1 for r in rows if r.get("event_type") == "OUT")
+
+    return {
+        "rows": rows,
+        "open_only": open_only,
+        "filter_cylinder_no": cylinder_no,
+        "filter_vendor": vendor,
+        "total_open": total_open,
+        "today": timezone.localdate(),
+    }

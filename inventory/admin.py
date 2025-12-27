@@ -7,6 +7,7 @@ from .models import (
     CylinderInventorySnapshot,
     ProductInventorySnapshot,
     SnapshotLog,
+    CylinderMaintenanceLog,
 )
 
 
@@ -60,3 +61,11 @@ class SnapshotLogAdmin(admin.ModelAdmin):
     list_display = ['snapshot_date', 'status', 'cylinder_snapshots_created', 'product_snapshots_created', 'started_at', 'completed_at']
     list_filter = ['status', 'snapshot_date']
     date_hierarchy = 'snapshot_date'
+
+
+@admin.register(CylinderMaintenanceLog)
+class CylinderMaintenanceLogAdmin(admin.ModelAdmin):
+    list_display = ['event_date', 'event_type', 'cylinder_no', 'vendor_name', 'reference_no', 'created_at']
+    list_filter = ['event_type', 'event_date']
+    search_fields = ['cylinder_no', 'vendor_name', 'reference_no']
+    date_hierarchy = 'event_date'

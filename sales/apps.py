@@ -7,3 +7,4 @@ class SalesConfig(AppConfig):
     verbose_name = "판매"
 
 
+

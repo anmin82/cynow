@@ -130,3 +130,4 @@ def sales_summary(request):
     return render(request, "sales/sales_summary.html", context)
 
 
+

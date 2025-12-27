@@ -165,3 +165,4 @@ class SalesService:
         return {"items": list(by_product.values()), "total_amount": None}
 
 
+
