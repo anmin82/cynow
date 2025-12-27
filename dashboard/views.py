@@ -399,6 +399,7 @@ def api_move_report_cylinders(request):
                         h."MOVE_DATE" as move_date,
                         h."MOVE_CODE" as move_code,
                         CONCAT(
+                            COALESCE(h."MANUFACTURE_LOT_HEADER", ''),
                             COALESCE(h."MANUFACTURE_LOT_NO", ''),
                             CASE WHEN h."MANUFACTURE_LOT_BRANCH" IS NOT NULL AND h."MANUFACTURE_LOT_BRANCH" != '' 
                                  THEN '-' || h."MANUFACTURE_LOT_BRANCH" 
@@ -500,6 +501,7 @@ def api_move_report_cylinders(request):
             'shipping_plan_date': None,
             'filling_date': None,
             'shipping_date': None,
+            'manufacture_lot': None,  # 이동서 제조LOT
             'filling_lot': None,  # 이동서 충전LOT
             'cylinders': [],
             'cylinder_count': 0,
@@ -556,7 +558,8 @@ def api_move_report_cylinders(request):
                     # 확정일
                     mr['filling_date'] = row.get('filling_date').isoformat() if row.get('filling_date') else None
                     mr['shipping_date'] = row.get('shipping_date').isoformat() if row.get('shipping_date') else None
-                    # 이동서 충전LOT
+                    # 이동서 제조LOT/충전LOT (첫 번째 용기의 LOT 사용)
+                    mr['manufacture_lot'] = row.get('manufacture_lot') or ''
                     mr['filling_lot'] = row.get('move_report_filling_lot') or ''
                 
                 mr['cylinders'].append(cylinder_info)

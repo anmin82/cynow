@@ -433,8 +433,11 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                     
                     // LOT 정보 표시
                     let lotHtml = '';
+                    if (mr.manufacture_lot) {
+                        lotHtml += `<span class="lot-badge lot-manufacture"><i class="bi bi-hammer"></i> 제조: ${mr.manufacture_lot}</span>`;
+                    }
                     if (mr.filling_lot) {
-                        lotHtml += `<span class="lot-badge"><i class="bi bi-tag-fill"></i> LOT: ${mr.filling_lot}</span>`;
+                        lotHtml += `<span class="lot-badge"><i class="bi bi-droplet-fill"></i> 충전: ${mr.filling_lot}</span>`;
                     }
                     
                     html += `
@@ -1094,9 +1097,15 @@ function openDetailModal(typeKey) {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+    margin-right: 6px;
 }
 .lot-badge i {
     font-size: 10px;
+}
+.lot-badge.lot-manufacture {
+    background: rgba(108, 117, 125, 0.15);
+    color: #495057;
+    border: 1px solid rgba(108, 117, 125, 0.3);
 }
 .schedule-badges {
     display: flex;
