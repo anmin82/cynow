@@ -518,6 +518,14 @@ def api_move_report_cylinders(request):
                 except (ValueError, TypeError):
                     cyl_weight = None
             
+            # 충전무게 처리 (Decimal → float)
+            filling_weight = row.get('filling_weight')
+            if filling_weight is not None:
+                try:
+                    filling_weight = float(filling_weight)
+                except (ValueError, TypeError):
+                    filling_weight = None
+            
             cylinder_info = {
                 'cylinder_no': row.get('cylinder_no', ''),
                 'gas_name': row.get('gas_name', ''),
@@ -527,6 +535,7 @@ def api_move_report_cylinders(request):
                 'move_date': row.get('move_date').isoformat() if row.get('move_date') else None,
                 'row_no': row.get('row_no'),  # 헤더번호(순서)
                 'cylinder_weight': cyl_weight,  # 용기무게
+                'filling_weight': filling_weight,  # 충전 가스무게
                 'manufacture_lot': row.get('manufacture_lot', ''),  # 제조LOT
                 'filling_lot': row.get('filling_lot', ''),  # 충전LOT (용기별)
             }

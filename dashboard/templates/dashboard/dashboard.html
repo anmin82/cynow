@@ -463,6 +463,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                                 <th style="width:40px">#</th>
                                                 <th>용기번호</th>
                                                 <th>용기무게</th>
+                                                <th>충전무게</th>
                                                 <th>이동일</th>
                                                 <th>내압만료</th>
                                             </tr>
@@ -473,6 +474,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                                     <td class="text-muted">${cyl.row_no || (cylIdx + 1)}</td>
                                                     <td><a href="/cynow/cylinders/${encodeURIComponent(cyl.cylinder_no)}/" target="_blank" class="cylinder-link font-monospace" title="새 탭에서 용기 상세 보기">${cyl.cylinder_no}</a></td>
                                                     <td>${cyl.cylinder_weight ? cyl.cylinder_weight.toFixed(1) + 'kg' : '-'}</td>
+                                                    <td class="${cyl.filling_weight ? 'fw-bold text-success' : ''}">${cyl.filling_weight ? cyl.filling_weight.toFixed(2) + 'kg' : '-'}</td>
                                                     <td>${cyl.move_date ? formatDate(cyl.move_date) : '-'}</td>
                                                     <td class="${cyl.pressure_expire_date && new Date(cyl.pressure_expire_date) < new Date() ? 'text-danger' : ''}">${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
                                                 </tr>
@@ -500,6 +502,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                     <th>가스</th>
                                     <th>용량</th>
                                     <th>용기무게</th>
+                                    <th>충전무게</th>
                                     <th>내압만료</th>
                                 </tr>
                             </thead>
@@ -510,6 +513,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                         <td>${cyl.gas_name || '-'}</td>
                                         <td>${cyl.capacity || '-'}</td>
                                         <td>${cyl.cylinder_weight ? cyl.cylinder_weight.toFixed(1) + 'kg' : '-'}</td>
+                                        <td class="${cyl.filling_weight ? 'fw-bold text-success' : ''}">${cyl.filling_weight ? cyl.filling_weight.toFixed(2) + 'kg' : '-'}</td>
                                         <td>${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
                                     </tr>
                                 `).join('')}
