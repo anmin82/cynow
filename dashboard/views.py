@@ -351,18 +351,9 @@ def api_move_report_cylinders(request):
     
     keys_list = [k.strip() for k in cylinder_type_keys.split(',') if k.strip()]
     
-    # 상태 매핑 (대시보드 상태 → DB MOVE_CODE)
-    # 보관 상태는 이 API 사용 안 함 (기존 로직 유지)
-    status_to_move_codes = {
-        '충전중': ['20'],
-        '충전완료': ['21'],
-        '분석중': ['30'],
-        '분석완료': ['31', '40'],  # 분석완료 또는 검사합격
-        '제품': ['50'],
-    }
-    
-    move_codes = status_to_move_codes.get(status, [])
-    if not move_codes:
+    # 지원하는 상태 목록
+    supported_statuses = ['충전중', '충전완료', '분석중', '분석완료', '제품']
+    if status not in supported_statuses:
         return JsonResponse({'ok': False, 'error': f'지원하지 않는 상태: {status}'}, status=400)
     
     try:
@@ -370,8 +361,9 @@ def api_move_report_cylinders(request):
             # 해당 상태의 용기들을 이동서별로 그룹화하여 조회
             # cy_cylinder_current에서 현재 상태가 해당 상태인 용기들의 최신 이동서 정보 조회
             placeholders_keys = ', '.join(['%s'] * len(keys_list))
-            placeholders_codes = ', '.join(['%s'] * len(move_codes))
             
+            # tr_move_report_details에서 용기-이동서 연결 조회 (가장 정확한 소스)
+            # 없으면 tr_cylinder_status_histories에서 최신 이동서 조회
             query = f'''
                 WITH current_cylinders AS (
                     -- 현재 해당 상태인 용기들
@@ -387,17 +379,38 @@ def api_move_report_cylinders(request):
                     WHERE cc.cylinder_type_key IN ({placeholders_keys})
                       AND cc.dashboard_status = %s
                 ),
-                latest_history AS (
-                    -- 해당 용기들의 최신 이동서 정보 (현재 상태와 매칭되는 MOVE_CODE)
-                    SELECT DISTINCT ON (h."CYLINDER_NO")
+                -- tr_move_report_details에서 연결된 이동서 조회 (최신 것)
+                detail_links AS (
+                    SELECT DISTINCT ON (TRIM(d."CYLINDER_NO"))
+                        TRIM(d."CYLINDER_NO") as cylinder_no,
+                        TRIM(d."MOVE_REPORT_NO") as move_report_no
+                    FROM fcms_cdc.tr_move_report_details d
+                    WHERE TRIM(d."CYLINDER_NO") IN (SELECT cylinder_no FROM current_cylinders)
+                    ORDER BY TRIM(d."CYLINDER_NO"), d."ADD_DATETIME" DESC NULLS LAST
+                ),
+                -- tr_cylinder_status_histories에서 최신 이동서 조회 (detail에 없는 경우 백업용)
+                history_links AS (
+                    SELECT DISTINCT ON (TRIM(h."CYLINDER_NO"))
                         TRIM(h."CYLINDER_NO") as cylinder_no,
                         TRIM(h."MOVE_REPORT_NO") as move_report_no,
                         h."MOVE_DATE" as move_date,
                         h."MOVE_CODE" as move_code
                     FROM fcms_cdc.tr_cylinder_status_histories h
                     WHERE TRIM(h."CYLINDER_NO") IN (SELECT cylinder_no FROM current_cylinders)
-                      AND h."MOVE_CODE" IN ({placeholders_codes})
-                    ORDER BY h."CYLINDER_NO", h."MOVE_DATE" DESC, h."HISTORY_SEQ" DESC
+                      AND h."MOVE_REPORT_NO" IS NOT NULL 
+                      AND TRIM(h."MOVE_REPORT_NO") != ''
+                    ORDER BY TRIM(h."CYLINDER_NO"), h."MOVE_DATE" DESC NULLS LAST, h."HISTORY_SEQ" DESC NULLS LAST
+                ),
+                -- 이동서 연결 통합 (detail 우선, 없으면 history)
+                combined_links AS (
+                    SELECT 
+                        COALESCE(dl.cylinder_no, hl.cylinder_no) as cylinder_no,
+                        COALESCE(dl.move_report_no, hl.move_report_no) as move_report_no,
+                        hl.move_date,
+                        hl.move_code
+                    FROM current_cylinders cc
+                    LEFT JOIN detail_links dl ON cc.cylinder_no = dl.cylinder_no
+                    LEFT JOIN history_links hl ON cc.cylinder_no = hl.cylinder_no
                 )
                 SELECT 
                     cc.cylinder_no,
@@ -405,9 +418,9 @@ def api_move_report_cylinders(request):
                     cc.capacity,
                     cc.valve_spec,
                     cc.pressure_expire_date,
-                    lh.move_report_no,
-                    lh.move_date,
-                    lh.move_code,
+                    cl.move_report_no,
+                    cl.move_date,
+                    cl.move_code,
                     -- 주문 정보
                     TRIM(o."CUSTOMER_ORDER_NO") as customer_order_no,
                     TRIM(o."SUPPLIER_USER_NAME") as customer_name,
@@ -422,14 +435,14 @@ def api_move_report_cylinders(request):
                     m."FILLING_DATE" as filling_date,
                     m."SHIPPING_DATE" as shipping_date
                 FROM current_cylinders cc
-                LEFT JOIN latest_history lh ON cc.cylinder_no = lh.cylinder_no
-                LEFT JOIN fcms_cdc.tr_orders o ON TRIM(lh.move_report_no) = TRIM(o."ARRIVAL_SHIPPING_NO")
-                LEFT JOIN fcms_cdc.tr_order_informations oi ON TRIM(lh.move_report_no) = TRIM(oi."MOVE_REPORT_NO")
-                LEFT JOIN fcms_cdc.tr_move_reports m ON TRIM(lh.move_report_no) = TRIM(m."MOVE_REPORT_NO")
-                ORDER BY lh.move_report_no, cc.cylinder_no
+                LEFT JOIN combined_links cl ON cc.cylinder_no = cl.cylinder_no
+                LEFT JOIN fcms_cdc.tr_orders o ON TRIM(cl.move_report_no) = TRIM(o."ARRIVAL_SHIPPING_NO")
+                LEFT JOIN fcms_cdc.tr_order_informations oi ON TRIM(cl.move_report_no) = TRIM(oi."MOVE_REPORT_NO")
+                LEFT JOIN fcms_cdc.tr_move_reports m ON TRIM(cl.move_report_no) = TRIM(m."MOVE_REPORT_NO")
+                ORDER BY cl.move_report_no NULLS LAST, cc.cylinder_no
             '''
             
-            params = keys_list + [status] + move_codes
+            params = keys_list + [status]
             cursor.execute(query, params)
             
             columns = [col[0] for col in cursor.description]

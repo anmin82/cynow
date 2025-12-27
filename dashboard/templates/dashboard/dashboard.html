@@ -463,7 +463,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                         <tbody>
                                             ${mr.cylinders.map(cyl => `
                                                 <tr>
-                                                    <td><strong class="font-monospace">${cyl.cylinder_no}</strong></td>
+                                                    <td><a href="/cynow/cylinders/${encodeURIComponent(cyl.cylinder_no)}/" target="_blank" class="cylinder-link font-monospace" title="새 탭에서 용기 상세 보기">${cyl.cylinder_no}</a></td>
                                                     <td>${cyl.gas_name || '-'}</td>
                                                     <td>${cyl.capacity || '-'}</td>
                                                     <td>${cyl.move_date ? formatDate(cyl.move_date) : '-'}</td>
@@ -498,7 +498,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                             <tbody>
                                 ${data.no_move_report_cylinders.map(cyl => `
                                     <tr>
-                                        <td><strong class="font-monospace">${cyl.cylinder_no}</strong></td>
+                                        <td><a href="/cynow/cylinders/${encodeURIComponent(cyl.cylinder_no)}/" target="_blank" class="cylinder-link font-monospace" title="새 탭에서 용기 상세 보기">${cyl.cylinder_no}</a></td>
                                         <td>${cyl.gas_name || '-'}</td>
                                         <td>${cyl.capacity || '-'}</td>
                                         <td>${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
@@ -1106,6 +1106,15 @@ function openDetailModal(typeKey) {
     color: var(--ios-gray-1);
     text-transform: uppercase;
     letter-spacing: 0.3px;
+}
+.cylinder-link {
+    color: var(--ios-blue);
+    text-decoration: none;
+    font-weight: 600;
+}
+.cylinder-link:hover {
+    text-decoration: underline;
+    color: #0056b3;
 }
 
 /* 숨김 버튼 */
