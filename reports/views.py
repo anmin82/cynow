@@ -339,6 +339,9 @@ def weekly_report(request):
         status_summary[status] += qty
         total_cylinders += qty
     
+    # 일평균 계산
+    daily_avg = round(total_movements / 7, 1) if total_movements > 0 else 0
+    
     context = {
         'start_date': start_date,
         'end_date': end_date,
@@ -350,6 +353,7 @@ def weekly_report(request):
         'move_detail_stats': move_detail_stats_list,
         'daily_summary': daily_summary_list,
         'total_movements': total_movements,
+        'daily_avg': daily_avg,
         'arrival_details': arrival_details,
         'arrival_summary': arrival_summary,
         'status_summary': status_summary,
