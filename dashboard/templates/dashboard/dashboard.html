@@ -431,6 +431,12 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                     
                     scheduleHtml += '</div>';
                     
+                    // LOT 정보 표시
+                    let lotHtml = '';
+                    if (mr.filling_lot) {
+                        lotHtml += `<span class="lot-badge"><i class="bi bi-tag-fill"></i> LOT: ${mr.filling_lot}</span>`;
+                    }
+                    
                     html += `
                         <div class="accordion-item">
                             <h2 class="accordion-header">
@@ -442,6 +448,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                             <span class="mr-customer">${mr.customer_name || '-'}</span>
                                             <span class="mr-product">${mr.trade_condition_code || ''} ${mr.item_name || ''}</span>
                                             <span class="mr-qty badge bg-primary">${mr.cylinder_count}병</span>
+                                            ${lotHtml}
                                         </div>
                                         ${scheduleHtml}
                                     </div>
@@ -453,19 +460,19 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                     <table class="table table-sm table-hover mb-0">
                                         <thead class="table-light">
                                             <tr>
+                                                <th style="width:40px">#</th>
                                                 <th>용기번호</th>
-                                                <th>가스</th>
-                                                <th>용량</th>
+                                                <th>용기무게</th>
                                                 <th>이동일</th>
                                                 <th>내압만료</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            ${mr.cylinders.map(cyl => `
+                                            ${mr.cylinders.map((cyl, cylIdx) => `
                                                 <tr>
+                                                    <td class="text-muted">${cyl.row_no || (cylIdx + 1)}</td>
                                                     <td><a href="/cynow/cylinders/${encodeURIComponent(cyl.cylinder_no)}/" target="_blank" class="cylinder-link font-monospace" title="새 탭에서 용기 상세 보기">${cyl.cylinder_no}</a></td>
-                                                    <td>${cyl.gas_name || '-'}</td>
-                                                    <td>${cyl.capacity || '-'}</td>
+                                                    <td>${cyl.cylinder_weight ? cyl.cylinder_weight.toFixed(1) + 'kg' : '-'}</td>
                                                     <td>${cyl.move_date ? formatDate(cyl.move_date) : '-'}</td>
                                                     <td class="${cyl.pressure_expire_date && new Date(cyl.pressure_expire_date) < new Date() ? 'text-danger' : ''}">${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
                                                 </tr>
@@ -492,6 +499,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                     <th>용기번호</th>
                                     <th>가스</th>
                                     <th>용량</th>
+                                    <th>용기무게</th>
                                     <th>내압만료</th>
                                 </tr>
                             </thead>
@@ -501,6 +509,7 @@ function openMoveReportModal(cylinderTypeKeys, status) {
                                         <td><a href="/cynow/cylinders/${encodeURIComponent(cyl.cylinder_no)}/" target="_blank" class="cylinder-link font-monospace" title="새 탭에서 용기 상세 보기">${cyl.cylinder_no}</a></td>
                                         <td>${cyl.gas_name || '-'}</td>
                                         <td>${cyl.capacity || '-'}</td>
+                                        <td>${cyl.cylinder_weight ? cyl.cylinder_weight.toFixed(1) + 'kg' : '-'}</td>
                                         <td>${cyl.pressure_expire_date ? formatDate(cyl.pressure_expire_date) : '-'}</td>
                                     </tr>
                                 `).join('')}
@@ -1070,6 +1079,20 @@ function openDetailModal(typeKey) {
 }
 .mr-qty {
     font-size: 11px;
+}
+.lot-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255, 193, 7, 0.2);
+    color: #856404;
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.lot-badge i {
+    font-size: 10px;
 }
 .schedule-badges {
     display: flex;

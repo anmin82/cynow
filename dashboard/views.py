@@ -379,22 +379,40 @@ def api_move_report_cylinders(request):
                     WHERE cc.cylinder_type_key IN ({placeholders_keys})
                       AND cc.dashboard_status = %s
                 ),
-                -- tr_move_report_details에서 연결된 이동서 조회 (최신 것)
+                -- tr_move_report_details에서 연결된 이동서 조회 (최신 것) + ROW_NO(헤더번호)
                 detail_links AS (
                     SELECT DISTINCT ON (TRIM(d."CYLINDER_NO"))
                         TRIM(d."CYLINDER_NO") as cylinder_no,
-                        TRIM(d."MOVE_REPORT_NO") as move_report_no
+                        TRIM(d."MOVE_REPORT_NO") as move_report_no,
+                        d."ROW_NO" as row_no,
+                        d."CYLINDER_WEIGHT" as detail_cylinder_weight,
+                        d."FILLING_WEIGHT" as filling_weight
                     FROM fcms_cdc.tr_move_report_details d
                     WHERE TRIM(d."CYLINDER_NO") IN (SELECT cylinder_no FROM current_cylinders)
                     ORDER BY TRIM(d."CYLINDER_NO"), d."ADD_DATETIME" DESC NULLS LAST
                 ),
-                -- tr_cylinder_status_histories에서 최신 이동서 조회 (detail에 없는 경우 백업용)
+                -- tr_cylinder_status_histories에서 최신 이동서 조회 (detail에 없는 경우 백업용) + LOT 정보
                 history_links AS (
                     SELECT DISTINCT ON (TRIM(h."CYLINDER_NO"))
                         TRIM(h."CYLINDER_NO") as cylinder_no,
                         TRIM(h."MOVE_REPORT_NO") as move_report_no,
                         h."MOVE_DATE" as move_date,
-                        h."MOVE_CODE" as move_code
+                        h."MOVE_CODE" as move_code,
+                        CONCAT(
+                            COALESCE(h."MANUFACTURE_LOT_NO", ''),
+                            CASE WHEN h."MANUFACTURE_LOT_BRANCH" IS NOT NULL AND h."MANUFACTURE_LOT_BRANCH" != '' 
+                                 THEN '-' || h."MANUFACTURE_LOT_BRANCH" 
+                                 ELSE '' 
+                            END
+                        ) as manufacture_lot,
+                        CONCAT(
+                            COALESCE(h."FILLING_LOT_HEADER", ''),
+                            COALESCE(h."FILLING_LOT_NO", ''),
+                            CASE WHEN h."FILLING_LOT_BRANCH" IS NOT NULL AND h."FILLING_LOT_BRANCH" != '' 
+                                 THEN '-' || h."FILLING_LOT_BRANCH" 
+                                 ELSE '' 
+                            END
+                        ) as filling_lot
                     FROM fcms_cdc.tr_cylinder_status_histories h
                     WHERE TRIM(h."CYLINDER_NO") IN (SELECT cylinder_no FROM current_cylinders)
                       AND h."MOVE_REPORT_NO" IS NOT NULL 
@@ -406,8 +424,13 @@ def api_move_report_cylinders(request):
                     SELECT 
                         COALESCE(dl.cylinder_no, hl.cylinder_no) as cylinder_no,
                         COALESCE(dl.move_report_no, hl.move_report_no) as move_report_no,
+                        dl.row_no,
+                        dl.detail_cylinder_weight,
+                        dl.filling_weight,
                         hl.move_date,
-                        hl.move_code
+                        hl.move_code,
+                        hl.manufacture_lot,
+                        hl.filling_lot
                     FROM current_cylinders cc
                     LEFT JOIN detail_links dl ON cc.cylinder_no = dl.cylinder_no
                     LEFT JOIN history_links hl ON cc.cylinder_no = hl.cylinder_no
@@ -421,6 +444,12 @@ def api_move_report_cylinders(request):
                     cl.move_report_no,
                     cl.move_date,
                     cl.move_code,
+                    cl.row_no,
+                    cl.manufacture_lot,
+                    cl.filling_lot,
+                    -- 용기무게 (detail에 있으면 사용, 없으면 ma_cylinders에서)
+                    COALESCE(cl.detail_cylinder_weight, mc."WEIGHT") as cylinder_weight,
+                    cl.filling_weight,
                     -- 주문 정보
                     TRIM(o."CUSTOMER_ORDER_NO") as customer_order_no,
                     TRIM(o."SUPPLIER_USER_NAME") as customer_name,
@@ -433,13 +462,23 @@ def api_move_report_cylinders(request):
                     oi."SHIPPING_PLAN_DATE" as shipping_plan_date,
                     -- 확정일 (tr_move_reports)
                     m."FILLING_DATE" as filling_date,
-                    m."SHIPPING_DATE" as shipping_date
+                    m."SHIPPING_DATE" as shipping_date,
+                    -- 이동서의 LOT 정보 (tr_move_reports)
+                    CONCAT(
+                        COALESCE(m."FILLING_LOT_HEADER", ''),
+                        COALESCE(m."FILLING_LOT_NO", ''),
+                        CASE WHEN m."FILLING_LOT_BRANCH" IS NOT NULL AND m."FILLING_LOT_BRANCH" != '' 
+                             THEN '-' || m."FILLING_LOT_BRANCH" 
+                             ELSE '' 
+                        END
+                    ) as move_report_filling_lot
                 FROM current_cylinders cc
                 LEFT JOIN combined_links cl ON cc.cylinder_no = cl.cylinder_no
+                LEFT JOIN fcms_cdc.ma_cylinders mc ON TRIM(cc.cylinder_no) = TRIM(mc."CYLINDER_NO")
                 LEFT JOIN fcms_cdc.tr_orders o ON TRIM(cl.move_report_no) = TRIM(o."ARRIVAL_SHIPPING_NO")
                 LEFT JOIN fcms_cdc.tr_order_informations oi ON TRIM(cl.move_report_no) = TRIM(oi."MOVE_REPORT_NO")
                 LEFT JOIN fcms_cdc.tr_move_reports m ON TRIM(cl.move_report_no) = TRIM(m."MOVE_REPORT_NO")
-                ORDER BY cl.move_report_no NULLS LAST, cc.cylinder_no
+                ORDER BY cl.move_report_no NULLS LAST, cl.row_no NULLS LAST, cc.cylinder_no
             '''
             
             params = keys_list + [status]
@@ -461,6 +500,7 @@ def api_move_report_cylinders(request):
             'shipping_plan_date': None,
             'filling_date': None,
             'shipping_date': None,
+            'filling_lot': None,  # 이동서 충전LOT
             'cylinders': [],
             'cylinder_count': 0,
         })
@@ -470,6 +510,14 @@ def api_move_report_cylinders(request):
         for row in rows:
             mr_no = row.get('move_report_no')
             
+            # 용기무게 처리 (Decimal → float)
+            cyl_weight = row.get('cylinder_weight')
+            if cyl_weight is not None:
+                try:
+                    cyl_weight = float(cyl_weight)
+                except (ValueError, TypeError):
+                    cyl_weight = None
+            
             cylinder_info = {
                 'cylinder_no': row.get('cylinder_no', ''),
                 'gas_name': row.get('gas_name', ''),
@@ -477,6 +525,10 @@ def api_move_report_cylinders(request):
                 'valve_spec': row.get('valve_spec', ''),
                 'pressure_expire_date': row.get('pressure_expire_date').isoformat() if row.get('pressure_expire_date') else None,
                 'move_date': row.get('move_date').isoformat() if row.get('move_date') else None,
+                'row_no': row.get('row_no'),  # 헤더번호(순서)
+                'cylinder_weight': cyl_weight,  # 용기무게
+                'manufacture_lot': row.get('manufacture_lot', ''),  # 제조LOT
+                'filling_lot': row.get('filling_lot', ''),  # 충전LOT (용기별)
             }
             
             if mr_no:
@@ -495,6 +547,8 @@ def api_move_report_cylinders(request):
                     # 확정일
                     mr['filling_date'] = row.get('filling_date').isoformat() if row.get('filling_date') else None
                     mr['shipping_date'] = row.get('shipping_date').isoformat() if row.get('shipping_date') else None
+                    # 이동서 충전LOT
+                    mr['filling_lot'] = row.get('move_report_filling_lot') or ''
                 
                 mr['cylinders'].append(cylinder_info)
                 mr['cylinder_count'] += 1
